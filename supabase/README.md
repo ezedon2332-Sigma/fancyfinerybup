@@ -50,9 +50,20 @@ update public.profiles set role = 'admin'
 where id = (select id from auth.users where email = 'you@example.com');
 ```
 
-## Note: legacy `Products` table
-The project already contained a capitalised `Products` table (2 rows) from an
-earlier experiment, with images in a `Products` storage bucket. It is a
-different table from the normalized `products` used here and is **not** touched
-by these migrations. Decide whether to migrate those rows into the new schema
-and drop the old table — see the team before dropping.
+## Applied over the pooler (what was actually run)
+REST keys can't run DDL, so the schema was applied directly over the **session
+pooler** (region `eu-west-1`):
+```bash
+# connection string passed transiently — never written to a file
+SUPABASE_DB_URL="postgresql://postgres.<ref>:<db-password>@aws-0-<region>.pooler.supabase.com:5432/postgres" \
+  node scripts/db-apply.mjs supabase/migrations/2026*.sql
+node scripts/seed.mjs                 # sample data + legacy migration
+```
+`scripts/find-pooler.mjs` (reads `PGPASSWORD`) detects the region if unknown.
+
+## Legacy `Products` table — DONE
+The project had a capitalised `Products` table (2 rows) with images in a
+`Products` bucket. Both rows were migrated into the normalized schema (images
+re-uploaded to `product-images/migrated/`), then the table was dropped
+(`supabase/legacy-drop.sql`) and the bucket deleted
+(`scripts/drop-legacy-bucket.mjs`).

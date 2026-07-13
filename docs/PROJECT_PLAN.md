@@ -179,19 +179,20 @@ Each phase ends in a **shippable, verifiable** state. We build in order; do not 
 - [x] Fix root `metadata` → Fancy Finery.
 - **Done:** `npm run build` green, `ƒ Proxy (Middleware)` registered, tsc clean.
 
-### Phase 1 — Database schema & RLS ✅ CODE DONE / DB apply in progress
-- [x] SQL migrations for all tables in §4 (`supabase/migrations/`).
+### Phase 1 — Database schema & RLS ✅ DONE (applied + seeded + verified)
+- [x] SQL migrations for all tables in §4 (`supabase/migrations/`), applied to the live DB.
 - [x] RLS + policies (public read published; user-owned orders; admin write) + `is_admin()` + role-escalation guard.
 - [x] `profiles` auto-insert trigger on new auth user.
 - [x] Storage bucket `product-images` + policies.
-- [x] Seed script (`supabase/seed.sql`) — categories, products, images, variants.
+- [x] Seed applied via `scripts/seed.mjs` — 4 categories, 8 products (7 published + 1 draft), 8 images, 14 variants.
 - [x] Domain entities + repository ports (clean architecture) + `database.types.ts`.
-- [x] Verify script `scripts/db-check.mjs`.
-- [ ] **Apply seed data** — schema is applied; run `apply_all.sql` (or the seed portion) so tables have rows. Verify with `node scripts/db-check.mjs`.
-- [ ] **Decide on legacy `Products` table** (see `supabase/README.md`).
-- **Done when:** `db-check` shows tables present **with rows**; RLS verified with a test user (Phase 3).
+- [x] Legacy `Products` table + bucket: 2 rows migrated (images re-uploaded to `product-images`), then dropped.
+- [x] Verify scripts: `scripts/db-check.mjs` (all present), RLS checked (anon sees only published; draft hidden; orders empty).
+- **Done:** verified end-to-end against the live project (region eu-west-1).
 
-> Note: REST API keys can't run DDL. Schema/seed are applied via the Supabase SQL Editor or CLI — see `supabase/README.md`.
+> How it was applied: REST keys can't run DDL, so migrations were applied over the
+> **session pooler** with `scripts/db-apply.mjs` (connection string passed via a transient
+> `SUPABASE_DB_URL`, never persisted). See `supabase/README.md` for the repeatable steps.
 
 ### Phase 2 — Customer storefront (read-only, real data)
 - [ ] Product listing / collections pages read from Supabase (published only).

@@ -19,7 +19,15 @@
       "Bash(git commit -q -m '@ *)",
       "Bash(git push *)",
       "Bash(node scripts/seed.mjs)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git mv *)",
+      "Bash(node -e \"const dns=require\\('dns'\\);['db.ficgdouwcbqncdkhpurt.supabase.co'].forEach\\(h=>dns.lookup\\(h,{all:true},\\(e,a\\)=>console.log\\(h, e?\\('ERR '+e.code\\):JSON.stringify\\(a\\)\\)\\)\\)\")",
+      "Bash(PGPASSWORD='oJyscLtjPncv43Mv' node scripts/find-pooler.mjs)",
+      "Bash(export SUPABASE_DB_URL=\"postgresql://postgres.ficgdouwcbqncdkhpurt:oJyscLtjPncv43Mv@aws-0-eu-west-1.pooler.supabase.com:5432/postgres\")",
+      "Bash(node scripts/db-apply.mjs supabase/migrations/20260712000001_init_schema.sql supabase/migrations/20260712000002_rls_policies.sql supabase/migrations/20260712000003_profiles_trigger.sql supabase/migrations/20260712000004_storage.sql)",
+      "Bash(unset SUPABASE_DB_URL)",
+      "Bash(node scripts/db-apply.mjs supabase/legacy-drop.sql)",
+      "Bash(node scripts/drop-legacy-bucket.mjs)"
     ]
   }
 }

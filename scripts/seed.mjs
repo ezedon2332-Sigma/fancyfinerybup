@@ -163,7 +163,7 @@ async function main() {
   const n = await migrateLegacy();
   const { count } = await supabase.from("products").select("*", { count: "exact", head: true });
   console.log(`\nDone. products total: ${count}. legacy migrated: ${n}.`);
-  console.log("Legacy TABLE not dropped (needs DDL). See supabase/migrations/20260712000005_drop_legacy_products.sql");
+  console.log("Legacy TABLE drop is a separate step: apply supabase/legacy-drop.sql.");
 }
 
 main().catch((e) => {
