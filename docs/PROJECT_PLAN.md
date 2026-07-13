@@ -194,20 +194,26 @@ Each phase ends in a **shippable, verifiable** state. We build in order; do not 
 > **session pooler** with `scripts/db-apply.mjs` (connection string passed via a transient
 > `SUPABASE_DB_URL`, never persisted). See `supabase/README.md` for the repeatable steps.
 
-### Phase 2 — Customer storefront (read-only, real data)
-- [ ] Product listing / collections pages read from Supabase (published only).
-- [ ] Product detail page `products/[slug]` with images + variants.
-- [ ] Category filtering.
-- [ ] Wire existing `HeroSection` / `CategoryGrid` to real data.
-- [ ] Loading & not-found states.
-- **Done when:** storefront renders seeded products from the DB.
+### Phase 2 — Customer storefront (read-only, real data) ✅ DONE
+- [x] Collections page reads published products from Supabase; category filter via `?category=`.
+- [x] Product detail `products/[slug]` with image gallery + variant selection (add-to-bag stubbed for Phase 4).
+- [x] Home wired to real data (featured + shop-by-category); `HeroSection` refreshed.
+- [x] Loading (`loading.tsx`) & not-found (`not-found.tsx`, per-product) states.
+- [x] Clean architecture: domain `ProductSummary`, Supabase repositories, `application/use-cases/catalog`, composition root.
+- [x] Standard-height responsive navbar (lucide icons, mobile menu, framer-motion), footer, dark theme in root layout.
+- [x] `next.config` `images.remotePatterns` for Supabase storage.
+- **Done:** verified — home/collections/detail render seeded products; drafts hidden; build green.
 
-### Phase 3 — Authentication
-- [ ] Google provider + magic link configured in Supabase.
-- [ ] Login/sign-up UI + `auth/callback` route handler.
-- [ ] Sign-out; show user state in `Navigation` (replace 👤 button).
-- [ ] `account/` page (protected) showing profile.
-- **Done when:** user can sign in with Google or magic link and stay signed in across navigation.
+### Phase 3 — Authentication ✅ DONE (needs Supabase URL/Google config to exercise live)
+- [x] Login UI: magic link (zod-validated) + Google OAuth button.
+- [x] `auth/callback` route handler (code + token_hash flows).
+- [x] Sign-out server action; navbar + account reflect auth state.
+- [x] `account/` page (protected via `requireUser`) showing profile.
+- [x] `admin/` layout with authoritative `requireAdmin` role gate + dashboard.
+- **Done:** verified — signed-out `/account` & `/admin` redirect to `/login`; forms render. Live sign-in needs Supabase redirect URLs (+ Google creds) per `docs/DEPLOYMENT.md`.
+
+> Icons: `lucide-react`. Animations: `framer-motion` + CSS. Validation: `zod`.
+> Deploy/env setup: **`docs/DEPLOYMENT.md`** (Vercel env vars are required or the build fails).
 
 ### Phase 4 — Cart & checkout + Paystack
 - [ ] Client cart (context + localStorage), add-to-cart on product page.

@@ -1,43 +1,49 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export function HeroSection() {
   return (
-    <section className="min-h-screen flex flex-col lg:flex-row pt-28 lg:pt-36">
-      <div className="w-full lg:w-7/12 pr-12 lg:pr-24 flex flex-col justify-center">
-        <p className="uppercase tracking-[8px] text-yellow-500 text-sm">
-          Luxury Fashion House
-        </p>
-
-        <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mt-6">
-          Timeless
-          <br />
-          Elegance
-        </h1>
-
-        <p className="max-w-2xl mt-8 text-gray-300 text-xl leading-relaxed">
-          Experience fashion where luxury meets craftsmanship.
-          Designed for those who appreciate excellence,
-          confidence, and timeless style.
-        </p>
-
-        <div className="flex gap-6 mt-12">
-          <button className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-4 font-semibold transition" type="button">
-            Discover Collection
-          </button>
-          <button className="border border-white hover:bg-white hover:text-black px-8 py-4 transition" type="button">
-            Learn More
-          </button>
+    <section className="relative overflow-hidden">
+      <div className="mx-auto flex max-w-7xl flex-col-reverse items-center gap-8 px-6 py-12 lg:flex-row lg:gap-4 lg:px-10 lg:py-20">
+        <div className="flex-1 text-center lg:text-left animate-fade-up">
+          <p className="text-xs uppercase tracking-[6px] text-yellow-500 sm:text-sm sm:tracking-[8px]">
+            Luxury Fashion House
+          </p>
+          <h1 className="mt-5 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
+            Timeless
+            <br />
+            Elegance
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-gray-300 sm:text-lg lg:mx-0">
+            Experience fashion where luxury meets craftsmanship. Designed for
+            those who appreciate excellence, confidence, and timeless style.
+          </p>
+          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
+            <Link
+              href="/collections"
+              className="w-full rounded-sm bg-yellow-500 px-8 py-4 text-center font-semibold text-black transition-colors hover:bg-yellow-600 sm:w-auto"
+            >
+              Discover Collection
+            </Link>
+            <Link
+              href="/contact"
+              className="w-full rounded-sm border border-white/70 px-8 py-4 text-center transition-colors hover:bg-white hover:text-black sm:w-auto"
+            >
+              Learn More
+            </Link>
+          </div>
         </div>
-      </div>
 
-      <div className="lg:w-1/2 flex justify-end pl-24 lg:pl-32 mt-16 lg:mt-0">
-        <Image
-          src="/images/Hero-model.png"
-          alt="Luxury Fashion Model"
-          width={700}
-          height={900}
-          className="w-full max-w-xl object-cover"
-        />
+        <div className="flex flex-1 justify-center lg:justify-end">
+          <Image
+            src="/images/Hero-model.png"
+            alt="Luxury fashion model"
+            width={640}
+            height={820}
+            priority
+            className="w-full max-w-sm object-cover lg:max-w-md"
+          />
+        </div>
       </div>
     </section>
   );

@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     "Fancy Finery — a curated luxury fashion house. Shop refined ready-to-wear and statement pieces.",
 };
 
+import { SiteHeader } from "@/components/site/SiteHeader";
+import { SiteFooter } from "@/components/site/SiteFooter";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +34,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col bg-black text-white">
+        <SiteHeader />
+        <main className="flex-1 pt-16">{children}</main>
+        <SiteFooter />
+      </body>
     </html>
   );
 }

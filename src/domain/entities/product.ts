@@ -30,6 +30,11 @@ export interface Product {
   readonly updatedAt: string;
 }
 
+/** Lightweight list read model — a product plus its primary image. */
+export interface ProductSummary extends Product {
+  readonly primaryImage: ProductImage | null;
+}
+
 /** A product with its related media and variants — the storefront read model. */
 export interface ProductWithDetails extends Product {
   readonly images: ProductImage[];

@@ -27,7 +27,22 @@
       "Bash(node scripts/db-apply.mjs supabase/migrations/20260712000001_init_schema.sql supabase/migrations/20260712000002_rls_policies.sql supabase/migrations/20260712000003_profiles_trigger.sql supabase/migrations/20260712000004_storage.sql)",
       "Bash(unset SUPABASE_DB_URL)",
       "Bash(node scripts/db-apply.mjs supabase/legacy-drop.sql)",
-      "Bash(node scripts/drop-legacy-bucket.mjs)"
+      "Bash(node scripts/drop-legacy-bucket.mjs)",
+      "Bash(git rm *)",
+      "Bash(node -e \"const l=require\\('lucide-react'\\); const want=['Instagram','Facebook','Twitter','Send','AtSign','Share2','Mail','Globe']; want.forEach\\(n=>console.log\\(n, n in l ? 'YES':'no'\\)\\)\")",
+      "Bash(command -v vercel)",
+      "Bash(vercel --version)",
+      "Bash(npx --no-install vercel --version)",
+      "Bash(curl -s \"http://localhost:3000/\")",
+      "Bash(curl -s \"http://localhost:3000/collections?category=dresses\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"http://localhost:3000/products/golden-hour-gown\")",
+      "Bash(curl -s \"http://localhost:3000/products/golden-hour-gown\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"http://localhost:3000/products/does-not-exist\")",
+      "Bash(curl -s \"http://localhost:3000/login\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} -> %{redirect_url}\\\\n\" \"http://localhost:3000/account\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"http://localhost:3000/products/draft-spring-trench\")",
+      "Bash(curl -s \"http://localhost:3000/products/does-not-exist\")",
+      "Bash(curl -s \"http://localhost:3000/products/draft-spring-trench\")"
     ]
   }
 }
