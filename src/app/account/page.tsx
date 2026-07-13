@@ -6,6 +6,8 @@ import {
   getCurrentProfile,
   requireUser,
 } from "@/infrastructure/supabase/auth";
+import { getOrderRepository } from "@/infrastructure/supabase/order-service";
+import { formatMoney } from "@/domain/shared/money";
 import { signOut } from "./actions";
 
 export const metadata: Metadata = { title: "My Account" };
@@ -13,6 +15,7 @@ export const metadata: Metadata = { title: "My Account" };
 export default async function AccountPage() {
   const user = await requireUser("/account");
   const profile = await getCurrentProfile();
+  const orders = await (await getOrderRepository()).listByUser(user.id);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-14 lg:px-10">
@@ -41,9 +44,35 @@ export default async function AccountPage() {
         <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-300">
           <Package className="h-4 w-4" /> Order history
         </div>
-        <p className="mt-4 text-sm text-gray-400">
-          You have no orders yet. Checkout arrives in Phase 4.
-        </p>
+        {orders.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-400">
+            You have no orders yet.{" "}
+            <Link href="/collections" className="text-yellow-400 hover:text-yellow-300">
+              Start shopping
+            </Link>
+            .
+          </p>
+        ) : (
+          <div className="mt-4 divide-y divide-white/5">
+            {orders.map((o) => (
+              <Link
+                key={o.id}
+                href={`/account/orders/${o.id}`}
+                className="flex items-center justify-between py-3 transition-colors hover:text-yellow-400"
+              >
+                <div>
+                  <p className="text-sm font-medium">#{o.id.slice(0, 8)}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(o.createdAt).toLocaleDateString()} · {o.status}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold">
+                  {formatMoney(o.total, o.currency)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <form action={signOut} className="mt-8">

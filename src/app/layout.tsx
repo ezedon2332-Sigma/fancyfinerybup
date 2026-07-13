@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { CartProvider } from "@/components/cart/CartProvider";
 
 export default function RootLayout({
   children,
@@ -35,9 +36,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-black text-white">
-        <SiteHeader />
-        <main className="flex-1 pt-16">{children}</main>
-        <SiteFooter />
+        <CartProvider>
+          <SiteHeader />
+          <main className="flex-1 pt-16">{children}</main>
+          <SiteFooter />
+        </CartProvider>
       </body>
     </html>
   );

@@ -129,6 +129,7 @@ export interface Database {
           storage_path: string;
           alt: string | null;
           sort_order: number;
+          media_type: "image" | "video";
         };
         Insert: {
           id?: string;
@@ -136,6 +137,7 @@ export interface Database {
           storage_path: string;
           alt?: string | null;
           sort_order?: number;
+          media_type?: "image" | "video";
         };
         Update: {
           id?: string;
@@ -143,6 +145,7 @@ export interface Database {
           storage_path?: string;
           alt?: string | null;
           sort_order?: number;
+          media_type?: "image" | "video";
         };
         Relationships: [
           {
@@ -202,6 +205,8 @@ export interface Database {
           shipping_city: string | null;
           shipping_state: string | null;
           shipping_country: string | null;
+          shipping_lat: number | null;
+          shipping_lng: number | null;
           created_at: string;
         };
         Insert: {
@@ -218,6 +223,8 @@ export interface Database {
           shipping_city?: string | null;
           shipping_state?: string | null;
           shipping_country?: string | null;
+          shipping_lat?: number | null;
+          shipping_lng?: number | null;
           created_at?: string;
         };
         Update: {
@@ -234,6 +241,8 @@ export interface Database {
           shipping_city?: string | null;
           shipping_state?: string | null;
           shipping_country?: string | null;
+          shipping_lat?: number | null;
+          shipping_lng?: number | null;
           created_at?: string;
         };
         Relationships: [

@@ -1,10 +1,13 @@
 export type ProductStatus = "draft" | "published" | "archived";
 
+export type MediaType = "image" | "video";
+
 export interface ProductImage {
   readonly id: string;
   readonly storagePath: string;
   readonly alt: string | null;
   readonly sortOrder: number;
+  readonly mediaType: MediaType;
 }
 
 export interface ProductVariant {

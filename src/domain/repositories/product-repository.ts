@@ -15,4 +15,6 @@ export interface ProductRepository {
   listPublished(query?: ProductQuery): Promise<ProductSummary[]>;
   /** A single published product with images + variants, by slug. */
   findPublishedBySlug(slug: string): Promise<ProductWithDetails | null>;
+  /** A single published product with images + variants, by id (checkout). */
+  findPublishedById(id: string): Promise<ProductWithDetails | null>;
 }

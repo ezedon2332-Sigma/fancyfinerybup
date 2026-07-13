@@ -49,7 +49,9 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isProtected =
-    pathname.startsWith("/admin") || pathname.startsWith("/account");
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/account") ||
+    pathname.startsWith("/checkout");
 
   if (isProtected && !isSignedIn) {
     const redirectUrl = request.nextUrl.clone();

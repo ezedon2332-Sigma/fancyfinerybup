@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { ProductDetail } from "@/components/catalog/ProductDetail";
 import { getProductBySlug } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { getCurrentUser } from "@/infrastructure/supabase/auth";
 
 type Params = { slug: string };
 
@@ -31,7 +32,10 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const deps = await getCatalogDeps();
-  const product = await getProductBySlug(deps, slug);
+  const [product, user] = await Promise.all([
+    getProductBySlug(deps, slug),
+    getCurrentUser(),
+  ]);
   if (!product) notFound();
 
   return (
@@ -42,7 +46,7 @@ export default async function ProductPage({
       >
         <ChevronLeft className="h-4 w-4" /> Back to collections
       </Link>
-      <ProductDetail product={product} />
+      <ProductDetail product={product} isAuthenticated={Boolean(user)} />
     </div>
   );
 }

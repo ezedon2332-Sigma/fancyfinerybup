@@ -8,6 +8,8 @@ export interface ShippingDetails {
   readonly city: string | null;
   readonly state: string | null;
   readonly country: string | null;
+  readonly lat: number | null;
+  readonly lng: number | null;
 }
 
 export interface OrderItem {

@@ -215,21 +215,23 @@ Each phase ends in a **shippable, verifiable** state. We build in order; do not 
 > Icons: `lucide-react`. Animations: `framer-motion` + CSS. Validation: `zod`.
 > Deploy/env setup: **`docs/DEPLOYMENT.md`** (Vercel env vars are required or the build fails).
 
-### Phase 4 — Cart & checkout + Paystack
-- [ ] Client cart (context + localStorage), add-to-cart on product page.
-- [ ] Checkout page (shipping details, requires auth).
-- [ ] Server Action: create `pending` order + Paystack initialize.
-- [ ] Paystack webhook Route Handler → mark `paid`, decrement stock.
-- [ ] Order confirmation page + `account` order history.
-- **Done when:** a test-mode Paystack payment creates a paid order end-to-end.
+### Phase 4 — Cart & checkout ✅ DONE (payment deferred per request)
+- [x] Client cart (context + localStorage), drawer, navbar count; add-to-bag **requires sign-in**.
+- [x] Checkout page (auth-gated) capturing delivery details via **device geolocation** (Geolocation API + reverse geocode) with manual fallback; coords stored on order.
+- [x] Server Action creates a `pending` order (prices/stock recomputed server-side, never trusted from client).
+- [x] Order confirmation page + `account` order history + order detail.
+- [ ] Paystack payment — **on hold** at user's request (checkout is pay-on-delivery for now).
+- **Done:** cart → checkout → order → confirmation works end-to-end; orders visible in account + admin.
 
-### Phase 5 — Admin section
-- [ ] `/admin` layout with authoritative role gate.
-- [ ] Product CRUD (create/edit/publish/archive) with image upload to Storage.
-- [ ] Category management.
-- [ ] Orders list + detail; update status (fulfilled/cancelled).
-- [ ] Basic dashboard (counts: products, orders, revenue).
-- **Done when:** an admin can manage catalog & orders entirely from the UI.
+### Phase 5 — Admin section ✅ DONE
+- [x] `/admin` layout with authoritative role gate (`requireAdmin`) + dashboard (product/published/category/order counts).
+- [x] Product CRUD (create/edit/delete, draft/published/archived, featured) with **multi-image AND video upload** to Storage + variant management.
+- [x] Category (collection) management — create/edit/delete.
+- [x] Orders list + detail; update status (pending/paid/fulfilled/cancelled).
+- [x] `ezedon2332@gmail.com` promoted to admin via allowlist (`admin_allowlist` + signup trigger).
+- **Done:** an admin manages catalog, collections & orders entirely from the UI.
+
+> Product media supports **images + videos** (`product_images.media_type`); the storefront gallery and cards render both. Clients must be signed in to add to bag or checkout.
 
 ### Phase 6 — Polish & deploy
 - [ ] Responsive/mobile pass on all pages; keep black/gold luxury theme.

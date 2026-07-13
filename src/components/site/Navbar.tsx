@@ -7,6 +7,8 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 
+import { useCart } from "@/components/cart/CartProvider";
+
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/collections", label: "Collections" },
@@ -16,6 +18,7 @@ const LINKS = [
 export function Navbar({ user }: { user: { email: string | null } | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { count, openCart } = useCart();
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
@@ -83,9 +86,15 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           <button
             type="button"
             aria-label="Bag"
-            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400"
+            onClick={openCart}
+            className="relative rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400"
           >
             <ShoppingBag className="h-5 w-5" />
+            {count > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-black">
+                {count}
+              </span>
+            )}
           </button>
           <Link
             href={user ? "/account" : "/login"}

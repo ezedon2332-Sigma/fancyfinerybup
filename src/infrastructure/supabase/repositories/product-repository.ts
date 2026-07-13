@@ -61,5 +61,16 @@ export function createProductRepository(
       if (error) throw error;
       return data ? toProductWithDetails(data) : null;
     },
+
+    async findPublishedById(id: string): Promise<ProductWithDetails | null> {
+      const { data, error } = await client
+        .from("products")
+        .select("*, product_images(*), product_variants(*)")
+        .eq("id", id)
+        .eq("status", "published")
+        .maybeSingle();
+      if (error) throw error;
+      return data ? toProductWithDetails(data) : null;
+    },
   };
 }
