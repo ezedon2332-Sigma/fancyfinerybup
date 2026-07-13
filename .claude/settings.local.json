@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(git add -A)"
+      "PowerShell(git add -A)",
+      "PowerShell(git push -u origin main)",
+      "PowerShell(git ls-remote origin 2>&1)",
+      "PowerShell(Write-Output \"--- gh CLI ---\"; \\(Get-Command gh -ErrorAction SilentlyContinue\\).Source; Write-Output \"--- gh auth ---\"; gh auth status 2>&1 | Select-Object -First 8; Write-Output \"--- credential helper ---\"; git config --get credential.helper)",
+      "PowerShell(git push -u origin main 2>&1)",
+      "Bash(npm install *)",
+      "Bash(node -e \"const s=require\\('@supabase/supabase-js/package.json'\\); const r=require\\('@supabase/ssr/package.json'\\); console.log\\('supabase-js', s.version\\); console.log\\('ssr', r.version\\)\")",
+      "Bash(node -e \"try{require.resolve\\('server-only'\\);console.log\\('server-only OK'\\)}catch\\(e\\){console.log\\('server-only MISSING'\\)}\")",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== tsc exit: $? ===\")",
+      "Bash(npm run *)",
+      "Bash(node scripts/db-check.mjs)",
+      "Bash(node -e ' *)"
     ]
   }
 }
