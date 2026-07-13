@@ -1,6 +1,6 @@
--- Fancy Finery — combined Phase 1 apply script (generated from migrations + seed).
--- Paste into the Supabase SQL Editor and Run, or apply migrations individually via the CLI.
--- Safe to re-run.
+-- Fancy Finery — combined Phase 1 apply script (schema + seed).
+-- Paste into the Supabase SQL Editor and Run. Safe to re-run.
+-- Excludes the legacy-drop migration (that's a one-time cleanup).
 
 
 -- ============================================================

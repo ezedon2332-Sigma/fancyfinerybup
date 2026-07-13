@@ -46,9 +46,12 @@ let allPresent = true;
 console.log(`Checking schema on ${url}\n`);
 
 for (const table of TABLES) {
+  // NOTE: use a real GET (not head:true). A HEAD response has no body, so
+  // PostgREST's error JSON is invisible and missing tables look "present".
   const { count, error } = await supabase
     .from(table)
-    .select("*", { count: "exact", head: true });
+    .select("*", { count: "exact" })
+    .limit(1);
 
   if (error) {
     allPresent = false;

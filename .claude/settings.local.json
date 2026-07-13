@@ -14,7 +14,12 @@
       "Bash(echo \"=== tsc exit: $? ===\")",
       "Bash(npm run *)",
       "Bash(node scripts/db-check.mjs)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m '@ *)",
+      "Bash(git push *)",
+      "Bash(node scripts/seed.mjs)",
+      "Bash(git commit *)"
     ]
   }
 }
