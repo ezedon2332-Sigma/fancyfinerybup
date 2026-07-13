@@ -29,6 +29,13 @@ export interface Database {
           avatar_url: string | null;
           role: UserRole;
           created_at: string;
+          phone: string | null;
+          address: string | null;
+          city: string | null;
+          state: string | null;
+          country: string | null;
+          lat: number | null;
+          lng: number | null;
         };
         Insert: {
           id: string;
@@ -36,6 +43,13 @@ export interface Database {
           avatar_url?: string | null;
           role?: UserRole;
           created_at?: string;
+          phone?: string | null;
+          address?: string | null;
+          city?: string | null;
+          state?: string | null;
+          country?: string | null;
+          lat?: number | null;
+          lng?: number | null;
         };
         Update: {
           id?: string;
@@ -43,6 +57,13 @@ export interface Database {
           avatar_url?: string | null;
           role?: UserRole;
           created_at?: string;
+          phone?: string | null;
+          address?: string | null;
+          city?: string | null;
+          state?: string | null;
+          country?: string | null;
+          lat?: number | null;
+          lng?: number | null;
         };
         Relationships: [];
       };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Package, ShoppingCart, Tags } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Tags, Users } from "lucide-react";
 
 import { requireAdmin } from "@/infrastructure/supabase/auth";
 
@@ -23,6 +23,7 @@ export default async function AdminLayout({
           <AdminLink href="/admin/products" icon={<Package className="h-4 w-4" />} label="Products" />
           <AdminLink href="/admin/categories" icon={<Tags className="h-4 w-4" />} label="Categories" />
           <AdminLink href="/admin/orders" icon={<ShoppingCart className="h-4 w-4" />} label="Orders" />
+          <AdminLink href="/admin/customers" icon={<Users className="h-4 w-4" />} label="Customers" />
         </nav>
       </aside>
       <div className="flex-1">{children}</div>

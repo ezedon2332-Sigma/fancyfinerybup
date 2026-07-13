@@ -40,6 +40,15 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     avatarUrl: data.avatar_url,
     role: data.role,
     createdAt: data.created_at,
+    address: {
+      phone: data.phone,
+      address: data.address,
+      city: data.city,
+      state: data.state,
+      country: data.country,
+      lat: data.lat,
+      lng: data.lng,
+    },
   };
 }
 

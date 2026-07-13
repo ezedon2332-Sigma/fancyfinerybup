@@ -88,6 +88,20 @@ export const categorySchema = z.object({
 
 export type CategoryInput = z.infer<typeof categorySchema>;
 
+/** Customer profile — name + saved delivery address/location. */
+export const profileSchema = z.object({
+  fullName: z.string().trim().max(120).nullable().optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+  address: z.string().trim().max(300).nullable().optional(),
+  city: z.string().trim().max(120).nullable().optional(),
+  state: z.string().trim().max(120).nullable().optional(),
+  country: z.string().trim().max(120).nullable().optional(),
+  lat: z.number().finite().nullable().optional(),
+  lng: z.number().finite().nullable().optional(),
+});
+
+export type ProfileInput = z.infer<typeof profileSchema>;
+
 /** Slugify a display name into a URL-safe slug. */
 export function slugify(input: string): string {
   return input

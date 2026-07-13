@@ -20,20 +20,27 @@ interface FormState {
   country: string;
 }
 
-const EMPTY: FormState = {
-  name: "",
-  phone: "",
-  address: "",
-  city: "",
-  state: "",
-  country: "",
-};
+export interface CheckoutInitial extends FormState {
+  lat: number | null;
+  lng: number | null;
+}
 
-export function CheckoutForm() {
+export function CheckoutForm({ initial }: { initial?: CheckoutInitial }) {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
-  const [form, setForm] = useState<FormState>(EMPTY);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [form, setForm] = useState<FormState>({
+    name: initial?.name ?? "",
+    phone: initial?.phone ?? "",
+    address: initial?.address ?? "",
+    city: initial?.city ?? "",
+    state: initial?.state ?? "",
+    country: initial?.country ?? "",
+  });
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    initial?.lat != null && initial?.lng != null
+      ? { lat: initial.lat, lng: initial.lng }
+      : null,
+  );
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

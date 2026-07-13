@@ -8,6 +8,7 @@ import {
 } from "@/infrastructure/supabase/auth";
 import { getOrderRepository } from "@/infrastructure/supabase/order-service";
 import { formatMoney } from "@/domain/shared/money";
+import { ProfileForm } from "@/components/account/ProfileForm";
 import { signOut } from "./actions";
 
 export const metadata: Metadata = { title: "My Account" };
@@ -39,6 +40,12 @@ export default async function AccountPage() {
           )}
         </div>
       </div>
+
+      {profile && (
+        <div className="mt-8 rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
+          <ProfileForm profile={profile} />
+        </div>
+      )}
 
       <div className="mt-8 rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
         <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-300">
