@@ -40,10 +40,7 @@ values
    24000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', true),
   ('Pearl Puff Cocktail Dress', 'pearl-puff-cocktail-dress',
    'An ivory cocktail mini with a voluminous puff-ball skirt and long sleeves — quietly dramatic.',
-   28000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', false),
-  ('Ivory Feather-Drape Mini Dress', 'ivory-feather-drape-mini-dress',
-   'An ivory satin mini with a draped one-shoulder sash and soft feather trim, finished with a sculpted bubble hem and long sleeves.',
-   32000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', true)
+   28000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', false)
 on conflict (slug) do nothing;
 
 -- Product images -------------------------------------------------------------
@@ -58,8 +55,7 @@ from (values
   ('draft-spring-trench',        'women6.jpeg',  'Spring Trench',              0),
   ('ivory-bubble-hem-mini-dress','women7.jpeg',  'Ivory Bubble-Hem Mini Dress',0),
   ('tangerine-bubble-mini-dress','women8.jpeg',  'Tangerine Bubble Mini Dress',0),
-  ('pearl-puff-cocktail-dress',  'women9.jpeg',  'Pearl Puff Cocktail Dress',  0),
-  ('ivory-feather-drape-mini-dress','women10.jpeg','Ivory Feather-Drape Mini Dress',0)
+  ('pearl-puff-cocktail-dress',  'women9.jpeg',  'Pearl Puff Cocktail Dress',  0)
 ) as v(slug, storage_path, alt, sort_order)
 join public.products p on p.slug = v.slug
 where not exists (
@@ -88,10 +84,7 @@ from (values
   ('tangerine-bubble-mini-dress', 'M', 'Tangerine', 'FF-TBM-M', 5),
   ('tangerine-bubble-mini-dress', 'L', 'Tangerine', 'FF-TBM-L', 2),
   ('pearl-puff-cocktail-dress',   'S', 'Ivory',     'FF-PPC-S', 4),
-  ('pearl-puff-cocktail-dress',   'M', 'Ivory',     'FF-PPC-M', 4),
-  ('ivory-feather-drape-mini-dress', 'S', 'Ivory',  'FF-IFD-S', 5),
-  ('ivory-feather-drape-mini-dress', 'M', 'Ivory',  'FF-IFD-M', 4),
-  ('ivory-feather-drape-mini-dress', 'L', 'Ivory',  'FF-IFD-L', 2)
+  ('pearl-puff-cocktail-dress',   'M', 'Ivory',     'FF-PPC-M', 4)
 ) as v(slug, size, color, sku, stock_qty)
 join public.products p on p.slug = v.slug
 on conflict (sku) do nothing;
