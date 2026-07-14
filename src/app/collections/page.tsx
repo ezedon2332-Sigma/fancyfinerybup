@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { ProductSearch } from "@/components/catalog/ProductSearch";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 
@@ -47,7 +47,7 @@ export default async function CollectionsPage({
       </div>
 
       <div className="mt-12">
-        <ProductGrid products={products} />
+        <ProductSearch products={products} />
       </div>
     </div>
   );
