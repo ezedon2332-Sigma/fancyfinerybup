@@ -34,7 +34,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             className="h-9 w-9 object-contain"
           />
           <span className="flex flex-col leading-none">
-            <span className="text-base font-bold tracking-[3px] text-yellow-400 sm:text-lg">
+            <span className="text-base font-bold tracking-[3px] text-yellow-500 sm:text-lg">
               FANCY FINERY
             </span>
             <span className="hidden text-[10px] uppercase tracking-[5px] text-gray-400 sm:block">
