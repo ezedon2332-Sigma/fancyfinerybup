@@ -31,7 +31,16 @@ values
    22000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', false),
   ('Draft — Spring Trench', 'draft-spring-trench',
    'Lightweight trench (not yet released — used to test draft visibility).',
-   34000000, 'NGN', (select id from public.categories where slug = 'outerwear'), 'draft', false)
+   34000000, 'NGN', (select id from public.categories where slug = 'outerwear'), 'draft', false),
+  ('Ivory Bubble-Hem Mini Dress', 'ivory-bubble-hem-mini-dress',
+   'A sculptural ivory mini in structured satin, finished with a signature bubble hem and long fitted sleeves.',
+   26000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', true),
+  ('Tangerine Bubble Mini Dress', 'tangerine-bubble-mini-dress',
+   'A vivid tangerine mini with a sleeveless high neck and tiered bubble volume — made to be noticed.',
+   24000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', true),
+  ('Pearl Puff Cocktail Dress', 'pearl-puff-cocktail-dress',
+   'An ivory cocktail mini with a voluminous puff-ball skirt and long sleeves — quietly dramatic.',
+   28000000, 'NGN', (select id from public.categories where slug = 'dresses'), 'published', false)
 on conflict (slug) do nothing;
 
 -- Product images -------------------------------------------------------------
@@ -42,8 +51,11 @@ from (values
   ('midnight-tailored-coat',  'women2.jpeg',  'Midnight Tailored Coat',  0),
   ('ivory-silk-blouse',       'women3.jpeg',  'Ivory Silk Blouse',       0),
   ('amber-evening-dress',     'women4.jpeg',  'Amber Evening Dress',     0),
-  ('noir-wrap-dress',         'women5.jpeg',  'Noir Wrap Dress',         0),
-  ('draft-spring-trench',     'women6.jpeg',  'Spring Trench',           0)
+  ('noir-wrap-dress',            'women5.jpeg',  'Noir Wrap Dress',            0),
+  ('draft-spring-trench',        'women6.jpeg',  'Spring Trench',              0),
+  ('ivory-bubble-hem-mini-dress','women7.jpeg',  'Ivory Bubble-Hem Mini Dress',0),
+  ('tangerine-bubble-mini-dress','women8.jpeg',  'Tangerine Bubble Mini Dress',0),
+  ('pearl-puff-cocktail-dress',  'women9.jpeg',  'Pearl Puff Cocktail Dress',  0)
 ) as v(slug, storage_path, alt, sort_order)
 join public.products p on p.slug = v.slug
 where not exists (
@@ -63,8 +75,16 @@ from (values
   ('ivory-silk-blouse',      'M',  'Ivory', 'FF-ISB-M',  8),
   ('amber-evening-dress',    'M',  'Amber', 'FF-AED-M',  4),
   ('amber-evening-dress',    'L',  'Amber', 'FF-AED-L',  3),
-  ('noir-wrap-dress',        'S',  'Black', 'FF-NWD-S',  7),
-  ('noir-wrap-dress',        'M',  'Black', 'FF-NWD-M',  5)
+  ('noir-wrap-dress',        'S',  'Black',     'FF-NWD-S',  7),
+  ('noir-wrap-dress',        'M',  'Black',     'FF-NWD-M',  5),
+  ('ivory-bubble-hem-mini-dress', 'S', 'Ivory',     'FF-IBH-S', 6),
+  ('ivory-bubble-hem-mini-dress', 'M', 'Ivory',     'FF-IBH-M', 5),
+  ('ivory-bubble-hem-mini-dress', 'L', 'Ivory',     'FF-IBH-L', 3),
+  ('tangerine-bubble-mini-dress', 'S', 'Tangerine', 'FF-TBM-S', 5),
+  ('tangerine-bubble-mini-dress', 'M', 'Tangerine', 'FF-TBM-M', 5),
+  ('tangerine-bubble-mini-dress', 'L', 'Tangerine', 'FF-TBM-L', 2),
+  ('pearl-puff-cocktail-dress',   'S', 'Ivory',     'FF-PPC-S', 4),
+  ('pearl-puff-cocktail-dress',   'M', 'Ivory',     'FF-PPC-M', 4)
 ) as v(slug, size, color, sku, stock_qty)
 join public.products p on p.slug = v.slug
 on conflict (sku) do nothing;
