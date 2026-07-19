@@ -71,8 +71,8 @@ export function toProductSummary(
     .map(toProductImage)
     .sort((a, b) => a.sortOrder - b.sortOrder);
   // Cards use a still image; fall back to first media only if no image exists.
-  // Thumbnails are images only — never fall back to a video.
-  const primaryImage = media.find((m) => m.mediaType === "image") ?? null;
+  const primaryImage =
+    media.find((m) => m.mediaType === "image") ?? media[0] ?? null;
   return { ...toProduct(row), primaryImage };
 }
 

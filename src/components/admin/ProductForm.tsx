@@ -91,8 +91,6 @@ export function ProductForm({
   const [error, setError] = useState<string | null>(null);
 
   const uploading = tasks.some((t) => t.error === null);
-  // The storefront thumbnail is always the first image (videos are never thumbnails).
-  const firstImageIndex = media.findIndex((m) => m.mediaType === "image");
 
   // --- Media upload ---------------------------------------------------------
   function addFiles(fileList: FileList | File[]) {
@@ -373,10 +371,10 @@ export function ProductForm({
               >
                 <div className="relative aspect-square overflow-hidden rounded-md bg-black">
                   {m.mediaType === "video" ? (
-                    <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-neutral-800 text-white/70">
-                      <Film className="h-6 w-6" />
-                      <span className="text-[10px] uppercase tracking-wide">Video</span>
-                    </span>
+                    <>
+                      <video src={resolveImageUrl(m.storagePath)} muted className="h-full w-full object-cover" />
+                      <Film className="absolute left-1.5 top-1.5 h-4 w-4 text-white/80" />
+                    </>
                   ) : (
                     <Image src={resolveImageUrl(m.storagePath)} alt={m.alt || ""} fill sizes="200px" className="object-cover" />
                   )}
@@ -386,7 +384,7 @@ export function ProductForm({
                     <GripVertical className="h-3.5 w-3.5" />
                   </span>
 
-                  {i === firstImageIndex && (
+                  {i === 0 && (
                     <span className="absolute bottom-1.5 left-1.5 rounded bg-yellow-500 px-1.5 text-[10px] font-bold text-black">
                       Thumbnail
                     </span>
@@ -402,7 +400,7 @@ export function ProductForm({
                     <button type="button" onClick={() => moveMedia(i, i + 1)} disabled={i === media.length - 1} className="rounded p-1 text-gray-400 hover:text-yellow-400 disabled:opacity-30" aria-label="Move right">
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => moveMedia(i, 0)} disabled={m.mediaType === "video" || i === firstImageIndex} className="rounded p-1 text-gray-400 hover:text-yellow-400 disabled:opacity-30" aria-label="Set as thumbnail" title="Set as thumbnail">
+                    <button type="button" onClick={() => moveMedia(i, 0)} disabled={i === 0} className="rounded p-1 text-gray-400 hover:text-yellow-400 disabled:opacity-30" aria-label="Set as thumbnail" title="Set as thumbnail">
                       <Star className="h-3.5 w-3.5" />
                     </button>
                   </div>

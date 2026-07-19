@@ -33,8 +33,7 @@ export async function listAdminProducts(): Promise<AdminProductRow[]> {
     const media = [...(p.product_images ?? [])].sort(
       (a, b) => a.sort_order - b.sort_order,
     );
-    // Thumbnails are images only — never fall back to a video.
-    const image = media.find((m) => m.media_type === "image");
+    const image = media.find((m) => m.media_type === "image") ?? media[0];
     return {
       id: p.id,
       name: p.name,

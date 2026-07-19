@@ -55,7 +55,7 @@ export function ProductDetail({
       name: product.name,
       price: product.price,
       currency: product.currency,
-      image: media.find((m) => m.type === "image")?.url ?? "/image.jpeg",
+      image: (media.find((m) => m.type === "image") ?? media[0]).url,
       size: selectedVariant?.size ?? null,
       color: selectedVariant?.color ?? null,
       qty: 1,
@@ -105,9 +105,12 @@ export function ProductDetail({
                 }`}
               >
                 {m.type === "video" ? (
-                  <span className="flex h-full w-full items-center justify-center bg-neutral-800">
-                    <Play className="h-5 w-5 text-white" />
-                  </span>
+                  <>
+                    <video src={m.url} muted playsInline className="h-full w-full object-cover" />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <Play className="h-5 w-5 text-white" />
+                    </span>
+                  </>
                 ) : (
                   <Image src={m.url} alt={m.alt} fill className="object-cover" />
                 )}
