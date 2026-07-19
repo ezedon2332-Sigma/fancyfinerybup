@@ -42,11 +42,6 @@ export function ProductCard({ product }: { product: ProductSummary }) {
               className="object-cover transition-transform duration-700 group-hover:scale-105"
             />
           )}
-          {product.featured && (
-            <span className="absolute left-3 top-3 rounded-full bg-yellow-500 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-black">
-              Featured
-            </span>
-          )}
           <div className="absolute inset-x-0 bottom-0 translate-y-2 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
             <span className="text-xs uppercase tracking-widest text-yellow-400">
               View product →
