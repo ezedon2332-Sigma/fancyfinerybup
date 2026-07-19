@@ -17,16 +17,22 @@ export function createOrderRepository(
         .from("orders")
         .insert({
           user_id: input.userId,
-          status: "pending",
+          status: "processing",
+          subtotal: input.subtotal,
+          shipping_cost: input.shippingCost,
           total: input.total,
           currency: input.currency,
+          shipping_method: input.shippingMethod,
           shipping_name: input.shipping.name,
           shipping_email: input.shipping.email,
           shipping_phone: input.shipping.phone,
           shipping_address: input.shipping.address,
+          shipping_apartment: input.shipping.apartment,
           shipping_city: input.shipping.city,
           shipping_state: input.shipping.state,
           shipping_country: input.shipping.country,
+          shipping_country_code: input.shipping.countryCode,
+          shipping_postal: input.shipping.postal,
           shipping_lat: input.shipping.lat,
           shipping_lng: input.shipping.lng,
         })

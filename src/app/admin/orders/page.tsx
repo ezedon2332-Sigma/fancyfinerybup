@@ -3,15 +3,9 @@ import type { Metadata } from "next";
 
 import { listAdminOrders } from "@/infrastructure/supabase/admin-service";
 import { formatMoney } from "@/domain/shared/money";
+import { orderStatusBadge, orderStatusLabel } from "@/lib/order-status";
 
 export const metadata: Metadata = { title: "Admin · Orders" };
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-yellow-500/15 text-yellow-400",
-  paid: "bg-blue-500/15 text-blue-400",
-  fulfilled: "bg-green-500/15 text-green-400",
-  cancelled: "bg-red-500/15 text-red-400",
-};
 
 export default async function AdminOrdersPage() {
   const orders = await listAdminOrders();
@@ -49,8 +43,8 @@ export default async function AdminOrdersPage() {
                   <td className="px-4 py-3 text-gray-300">{o.itemCount}</td>
                   <td className="px-4 py-3 text-yellow-400">{formatMoney(o.total, o.currency)}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[o.status]}`}>
-                      {o.status}
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${orderStatusBadge(o.status)}`}>
+                      {orderStatusLabel(o.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400">

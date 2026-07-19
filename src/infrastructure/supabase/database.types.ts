@@ -8,7 +8,13 @@
  */
 
 export type ProductStatus = "draft" | "published" | "archived";
-export type OrderStatus = "pending" | "paid" | "fulfilled" | "cancelled";
+export type OrderStatus =
+  | "processing"
+  | "packed"
+  | "shipped"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
 export type UserRole = "customer" | "admin";
 
 export type Json =
@@ -228,7 +234,15 @@ export interface Database {
           shipping_country: string | null;
           shipping_lat: number | null;
           shipping_lng: number | null;
+          subtotal: number;
+          shipping_cost: number;
+          shipping_method: string | null;
+          shipping_country_code: string | null;
+          shipping_postal: string | null;
+          shipping_apartment: string | null;
+          tracking_number: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -246,7 +260,15 @@ export interface Database {
           shipping_country?: string | null;
           shipping_lat?: number | null;
           shipping_lng?: number | null;
+          subtotal?: number;
+          shipping_cost?: number;
+          shipping_method?: string | null;
+          shipping_country_code?: string | null;
+          shipping_postal?: string | null;
+          shipping_apartment?: string | null;
+          tracking_number?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -264,7 +286,15 @@ export interface Database {
           shipping_country?: string | null;
           shipping_lat?: number | null;
           shipping_lng?: number | null;
+          subtotal?: number;
+          shipping_cost?: number;
+          shipping_method?: string | null;
+          shipping_country_code?: string | null;
+          shipping_postal?: string | null;
+          shipping_apartment?: string | null;
+          tracking_number?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [
           {
@@ -311,6 +341,69 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      shipping_countries: {
+        Row: {
+          code: string;
+          name: string;
+          zone: string;
+          enabled: boolean;
+          standard_price: number;
+          standard_min_days: number;
+          standard_max_days: number;
+          express_price: number | null;
+          express_min_days: number;
+          express_max_days: number;
+          free_over: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          name: string;
+          zone: string;
+          enabled?: boolean;
+          standard_price?: number;
+          standard_min_days?: number;
+          standard_max_days?: number;
+          express_price?: number | null;
+          express_min_days?: number;
+          express_max_days?: number;
+          free_over?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          name?: string;
+          zone?: string;
+          enabled?: boolean;
+          standard_price?: number;
+          standard_min_days?: number;
+          standard_max_days?: number;
+          express_price?: number | null;
+          express_min_days?: number;
+          express_max_days?: number;
+          free_over?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shipping_settings: {
+        Row: {
+          id: boolean;
+          ngn_per_usd: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          ngn_per_usd?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: boolean;
+          ngn_per_usd?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

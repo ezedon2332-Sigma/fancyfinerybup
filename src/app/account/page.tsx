@@ -8,6 +8,7 @@ import {
 } from "@/infrastructure/supabase/auth";
 import { getOrderRepository } from "@/infrastructure/supabase/order-service";
 import { formatMoney } from "@/domain/shared/money";
+import { orderStatusLabel } from "@/lib/order-status";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { signOut } from "./actions";
 
@@ -70,7 +71,8 @@ export default async function AccountPage() {
                 <div>
                   <p className="text-sm font-medium">#{o.id.slice(0, 8)}</p>
                   <p className="text-xs text-gray-500">
-                    {new Date(o.createdAt).toLocaleDateString()} · {o.status}
+                    {new Date(o.createdAt).toLocaleDateString()} ·{" "}
+                    {orderStatusLabel(o.status)}
                   </p>
                 </div>
                 <span className="text-sm font-semibold">

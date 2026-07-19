@@ -5,8 +5,10 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { updateOrderStatus } from "@/app/admin/orders/actions";
+import { ORDER_STATUSES } from "@/domain/entities/order";
+import { orderStatusLabel } from "@/lib/order-status";
 
-const STATUSES = ["pending", "paid", "fulfilled", "cancelled"] as const;
+const STATUSES = ORDER_STATUSES;
 
 export function OrderStatusForm({
   orderId,
@@ -43,7 +45,7 @@ export function OrderStatusForm({
       >
         {STATUSES.map((s) => (
           <option key={s} value={s}>
-            {s}
+            {orderStatusLabel(s)}
           </option>
         ))}
       </select>

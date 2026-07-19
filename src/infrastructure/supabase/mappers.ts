@@ -4,6 +4,7 @@ import type {
   OrderItem,
   OrderWithItems,
 } from "@/domain/entities/order";
+import type { ShippingMethod } from "@/domain/shipping/shipping";
 import type {
   Product,
   ProductImage,
@@ -81,21 +82,29 @@ export function toOrder(row: Row<"orders">): Order {
     id: row.id,
     userId: row.user_id,
     status: row.status,
+    subtotal: row.subtotal,
+    shippingCost: row.shipping_cost,
     total: row.total,
     currency: row.currency,
+    shippingMethod: (row.shipping_method as ShippingMethod | null) ?? null,
+    trackingNumber: row.tracking_number,
     paystackReference: row.paystack_reference,
     shipping: {
       name: row.shipping_name,
       email: row.shipping_email,
       phone: row.shipping_phone,
       address: row.shipping_address,
+      apartment: row.shipping_apartment,
       city: row.shipping_city,
       state: row.shipping_state,
       country: row.shipping_country,
+      countryCode: row.shipping_country_code,
+      postal: row.shipping_postal,
       lat: row.shipping_lat,
       lng: row.shipping_lng,
     },
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

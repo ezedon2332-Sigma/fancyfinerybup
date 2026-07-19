@@ -3,6 +3,7 @@ import type {
   OrderWithItems,
   ShippingDetails,
 } from "@/domain/entities/order";
+import type { ShippingMethod } from "@/domain/shipping/shipping";
 
 export interface NewOrderItem {
   productId: string;
@@ -15,7 +16,10 @@ export interface NewOrderItem {
 export interface NewOrder {
   userId: string;
   currency: string;
-  total: number; // minor units
+  subtotal: number; // minor units (order currency)
+  shippingCost: number; // minor units (order currency)
+  total: number; // minor units (subtotal + shippingCost)
+  shippingMethod: ShippingMethod;
   shipping: ShippingDetails;
   items: NewOrderItem[];
 }

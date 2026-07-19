@@ -14,14 +14,28 @@ export const magicLinkSchema = z.object({
 
 export type MagicLinkInput = z.infer<typeof magicLinkSchema>;
 
-/** Checkout — delivery details + cart lines (prices are recomputed server-side). */
+/** Shipping method chosen at checkout. */
+export const shippingMethodSchema = z.enum(["standard", "express"]);
+
+/** Checkout — full shipping address + method + cart lines.
+ *  Prices AND shipping cost are recomputed server-side; the client sends only
+ *  the destination (country/method) and cart line references. */
 export const checkoutSchema = z.object({
   name: z.string().trim().min(2, "Full name is required"),
+  email: emailSchema,
   phone: z.string().trim().min(7, "A phone number is required"),
-  address: z.string().trim().min(5, "Delivery address is required"),
-  city: z.string().trim().min(1, "City is required"),
-  state: z.string().trim().min(1, "State is required"),
+  countryCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((c) => /^[A-Z]{2}$/.test(c), "Select a country"),
   country: z.string().trim().min(1, "Country is required"),
+  state: z.string().trim().min(1, "State/Province is required"),
+  city: z.string().trim().min(1, "City is required"),
+  postal: z.string().trim().min(1, "ZIP/Postal code is required").max(32),
+  address: z.string().trim().min(5, "Street address is required"),
+  apartment: z.string().trim().max(120).nullable().optional(),
+  method: shippingMethodSchema,
   lat: z.number().finite().nullable().optional(),
   lng: z.number().finite().nullable().optional(),
   items: z

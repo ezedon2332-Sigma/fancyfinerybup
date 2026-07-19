@@ -4,10 +4,15 @@ import type {
   OrderRepository,
 } from "@/domain/repositories/order-repository";
 import type { ProductRepository } from "@/domain/repositories/product-repository";
+import type { ShippingRepository } from "@/domain/repositories/shipping-repository";
+import { convertFromNgnMinor } from "@/domain/shipping/currency";
+import type { ShippingMethod } from "@/domain/shipping/shipping";
+import { resolveShipping, ShippingError } from "@/application/use-cases/shipping";
 
 export interface CheckoutDeps {
   products: ProductRepository;
   orders: OrderRepository;
+  shipping: ShippingRepository;
 }
 
 export interface CheckoutLine {
@@ -19,14 +24,17 @@ export interface CheckoutLine {
 export interface PlaceOrderInput {
   userId: string;
   shipping: ShippingDetails;
+  method: ShippingMethod;
   lines: CheckoutLine[];
 }
 
 export class CheckoutError extends Error {}
 
 /**
- * Place a pending order. Prices, names, and stock are taken from the DB — never
- * trusted from the client — so a tampered cart cannot change what's charged.
+ * Place an order. Prices, names, stock, AND shipping cost are taken from the DB
+ * — never trusted from the client — so a tampered cart or shipping selection
+ * cannot change what's charged. Amounts are converted into the order's currency
+ * (NGN for Nigeria, USD elsewhere) authoritatively here.
  */
 export async function placeOrder(
   deps: CheckoutDeps,
@@ -35,10 +43,13 @@ export async function placeOrder(
   if (input.lines.length === 0) {
     throw new CheckoutError("Your bag is empty.");
   }
+  if (!input.shipping.countryCode) {
+    throw new CheckoutError("Please choose a shipping country.");
+  }
 
-  const items: NewOrderItem[] = [];
-  let total = 0;
-  let currency = "NGN";
+  // 1) Recompute the subtotal in the base currency (NGN kobo) from the DB.
+  const priced: { item: Omit<NewOrderItem, "unitPrice">; priceNgn: number }[] = [];
+  let subtotalNgn = 0;
 
   for (const line of input.lines) {
     const product = await deps.products.findPublishedById(line.productId);
@@ -61,23 +72,46 @@ export async function placeOrder(
       variantLabel = [variant.size, variant.color].filter(Boolean).join(" · ");
     }
 
-    currency = product.currency;
-    total += product.price * line.qty;
-    items.push({
-      productId: product.id,
-      variantId,
-      nameSnapshot: variantLabel
-        ? `${product.name} (${variantLabel})`
-        : product.name,
-      unitPrice: product.price,
-      qty: line.qty,
+    subtotalNgn += product.price * line.qty;
+    priced.push({
+      item: {
+        productId: product.id,
+        variantId,
+        nameSnapshot: variantLabel
+          ? `${product.name} (${variantLabel})`
+          : product.name,
+        qty: line.qty,
+      },
+      priceNgn: product.price,
     });
   }
 
+  // 2) Resolve shipping + order currency authoritatively.
+  let resolved;
+  try {
+    resolved = await resolveShipping(deps, {
+      countryCode: input.shipping.countryCode,
+      method: input.method,
+      subtotalNgn,
+    });
+  } catch (e) {
+    if (e instanceof ShippingError) throw new CheckoutError(e.message);
+    throw e;
+  }
+
+  // 3) Snapshot each line's unit price in the order currency.
+  const items: NewOrderItem[] = priced.map(({ item, priceNgn }) => ({
+    ...item,
+    unitPrice: convertFromNgnMinor(priceNgn, resolved.currency, resolved.ngnPerUsd),
+  }));
+
   return deps.orders.create({
     userId: input.userId,
-    currency,
-    total,
+    currency: resolved.currency,
+    subtotal: resolved.subtotal,
+    shippingCost: resolved.shippingCost,
+    total: resolved.total,
+    shippingMethod: resolved.method,
     shipping: input.shipping,
     items,
   });
