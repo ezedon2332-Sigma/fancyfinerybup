@@ -414,6 +414,12 @@ export interface Database {
         };
         Relationships: [];
       };
+      admin_allowlist: {
+        Row: { email: string; created_at: string };
+        Insert: { email: string; created_at?: string };
+        Update: { email?: string; created_at?: string };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
