@@ -114,11 +114,35 @@ export async function saveProduct(payload: unknown): Promise<SaveResult> {
       if (error) throw error;
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not save product.";
-    if (/duplicate key|unique/i.test(msg)) {
-      return { ok: false, error: "That slug or SKU is already in use." };
+    // Supabase/Postgrest errors are plain objects, not Error instances — pull
+    // the real message out instead of masking it as a generic failure.
+    const msg =
+      e instanceof Error
+        ? e.message
+        : e && typeof e === "object" && "message" in e
+          ? String((e as { message: unknown }).message)
+          : "Could not save product.";
+
+    // If we just created a NEW product but a later step failed, remove the
+    // orphan row so the next attempt doesn't collide on the (unique) slug.
+    if (!input.id && productId) {
+      await supabase
+        .from("products")
+        .delete()
+        .eq("id", productId)
+        .then(
+          () => undefined,
+          () => undefined,
+        );
     }
-    return { ok: false, error: msg };
+
+    if (/duplicate key|already exists|unique/i.test(msg)) {
+      return {
+        ok: false,
+        error: "That product name/slug or a SKU is already in use — try a different name.",
+      };
+    }
+    return { ok: false, error: msg || "Could not save product." };
   }
 
   revalidatePath("/admin/products");
