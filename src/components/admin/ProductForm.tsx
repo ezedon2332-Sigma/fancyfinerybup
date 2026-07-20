@@ -306,7 +306,7 @@ export function ProductForm({
           <p className="text-sm text-gray-300">
             <span className="font-medium text-yellow-400">Click to upload</span> or drag &amp; drop
           </p>
-          <p className="text-xs text-gray-500">Images or videos · up to 50MB each · first image is the thumbnail</p>
+          <p className="text-xs text-gray-500">Images (≤25MB) or videos (≤50MB) · first image is the thumbnail</p>
           <input ref={fileRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
         </div>
 

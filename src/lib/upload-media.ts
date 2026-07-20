@@ -6,13 +6,17 @@ import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-c
 /**
  * Direct browser → Supabase Storage upload with real progress.
  *
- * The admin's own session JWT authorises the write (the storage RLS policy
- * `is_admin()` gates inserts), so no server round-trip is needed and we can
- * stream `xhr.upload.onprogress` into a per-file progress bar.
+ * The admin's own session JWT authorises the write (storage RLS gates inserts),
+ * so no server round-trip is needed and we can stream `xhr.upload.onprogress`
+ * into a per-file progress bar.
  */
 
 const BUCKET = "product-images";
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB (covers short videos)
+
+// Supabase project upload ceiling is 50MB (raise it in Storage settings to allow
+// larger). Keep the client caps at/under that so oversized files fail fast.
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25 MB
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB (project ceiling)
 
 export type MediaType = "image" | "video";
 
@@ -26,34 +30,65 @@ export interface UploadHandle {
   abort: () => void;
 }
 
-/** Returns an error string if the file is not an allowed image/video, else null. */
+const VIDEO_EXT = ["mp4", "mov", "webm", "m4v", "ogv", "avi", "mkv", "3gp", "3g2"];
+const IMAGE_EXT = ["jpg", "jpeg", "png", "webp", "avif", "gif", "heic", "heif", "bmp"];
+
+/** Common extension → MIME (used when the browser leaves file.type blank). */
+const EXT_MIME: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  ogv: "video/ogg",
+  avi: "video/x-msvideo",
+  mkv: "video/x-matroska",
+  "3gp": "video/3gpp",
+  "3g2": "video/3gpp2",
+};
+
+function fileExt(file: File): string {
+  return (file.name.split(".").pop() ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Classify a file as image/video using its MIME type, falling back to its
+ *  extension (some browsers report an empty type for .mov/.mkv/etc.). */
+export function mediaKind(file: File): MediaType | null {
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("image/")) return "image";
+  const ext = fileExt(file);
+  if (VIDEO_EXT.includes(ext)) return "video";
+  if (IMAGE_EXT.includes(ext)) return "image";
+  return null;
+}
+
+/** The content-type to store the object under (so videos play back correctly). */
+function resolveContentType(file: File, kind: MediaType): string {
+  if (file.type) return file.type;
+  const ext = fileExt(file);
+  return EXT_MIME[ext] ?? (kind === "video" ? "video/mp4" : "image/jpeg");
+}
+
+/** Returns an error string if the file isn't an allowed image/video, else null. */
 export function validateMediaFile(file: File): string | null {
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
-  if (!isImage && !isVideo) return "Only image or video files are allowed.";
-  if (file.size > MAX_UPLOAD_BYTES) {
-    const mb = (file.size / (1024 * 1024)).toFixed(1);
-    return `Too large (${mb}MB). Max is 50MB.`;
+  const kind = mediaKind(file);
+  if (!kind) return "Only image or video files are allowed.";
+  const cap = kind === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+  if (file.size > cap) {
+    const mb = (file.size / (1024 * 1024)).toFixed(0);
+    const capMb = Math.round(cap / (1024 * 1024));
+    return `${kind === "video" ? "Video" : "Image"} is too large (${mb}MB). Max is ${capMb}MB.`;
   }
   return null;
 }
 
-function extensionFor(file: File, isVideo: boolean): string {
-  return (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg"))
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
-
-/**
- * Start an upload. Returns a handle exposing the result promise and an
- * `abort()` to cancel an in-flight transfer.
- */
 export function uploadMediaWithProgress(
   file: File,
   onProgress: (pct: number) => void,
 ): UploadHandle {
-  const isVideo = file.type.startsWith("video/");
-  const path = `products/${crypto.randomUUID()}.${extensionFor(file, isVideo)}`;
+  const kind: MediaType = mediaKind(file) ?? "image";
+  const contentType = resolveContentType(file, kind);
+  const ext = fileExt(file) || (kind === "video" ? "mp4" : "jpg");
+  const path = `products/${crypto.randomUUID()}.${ext}`;
   const xhr = new XMLHttpRequest();
 
   const promise = new Promise<UploadResult>((resolve, reject) => {
@@ -72,7 +107,8 @@ export function uploadMediaWithProgress(
         xhr.setRequestHeader("authorization", `Bearer ${token}`);
         xhr.setRequestHeader("apikey", publicEnv.supabasePublishableKey);
         xhr.setRequestHeader("x-upsert", "false");
-        if (file.type) xhr.setRequestHeader("content-type", file.type);
+        xhr.setRequestHeader("content-type", contentType);
+        xhr.setRequestHeader("cache-control", "3600");
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
@@ -82,7 +118,7 @@ export function uploadMediaWithProgress(
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             onProgress(100);
-            resolve({ path, mediaType: isVideo ? "video" : "image" });
+            resolve({ path, mediaType: kind });
           } else {
             let msg = `Upload failed (${xhr.status}).`;
             try {
@@ -90,6 +126,9 @@ export function uploadMediaWithProgress(
               msg = body.message || body.error || msg;
             } catch {
               /* non-JSON error body */
+            }
+            if (xhr.status === 413) {
+              msg = "That file exceeds the server upload limit.";
             }
             reject(new Error(msg));
           }
