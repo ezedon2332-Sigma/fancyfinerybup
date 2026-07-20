@@ -5,12 +5,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import {
+  Award,
+  Globe,
+  Heart,
+  Menu,
+  RefreshCw,
+  Search,
+  ShoppingBag,
+  User,
+  X,
+} from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
 
 const LINKS = [
   { href: "/", label: "Home" },
+  { href: "/collections?category=men", label: "Men" },
+  { href: "/collections?category=women", label: "Women" },
+  { href: "/collections?category=children", label: "Children" },
   { href: "/collections", label: "Collections" },
   { href: "/contact", label: "Contact" },
 ];
@@ -20,10 +34,40 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
   const pathname = usePathname();
   const { count, openCart } = useCart();
 
+  const isActive = (href: string) => {
+    const base = href.split("?")[0];
+    if (base === "/") return pathname === "/";
+    return pathname === base && !href.includes("?");
+  };
+
   return (
     <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
+      {/* Top utility bar */}
+      <div className="hidden border-b border-white/5 lg:block">
+        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-yellow-500" />
+              <strong className="font-semibold text-gray-200">WORLDWIDE SHIPPING</strong>
+              <span className="text-gray-500">Delivery to 200+ countries</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Award className="h-3.5 w-3.5 text-yellow-500" />
+              <strong className="font-semibold text-gray-200">PREMIUM QUALITY</strong>
+              <span className="text-gray-500">Finest fabrics &amp; craftsmanship</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5 text-yellow-500" />
+              <strong className="font-semibold text-gray-200">EASY RETURNS</strong>
+              <span className="text-gray-500">30-day return policy</span>
+            </span>
+          </div>
+          <CurrencyLanguageMenu />
+        </div>
+      </div>
+
+      {/* Main nav */}
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-10">
-        {/* Brand */}
         <Link href="/" className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -44,9 +88,9 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden items-center gap-8 text-xs font-medium uppercase tracking-widest lg:flex">
+        <div className="hidden items-center gap-7 text-xs font-medium uppercase tracking-widest lg:flex">
           {LINKS.map((link) => {
-            const active = pathname === link.href;
+            const active = isActive(link.href);
             return (
               <Link
                 key={link.href}
@@ -68,14 +112,14 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 sm:gap-3">
-          <button
-            type="button"
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Link
+            href="/collections"
             aria-label="Search"
             className="hidden rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 sm:inline-flex"
           >
             <Search className="h-5 w-5" />
-          </button>
+          </Link>
           <button
             type="button"
             aria-label="Wishlist"
@@ -104,7 +148,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             <User className="h-5 w-5" />
           </Link>
 
-          {/* Mobile toggle */}
           <button
             type="button"
             aria-label="Menu"
@@ -133,9 +176,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className={`rounded-md px-3 py-3 text-sm uppercase tracking-widest transition-colors hover:bg-white/5 ${
-                    pathname === link.href ? "text-yellow-400" : "text-gray-200"
-                  }`}
+                  className="rounded-md px-3 py-3 text-sm uppercase tracking-widest text-gray-200 transition-colors hover:bg-white/5"
                 >
                   {link.label}
                 </Link>
@@ -147,6 +188,9 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
               >
                 {user ? "My Account" : "Sign In"}
               </Link>
+              <div className="mt-2 border-t border-white/5 px-3 pt-3">
+                <CurrencyLanguageMenu />
+              </div>
             </div>
           </motion.div>
         )}
