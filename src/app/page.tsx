@@ -1,9 +1,22 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 import { HeroSection } from "@/components/HeroSection";
 import { PromoCards, type PromoItem } from "@/components/home/PromoCards";
 import { ProductRow } from "@/components/home/ProductRow";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+
+/** Prefer a dedicated hero/promo image (public/<slug>.<ext>) if the admin has
+ *  dropped one in; otherwise fall back to the category's product image. */
+function promoImage(slug: string, fallback: string | null): string | null {
+  for (const ext of ["jpg", "jpeg", "png", "webp", "avif"]) {
+    const rel = `${slug}.${ext}`;
+    if (existsSync(path.join(process.cwd(), "public", rel))) return `/${rel}`;
+  }
+  return fallback;
+}
 
 const PROMO_META: Record<string, { name: string; tagline: string }> = {
   men: { name: "Men", tagline: "Sophisticated styles for the modern man." },
@@ -36,7 +49,7 @@ export default async function Home() {
     slug,
     name: PROMO_META[slug].name,
     tagline: PROMO_META[slug].tagline,
-    imageUrl: imgByCat[slug] ?? null,
+    imageUrl: promoImage(slug, imgByCat[slug] ?? null),
   }));
 
   // Derived product rows from the catalogue.
