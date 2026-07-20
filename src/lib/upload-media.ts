@@ -1,22 +1,16 @@
 "use client";
 
-import * as tus from "tus-js-client";
-
-import { publicEnv } from "@/config/env";
 import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
 
 /**
- * Browser → Supabase Storage upload using RESUMABLE (TUS) uploads.
- *
- * Resumable/chunked uploads are Supabase's recommended path for anything larger
- * than a few MB (i.e. videos): they upload in 6 MB chunks, automatically retry
- * on network hiccups, and expose real progress — far more reliable than a single
- * large request. The admin's session JWT authorises the write (storage RLS).
+ * Browser → Supabase Storage upload using the official supabase-js client
+ * (`storage.from().upload()`). This is the same client the app already uses for
+ * auth/data, so the session, CORS and content-type are all handled correctly —
+ * no custom headers or third-party upload libraries that can misbehave in the
+ * browser. Works for images and videos alike (up to the project's size limit).
  */
 
 const BUCKET = "product-images";
-// Supabase requires resumable chunks of exactly 6 MB (except the final chunk).
-const CHUNK_SIZE = 6 * 1024 * 1024;
 
 // The Supabase project upload ceiling is 50 MB (raise it in Storage settings to
 // allow larger). Keep client caps at/under that so oversized files fail fast.
@@ -91,73 +85,53 @@ export function uploadMediaWithProgress(
   const kind: MediaType = mediaKind(file) ?? "image";
   const contentType = resolveContentType(file, kind);
   const ext = fileExt(file) || (kind === "video" ? "mp4" : "jpg");
-  const objectName = `products/${crypto.randomUUID()}.${ext}`;
+  const path = `products/${crypto.randomUUID()}.${ext}`;
 
-  let upload: tus.Upload | null = null;
+  let cancelled = false;
+  // Coarse progress: supabase-js upload() resolves on completion without
+  // streaming progress, so we nudge the bar at start and finish at 100%.
+  let timer: ReturnType<typeof setInterval> | null = null;
 
-  const promise = new Promise<UploadResult>((resolve, reject) => {
+  const promise = (async (): Promise<UploadResult> => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const token = data.session?.access_token;
-        if (!token) {
-          reject(new Error("Your session expired — sign in again."));
-          return;
-        }
 
-        upload = new tus.Upload(file, {
-          endpoint: `${publicEnv.supabaseUrl}/storage/v1/upload/resumable`,
-          retryDelays: [0, 3000, 5000, 10000, 20000],
-          headers: {
-            authorization: `Bearer ${token}`,
-            apikey: publicEnv.supabasePublishableKey,
-            "x-upsert": "false",
-          },
-          uploadDataDuringCreation: true,
-          removeFingerprintOnSuccess: true,
-          chunkSize: CHUNK_SIZE,
-          metadata: {
-            bucketName: BUCKET,
-            objectName,
-            contentType,
-            cacheControl: "3600",
-          },
-          onError: (error) => {
-            const anyErr = error as { originalResponse?: { getStatus?: () => number } };
-            const status = anyErr?.originalResponse?.getStatus?.();
-            reject(
-              new Error(
-                status === 413
-                  ? "That file exceeds the server upload limit."
-                  : error?.message || "Upload failed. Please try again.",
-              ),
-            );
-          },
-          onProgress: (uploaded, total) => {
-            if (total > 0) onProgress(Math.round((uploaded / total) * 100));
-          },
-          onSuccess: () => {
-            onProgress(100);
-            resolve({ path: objectName, mediaType: kind });
-          },
-        });
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      throw new Error("Your session expired — please sign in again.");
+    }
 
-        upload
-          .findPreviousUploads()
-          .then((prev) => {
-            if (prev.length > 0) upload!.resumeFromPreviousUpload(prev[0]);
-            upload!.start();
-          })
-          .catch(() => upload!.start());
-      })
-      .catch(reject);
-  });
+    // Animate the bar towards 90% while the upload is in flight.
+    let pct = 5;
+    onProgress(pct);
+    timer = setInterval(() => {
+      pct = Math.min(90, pct + 5);
+      onProgress(pct);
+    }, 400);
+
+    try {
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { contentType, upsert: false });
+
+      if (cancelled) {
+        await supabase.storage.from(BUCKET).remove([path]).catch(() => undefined);
+        throw new Error("Upload cancelled.");
+      }
+      if (error) {
+        throw new Error(error.message || "Upload failed. Please try again.");
+      }
+      onProgress(100);
+      return { path, mediaType: kind };
+    } finally {
+      if (timer) clearInterval(timer);
+    }
+  })();
 
   return {
     promise,
     abort: () => {
-      void upload?.abort(true);
+      cancelled = true;
+      if (timer) clearInterval(timer);
     },
   };
 }
