@@ -5,7 +5,9 @@ import { DEFAULT_NGN_PER_USD } from "@/domain/shipping/currency";
 import type { ExchangeRate, RateMode } from "@/domain/exchange-rate";
 import { fetchLiveNgnPerUsd } from "./fetch-rate";
 
-const REFRESH_MS = 60 * 60 * 1000; // refresh at least hourly (auto mode)
+// Configurable refresh interval (minutes); defaults to hourly.
+const REFRESH_MINUTES = Number(process.env.EXCHANGE_RATE_REFRESH_MINUTES) || 60;
+const REFRESH_MS = REFRESH_MINUTES * 60 * 1000;
 const MEMO_TTL_MS = 30 * 1000; // short in-memory cache to avoid per-request DB hits
 
 let memo: { at: number; value: ExchangeRate } | null = null;
