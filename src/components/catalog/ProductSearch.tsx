@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 import type { ProductSummary } from "@/domain/entities/product";
-import { formatMoney } from "@/domain/shared/money";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { ProductGrid } from "./ProductGrid";
 
 const MAX_SUGGESTIONS = 6;
@@ -81,6 +81,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 
 export function ProductSearch({ products }: { products: ProductSummary[] }) {
   const router = useRouter();
+  const { format } = useCurrency();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -213,7 +214,7 @@ export function ProductSearch({ products }: { products: ProductSummary[] }) {
                         <Highlight text={p.name} query={query} />
                       </span>
                       <span className="text-xs text-yellow-400/90">
-                        {formatMoney(p.price, p.currency)}
+                        {format(p.price)}
                       </span>
                     </span>
                   </Link>

@@ -7,9 +7,9 @@ import { motion } from "framer-motion";
 import { Check, LogIn, Play, ShoppingBag } from "lucide-react";
 
 import type { ProductWithDetails } from "@/domain/entities/product";
-import { formatMoney } from "@/domain/shared/money";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 import { useCart } from "@/components/cart/CartProvider";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 
 export function ProductDetail({
   product,
@@ -20,6 +20,7 @@ export function ProductDetail({
 }) {
   const router = useRouter();
   const { addItem } = useCart();
+  const { format } = useCurrency();
   const media =
     product.images.length > 0
       ? product.images.map((img) => ({
@@ -124,7 +125,7 @@ export function ProductDetail({
       <div className="flex flex-col">
         <h1 className="text-3xl font-bold sm:text-4xl">{product.name}</h1>
         <p className="mt-4 text-2xl font-semibold text-yellow-400">
-          {formatMoney(product.price, product.currency)}
+          {format(product.price)}
         </p>
         {product.description && (
           <p className="mt-6 leading-relaxed text-gray-300">

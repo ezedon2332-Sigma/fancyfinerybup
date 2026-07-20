@@ -5,10 +5,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 
 import type { ProductSummary } from "@/domain/entities/product";
-import { formatMoney } from "@/domain/shared/money";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 
 export function ProductCard({ product }: { product: ProductSummary }) {
+  const { format } = useCurrency();
   const isVideo = product.primaryImage?.mediaType === "video";
   const src = product.primaryImage
     ? resolveImageUrl(product.primaryImage.storagePath)
@@ -53,7 +54,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
             {product.name}
           </h3>
           <p className="whitespace-nowrap text-sm font-semibold text-yellow-400">
-            {formatMoney(product.price, product.currency)}
+            {format(product.price)}
           </p>
         </div>
       </Link>
