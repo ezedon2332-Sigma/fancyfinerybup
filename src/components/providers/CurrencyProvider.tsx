@@ -11,6 +11,8 @@ interface CurrencyContextValue {
   setCurrency: (c: DisplayCurrency) => void;
   /** NGN per 1 USD. */
   rate: number;
+  /** ISO timestamp the rate was last refreshed (for the selector). */
+  updatedAt: string | null;
   /** Format an NGN-minor-units (kobo) amount in the selected display currency. */
   format: (ngnMinor: number) => string;
 }
@@ -25,9 +27,11 @@ const STORAGE_KEY = "ff.currency";
  */
 export function CurrencyProvider({
   rate,
+  updatedAt = null,
   children,
 }: {
   rate: number;
+  updatedAt?: string | null;
   children: React.ReactNode;
 }) {
   const [currency, setCurrencyState] = useState<DisplayCurrency>("NGN");
@@ -58,7 +62,7 @@ export function CurrencyProvider({
   );
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, rate, format }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, rate, updatedAt, format }}>
       {children}
     </CurrencyContext.Provider>
   );
