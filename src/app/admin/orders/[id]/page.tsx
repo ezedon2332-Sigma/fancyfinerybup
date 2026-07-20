@@ -49,11 +49,39 @@ export default async function AdminOrderDetail({
             </div>
           ))}
         </div>
-        <div className="mt-4 flex justify-between border-t border-white/10 pt-4 font-semibold">
-          <span>Total</span>
-          <span>{formatMoney(order.total, order.currency)}</span>
+        <div className="mt-4 space-y-1 border-t border-white/10 pt-4 text-sm">
+          <div className="flex justify-between text-gray-300">
+            <span>Subtotal</span>
+            <span>{formatMoney(order.subtotal, order.currency)}</span>
+          </div>
+          <div className="flex justify-between text-gray-300">
+            <span>
+              Shipping{order.shippingMethod ? ` · ${order.shippingMethod}` : ""}
+            </span>
+            <span>
+              {order.shippingCost === 0
+                ? "FREE"
+                : formatMoney(order.shippingCost, order.currency)}
+            </span>
+          </div>
+          <div className="flex justify-between border-t border-white/10 pt-2 font-semibold">
+            <span>Total</span>
+            <span>{formatMoney(order.total, order.currency)}</span>
+          </div>
         </div>
       </div>
+
+      {order.trackingNumber && (
+        <div className="mt-6 rounded-2xl border border-yellow-600/30 bg-neutral-950/60 p-6">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-300">
+            Shipment
+          </h2>
+          <p className="mt-2 text-sm text-gray-300">
+            Tracking number:{" "}
+            <span className="font-mono text-yellow-400">{order.trackingNumber}</span>
+          </p>
+        </div>
+      )}
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-300">
@@ -66,8 +94,10 @@ export default async function AdminOrderDetail({
           <p>
             {[
               order.shipping.address,
+              order.shipping.apartment,
               order.shipping.city,
               order.shipping.state,
+              order.shipping.postal,
               order.shipping.country,
             ]
               .filter(Boolean)
