@@ -1,20 +1,25 @@
 "use client";
 
+import * as tus from "tus-js-client";
+
 import { publicEnv } from "@/config/env";
 import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
 
 /**
- * Direct browser → Supabase Storage upload with real progress.
+ * Browser → Supabase Storage upload using RESUMABLE (TUS) uploads.
  *
- * The admin's own session JWT authorises the write (storage RLS gates inserts),
- * so no server round-trip is needed and we can stream `xhr.upload.onprogress`
- * into a per-file progress bar.
+ * Resumable/chunked uploads are Supabase's recommended path for anything larger
+ * than a few MB (i.e. videos): they upload in 6 MB chunks, automatically retry
+ * on network hiccups, and expose real progress — far more reliable than a single
+ * large request. The admin's session JWT authorises the write (storage RLS).
  */
 
 const BUCKET = "product-images";
+// Supabase requires resumable chunks of exactly 6 MB (except the final chunk).
+const CHUNK_SIZE = 6 * 1024 * 1024;
 
-// Supabase project upload ceiling is 50MB (raise it in Storage settings to allow
-// larger). Keep the client caps at/under that so oversized files fail fast.
+// The Supabase project upload ceiling is 50 MB (raise it in Storage settings to
+// allow larger). Keep client caps at/under that so oversized files fail fast.
 export const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25 MB
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB (project ceiling)
 
@@ -33,7 +38,6 @@ export interface UploadHandle {
 const VIDEO_EXT = ["mp4", "mov", "webm", "m4v", "ogv", "avi", "mkv", "3gp", "3g2"];
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp", "avif", "gif", "heic", "heif", "bmp"];
 
-/** Common extension → MIME (used when the browser leaves file.type blank). */
 const EXT_MIME: Record<string, string> = {
   mp4: "video/mp4",
   m4v: "video/mp4",
@@ -61,7 +65,6 @@ export function mediaKind(file: File): MediaType | null {
   return null;
 }
 
-/** The content-type to store the object under (so videos play back correctly). */
 function resolveContentType(file: File, kind: MediaType): string {
   if (file.type) return file.type;
   const ext = fileExt(file);
@@ -88,8 +91,9 @@ export function uploadMediaWithProgress(
   const kind: MediaType = mediaKind(file) ?? "image";
   const contentType = resolveContentType(file, kind);
   const ext = fileExt(file) || (kind === "video" ? "mp4" : "jpg");
-  const path = `products/${crypto.randomUUID()}.${ext}`;
-  const xhr = new XMLHttpRequest();
+  const objectName = `products/${crypto.randomUUID()}.${ext}`;
+
+  let upload: tus.Upload | null = null;
 
   const promise = new Promise<UploadResult>((resolve, reject) => {
     const supabase = createSupabaseBrowserClient();
@@ -102,43 +106,58 @@ export function uploadMediaWithProgress(
           return;
         }
 
-        const endpoint = `${publicEnv.supabaseUrl}/storage/v1/object/${BUCKET}/${path}`;
-        xhr.open("POST", endpoint);
-        xhr.setRequestHeader("authorization", `Bearer ${token}`);
-        xhr.setRequestHeader("apikey", publicEnv.supabasePublishableKey);
-        xhr.setRequestHeader("x-upsert", "false");
-        xhr.setRequestHeader("content-type", contentType);
-        xhr.setRequestHeader("cache-control", "3600");
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            onProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
+        upload = new tus.Upload(file, {
+          endpoint: `${publicEnv.supabaseUrl}/storage/v1/upload/resumable`,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            authorization: `Bearer ${token}`,
+            apikey: publicEnv.supabasePublishableKey,
+            "x-upsert": "false",
+          },
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          chunkSize: CHUNK_SIZE,
+          metadata: {
+            bucketName: BUCKET,
+            objectName,
+            contentType,
+            cacheControl: "3600",
+          },
+          onError: (error) => {
+            const anyErr = error as { originalResponse?: { getStatus?: () => number } };
+            const status = anyErr?.originalResponse?.getStatus?.();
+            reject(
+              new Error(
+                status === 413
+                  ? "That file exceeds the server upload limit."
+                  : error?.message || "Upload failed. Please try again.",
+              ),
+            );
+          },
+          onProgress: (uploaded, total) => {
+            if (total > 0) onProgress(Math.round((uploaded / total) * 100));
+          },
+          onSuccess: () => {
             onProgress(100);
-            resolve({ path, mediaType: kind });
-          } else {
-            let msg = `Upload failed (${xhr.status}).`;
-            try {
-              const body = JSON.parse(xhr.responseText);
-              msg = body.message || body.error || msg;
-            } catch {
-              /* non-JSON error body */
-            }
-            if (xhr.status === 413) {
-              msg = "That file exceeds the server upload limit.";
-            }
-            reject(new Error(msg));
-          }
-        };
-        xhr.onerror = () => reject(new Error("Network error during upload."));
-        xhr.onabort = () => reject(new Error("Upload cancelled."));
-        xhr.send(file);
+            resolve({ path: objectName, mediaType: kind });
+          },
+        });
+
+        upload
+          .findPreviousUploads()
+          .then((prev) => {
+            if (prev.length > 0) upload!.resumeFromPreviousUpload(prev[0]);
+            upload!.start();
+          })
+          .catch(() => upload!.start());
       })
       .catch(reject);
   });
 
-  return { promise, abort: () => xhr.abort() };
+  return {
+    promise,
+    abort: () => {
+      void upload?.abort(true);
+    },
+  };
 }
