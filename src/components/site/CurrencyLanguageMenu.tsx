@@ -8,6 +8,18 @@ import { useLanguage, LANGUAGES } from "@/components/providers/LanguageProvider"
 
 const CURRENCIES: DisplayCurrency[] = ["NGN", "USD"];
 
+function timeAgo(iso: string | null): string {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(diff) || diff < 0) return "just now";
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 function Dropdown({
   label,
   icon,
@@ -47,7 +59,7 @@ function Dropdown({
 }
 
 export function CurrencyLanguageMenu() {
-  const { currency, setCurrency } = useCurrency();
+  const { currency, setCurrency, rate, updatedAt } = useCurrency();
   const { language, setLanguage } = useLanguage();
   const langLabel =
     LANGUAGES.find((l) => l.code === language)?.label ?? "English";
@@ -75,8 +87,15 @@ export function CurrencyLanguageMenu() {
       </Dropdown>
       <span className="text-white/15">|</span>
       <Dropdown label={currency}>
-        {(close) =>
-          CURRENCIES.map((c) => (
+        {(close) => (
+          <>
+            <div className="border-b border-white/5 px-3 py-2 text-[10px] leading-tight text-gray-400">
+              1 USD = ₦{rate.toLocaleString()}
+              <span className="mt-0.5 block text-gray-500">
+                Rate updated {timeAgo(updatedAt)}
+              </span>
+            </div>
+            {CURRENCIES.map((c) => (
             <button
               key={c}
               type="button"
@@ -90,8 +109,9 @@ export function CurrencyLanguageMenu() {
             >
               {c === "NGN" ? "₦ NGN" : "$ USD"}
             </button>
-          ))
-        }
+            ))}
+          </>
+        )}
       </Dropdown>
     </div>
   );

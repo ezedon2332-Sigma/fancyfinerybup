@@ -26,7 +26,8 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { CurrencyProvider } from "@/components/providers/CurrencyProvider";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
-import { getShippingRepository } from "@/infrastructure/supabase/shipping-service";
+import { RateChangeNotifier } from "@/components/providers/RateChangeNotifier";
+import { getExchangeRate } from "@/infrastructure/exchange-rate/service";
 import { DEFAULT_NGN_PER_USD } from "@/domain/shipping/currency";
 
 export default async function RootLayout({
@@ -35,11 +36,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   let ngnPerUsd = DEFAULT_NGN_PER_USD;
+  let rateUpdatedAt: string | null = null;
   try {
-    ngnPerUsd = (await getShippingRepository().then((r) => r.getSettings()))
-      .ngnPerUsd;
+    const er = await getExchangeRate();
+    ngnPerUsd = er.ngnPerUsd;
+    rateUpdatedAt = er.updatedAt;
   } catch {
-    /* shipping settings unavailable — use default rate */
+    /* exchange rate unavailable — use default rate */
   }
 
   return (
@@ -49,11 +52,12 @@ export default async function RootLayout({
     >
       <body className="flex min-h-full flex-col bg-black text-white">
         <LanguageProvider>
-          <CurrencyProvider rate={ngnPerUsd}>
+          <CurrencyProvider rate={ngnPerUsd} updatedAt={rateUpdatedAt}>
             <CartProvider>
               <SiteHeader />
               <main className="flex-1 pt-16 lg:pt-[104px]">{children}</main>
               <SiteFooter />
+              <RateChangeNotifier />
             </CartProvider>
           </CurrencyProvider>
         </LanguageProvider>

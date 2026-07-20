@@ -391,16 +391,25 @@ export interface Database {
         Row: {
           id: boolean;
           ngn_per_usd: number;
+          rate_mode: string;
+          rate_source: string | null;
+          rate_updated_at: string | null;
           updated_at: string;
         };
         Insert: {
           id?: boolean;
           ngn_per_usd?: number;
+          rate_mode?: string;
+          rate_source?: string | null;
+          rate_updated_at?: string | null;
           updated_at?: string;
         };
         Update: {
           id?: boolean;
           ngn_per_usd?: number;
+          rate_mode?: string;
+          rate_source?: string | null;
+          rate_updated_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];
