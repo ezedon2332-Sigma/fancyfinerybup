@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { FooterRates } from "./FooterRates";
-
 type BrandIconProps = { className?: string };
 
 function InstagramIcon({ className }: BrandIconProps) {
@@ -135,8 +133,6 @@ export function SiteFooter() {
           </div>
         </div>
       </div>
-
-      <FooterRates />
 
       <div className="border-t border-white/5 px-6 py-6 text-center text-xs text-gray-500">
         © {new Date().getFullYear()}{" "}
