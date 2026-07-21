@@ -19,6 +19,7 @@ import {
 
 import { useCart } from "@/components/cart/CartProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { LiveRateTicker } from "./LiveRateTicker";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -42,6 +43,9 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
+      {/* Live exchange-rate ticker (top of everything) */}
+      <LiveRateTicker />
+
       {/* Top utility bar */}
       <div className="hidden border-b border-white/5 lg:block">
         <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">

@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
 import { DEFAULT_NGN_PER_USD } from "@/domain/shipping/currency";
 import type { ExchangeRate, RateMode } from "@/domain/exchange-rate";
-import { fetchLiveNgnPerUsd } from "./fetch-rate";
+import { fetchLiveNgnPerUsd, fetchDisplayRates, type DisplayRates } from "./fetch-rate";
 
 // Configurable refresh interval (minutes); defaults to hourly.
 const REFRESH_MINUTES = Number(process.env.EXCHANGE_RATE_REFRESH_MINUTES) || 60;
@@ -11,6 +11,29 @@ const REFRESH_MS = REFRESH_MINUTES * 60 * 1000;
 const MEMO_TTL_MS = 30 * 1000; // short in-memory cache to avoid per-request DB hits
 
 let memo: { at: number; value: ExchangeRate } | null = null;
+let displayMemo: { at: number; value: DisplayRates } | null = null;
+
+/** NGN per USD / EUR / GBP for the rate ticker. Live, cached, with fallback. */
+export async function getDisplayRates(): Promise<DisplayRates> {
+  if (displayMemo && Date.now() - displayMemo.at < REFRESH_MS) {
+    return displayMemo.value;
+  }
+  const live = await fetchDisplayRates();
+  if (live) {
+    displayMemo = { at: Date.now(), value: live };
+    return live;
+  }
+  if (displayMemo) return displayMemo.value;
+  // Last resort (API unavailable, no cache): base off the effective USD rate.
+  const usd = (await getExchangeRate()).ngnPerUsd;
+  const value: DisplayRates = {
+    usd,
+    eur: Math.round(usd * 1.08),
+    gbp: Math.round(usd * 1.27),
+  };
+  displayMemo = { at: Date.now(), value };
+  return value;
+}
 
 type SettingsRow = {
   ngn_per_usd?: number | null;

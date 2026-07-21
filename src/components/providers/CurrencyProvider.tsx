@@ -6,11 +6,19 @@ import { formatMoney } from "@/domain/shared/money";
 
 export type DisplayCurrency = "NGN" | "USD";
 
+export interface DisplayRates {
+  usd: number;
+  eur: number;
+  gbp: number;
+}
+
 interface CurrencyContextValue {
   currency: DisplayCurrency;
   setCurrency: (c: DisplayCurrency) => void;
   /** NGN per 1 USD. */
   rate: number;
+  /** NGN per 1 USD / EUR / GBP — for the informational live-rate ticker. */
+  rates: DisplayRates;
   /** ISO timestamp the rate was last refreshed (for the selector). */
   updatedAt: string | null;
   /** Format an NGN-minor-units (kobo) amount in the selected display currency. */
@@ -27,13 +35,20 @@ const STORAGE_KEY = "ff.currency";
  */
 export function CurrencyProvider({
   rate,
+  rates,
   updatedAt = null,
   children,
 }: {
   rate: number;
+  rates?: DisplayRates;
   updatedAt?: string | null;
   children: React.ReactNode;
 }) {
+  const displayRates: DisplayRates = rates ?? {
+    usd: rate,
+    eur: rate,
+    gbp: rate,
+  };
   const [currency, setCurrencyState] = useState<DisplayCurrency>("NGN");
 
   useEffect(() => {
@@ -62,7 +77,7 @@ export function CurrencyProvider({
   );
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, rate, updatedAt, format }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, rate, rates: displayRates, updatedAt, format }}>
       {children}
     </CurrencyContext.Provider>
   );

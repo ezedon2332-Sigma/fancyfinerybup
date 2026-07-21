@@ -45,3 +45,33 @@ export async function fetchLiveNgnPerUsd(): Promise<{
   }
   return null;
 }
+
+/** NGN per 1 unit of USD / EUR / GBP, for the informational rate ticker. */
+export interface DisplayRates {
+  usd: number;
+  eur: number;
+  gbp: number;
+}
+
+export async function fetchDisplayRates(): Promise<DisplayRates | null> {
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const j = await res.json();
+      const r = j?.rates;
+      if (r?.NGN > 0 && r?.EUR > 0 && r?.GBP > 0) {
+        // r.X = units of X per 1 USD. NGN per 1 EUR = (NGN/USD) / (EUR/USD).
+        return {
+          usd: Math.round(r.NGN),
+          eur: Math.round(r.NGN / r.EUR),
+          gbp: Math.round(r.NGN / r.GBP),
+        };
+      }
+    }
+  } catch {
+    /* fall back handled by caller */
+  }
+  return null;
+}
