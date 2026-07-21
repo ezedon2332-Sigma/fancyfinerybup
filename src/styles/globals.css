@@ -78,12 +78,43 @@ body {
   }
 }
 
+/* Intro splash — shimmering gold light that sweeps across the logo. */
+.intro-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(250, 204, 21, 0.9) 50%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  mix-blend-mode: screen;
+  animation: intro-sweep 1.6s ease-in-out 0.4s both;
+}
+
+@keyframes intro-sweep {
+  0% {
+    background-position: 200% 0;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    background-position: -60% 0;
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
   .animate-fade-up,
-  .animate-ken-burns {
+  .animate-ken-burns,
+  .intro-sweep {
     animation: none;
   }
 }

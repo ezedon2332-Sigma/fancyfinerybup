@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { IntroSplash } from "@/components/site/IntroSplash";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
 import { RecentlyViewedProvider } from "@/components/recent/RecentlyViewedProvider";
@@ -66,6 +67,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-black text-white">
+        <IntroSplash />
         <LanguageProvider>
           <CurrencyProvider rate={ngnPerUsd} rates={displayRates} updatedAt={rateUpdatedAt}>
             <CartProvider>
