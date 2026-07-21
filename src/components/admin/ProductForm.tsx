@@ -26,7 +26,7 @@ import { productSchema } from "@/lib/validation";
 import { saveProduct } from "@/app/admin/products/actions";
 import type { AdminProductDetail } from "@/infrastructure/supabase/admin-service";
 
-const MAX_MEDIA = 12;
+const MAX_MEDIA = 100;
 
 interface CategoryOption {
   id: string;

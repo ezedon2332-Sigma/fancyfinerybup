@@ -80,7 +80,7 @@ export const productSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   status: z.enum(["draft", "published", "archived"]),
   featured: z.boolean(),
-  media: z.array(productMediaSchema).max(12),
+  media: z.array(productMediaSchema).max(100),
   variants: z.array(productVariantSchema).max(50),
 });
 
