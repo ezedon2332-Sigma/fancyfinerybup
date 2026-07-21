@@ -19,6 +19,7 @@ import {
 
 import { useCart } from "@/components/cart/CartProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { CurrencySwitcher } from "./CurrencySwitcher";
 import { LiveRateTicker } from "./LiveRateTicker";
 
 const LINKS = [
@@ -117,6 +118,8 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
         {/* Actions */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {/* Always-visible currency selector */}
+          <CurrencySwitcher />
           <Link
             href="/collections"
             aria-label="Search"
