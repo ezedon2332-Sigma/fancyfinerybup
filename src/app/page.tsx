@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { HeroSection } from "@/components/HeroSection";
-import { LiveRateBadge } from "@/components/home/LiveRateBadge";
 import { PromoCards, type PromoItem } from "@/components/home/PromoCards";
 import { ProductRow } from "@/components/home/ProductRow";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
@@ -71,7 +70,6 @@ export default async function Home() {
   return (
     <div>
       <HeroSection />
-      <LiveRateBadge />
       <PromoCards items={promoItems} />
       <ProductRow eyebrow="Just In" title="New Arrivals" viewAllHref="/collections" products={newArrivals} />
       <ProductRow eyebrow="Handpicked" title="Featured Collection" viewAllHref="/collections" products={featuredRow} />

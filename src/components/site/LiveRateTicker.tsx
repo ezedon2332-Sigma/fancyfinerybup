@@ -36,7 +36,7 @@ export function LiveRateTicker() {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
           </span>
           <span className="font-semibold uppercase tracking-widest text-green-400">
-            Live Rate
+            Live Exchange Rate
           </span>
         </span>
 
