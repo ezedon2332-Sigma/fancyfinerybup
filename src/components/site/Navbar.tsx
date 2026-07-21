@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { LiveRateTicker } from "./LiveRateTicker";
@@ -36,6 +37,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { count, openCart } = useCart();
+  const { count: wishCount } = useWishlist();
 
   const isActive = (href: string) => {
     const base = href.split("?")[0];
@@ -128,13 +130,18 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           >
             <Search className="h-5 w-5" />
           </Link>
-          <button
-            type="button"
+          <Link
+            href="/wishlist"
             aria-label="Wishlist"
-            className="hidden rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 sm:inline-flex"
+            className="relative hidden rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 sm:inline-flex"
           >
             <Heart className="h-5 w-5" />
-          </button>
+            {wishCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-black">
+                {wishCount}
+              </span>
+            )}
+          </Link>
           <button
             type="button"
             aria-label="Bag"

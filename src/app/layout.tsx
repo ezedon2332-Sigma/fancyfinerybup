@@ -31,6 +31,8 @@ export const metadata: Metadata = {
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
+import { RecentlyViewedProvider } from "@/components/recent/RecentlyViewedProvider";
 import { CurrencyProvider } from "@/components/providers/CurrencyProvider";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
 import { RateChangeNotifier } from "@/components/providers/RateChangeNotifier";
@@ -67,10 +69,14 @@ export default async function RootLayout({
         <LanguageProvider>
           <CurrencyProvider rate={ngnPerUsd} rates={displayRates} updatedAt={rateUpdatedAt}>
             <CartProvider>
-              <SiteHeader />
-              <main className="flex-1 pt-28 lg:pt-[136px]">{children}</main>
-              <SiteFooter />
-              <RateChangeNotifier />
+              <WishlistProvider>
+                <RecentlyViewedProvider>
+                  <SiteHeader />
+                  <main className="flex-1 pt-28 lg:pt-[136px]">{children}</main>
+                  <SiteFooter />
+                  <RateChangeNotifier />
+                </RecentlyViewedProvider>
+              </WishlistProvider>
             </CartProvider>
           </CurrencyProvider>
         </LanguageProvider>

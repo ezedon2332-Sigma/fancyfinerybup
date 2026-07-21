@@ -4,9 +4,13 @@ import type { Metadata } from "next";
 import { ChevronLeft } from "lucide-react";
 
 import { ProductDetail } from "@/components/catalog/ProductDetail";
-import { getProductBySlug } from "@/application/use-cases/catalog";
+import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { TrackView } from "@/components/recent/TrackView";
+import { RecentlyViewedRow } from "@/components/recent/RecentlyViewedRow";
+import { getProductBySlug, listProducts } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
+import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 
 type Params = { slug: string };
 
@@ -32,21 +36,59 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const deps = await getCatalogDeps();
-  const [product, user] = await Promise.all([
+  const [product, user, allProducts] = await Promise.all([
     getProductBySlug(deps, slug),
     getCurrentUser(),
+    listProducts(deps),
   ]);
   if (!product) notFound();
 
+  // Recommendations — same category first, then fill with others.
+  const sameCategory = allProducts.filter(
+    (p) => p.id !== product.id && p.categoryId === product.categoryId,
+  );
+  const others = allProducts.filter(
+    (p) => p.id !== product.id && p.categoryId !== product.categoryId,
+  );
+  const related = [...sameCategory, ...others].slice(0, 4);
+
+  const thumb =
+    product.images.find((m) => m.mediaType === "image") ?? product.images[0];
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">
+      <TrackView
+        item={{
+          productId: product.id,
+          slug: product.slug,
+          name: product.name,
+          price: product.price,
+          image: thumb ? resolveImageUrl(thumb.storagePath) : "/image.jpeg",
+        }}
+      />
+
       <Link
         href="/collections"
         className="mb-8 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-yellow-400"
       >
         <ChevronLeft className="h-4 w-4" /> Back to collections
       </Link>
+
       <ProductDetail product={product} isAuthenticated={Boolean(user)} />
+
+      {related.length > 0 && (
+        <section className="mt-16">
+          <p className="text-xs uppercase tracking-[6px] text-yellow-500">
+            Curated for you
+          </p>
+          <h2 className="mt-2 text-2xl font-bold sm:text-3xl">You may also like</h2>
+          <div className="mt-6">
+            <ProductGrid products={related} />
+          </div>
+        </section>
+      )}
+
+      <RecentlyViewedRow currentId={product.id} />
     </div>
   );
 }
