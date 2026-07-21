@@ -28,6 +28,7 @@ const LINKS = [
   { href: "/collections?category=women", label: "Women" },
   { href: "/collections?category=children", label: "Children" },
   { href: "/collections", label: "Collections" },
+  { href: "/lookbook", label: "Lookbook" },
   { href: "/contact", label: "Contact" },
 ];
 

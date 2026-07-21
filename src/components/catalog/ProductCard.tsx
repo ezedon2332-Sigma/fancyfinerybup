@@ -24,7 +24,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
       <Link href={`/products/${product.slug}`} className="group block">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-900">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-900 ring-1 ring-transparent transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-2xl group-hover:shadow-black/60 group-hover:ring-yellow-500/40">
           {isVideo ? (
             <video
               src={src}
