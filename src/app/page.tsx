@@ -33,11 +33,12 @@ export default async function Home() {
     listCategories(deps),
   ]);
 
-  // Category image lookup (first product with media in each category).
+  // Category image lookup — first product with an actual IMAGE (skip
+  // video-only products; a video URL can't render as a static promo image).
   const imgByCat: Record<string, string | null> = {};
   for (const cat of categories) {
     const sample = products.find(
-      (p) => p.categoryId === cat.id && p.primaryImage,
+      (p) => p.categoryId === cat.id && p.primaryImage?.mediaType === "image",
     );
     imgByCat[cat.slug] = sample?.primaryImage
       ? resolveImageUrl(sample.primaryImage.storagePath)
