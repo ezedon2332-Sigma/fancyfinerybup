@@ -241,6 +241,9 @@ export interface Database {
           shipping_postal: string | null;
           shipping_apartment: string | null;
           tracking_number: string | null;
+          payment_status: string;
+          payment_provider: string | null;
+          paid_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -267,6 +270,9 @@ export interface Database {
           shipping_postal?: string | null;
           shipping_apartment?: string | null;
           tracking_number?: string | null;
+          payment_status?: string;
+          payment_provider?: string | null;
+          paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -293,6 +299,9 @@ export interface Database {
           shipping_postal?: string | null;
           shipping_apartment?: string | null;
           tracking_number?: string | null;
+          payment_status?: string;
+          payment_provider?: string | null;
+          paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

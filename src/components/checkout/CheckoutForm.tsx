@@ -10,6 +10,7 @@ import { useCart } from "@/components/cart/CartProvider";
 import { formatMoney } from "@/domain/shared/money";
 import { checkoutSchema } from "@/lib/validation";
 import { placeOrderAction, getShippingQuoteAction } from "@/app/checkout/actions";
+import { startPaymentAction } from "@/app/checkout/payment-actions";
 import type {
   ShippingMethod,
   ShippingQuote,
@@ -53,9 +54,11 @@ function deliveryDate(daysAhead: number): string {
 export function CheckoutForm({
   initial,
   countries,
+  paymentEnabled = false,
 }: {
   initial?: CheckoutInitial;
   countries: CountryOption[];
+  paymentEnabled?: boolean;
 }) {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
@@ -232,6 +235,16 @@ export function CheckoutForm({
     const result = await placeOrderAction(parsed.data);
     if (result.ok && result.orderId) {
       clear();
+      if (paymentEnabled) {
+        const pay = await startPaymentAction(result.orderId);
+        if (pay.ok && pay.url) {
+          window.location.href = pay.url; // redirect to the payment provider
+          return;
+        }
+        // Payment couldn't start — the order is placed; let them pay later.
+        router.push(`/account/orders/${result.orderId}?placed=1`);
+        return;
+      }
       router.push(`/account/orders/${result.orderId}?placed=1`);
     } else {
       setSubmitting(false);
@@ -448,14 +461,19 @@ export function CheckoutForm({
         >
           {submitting ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Placing order…
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {paymentEnabled ? "Redirecting to payment…" : "Placing order…"}
             </>
+          ) : paymentEnabled ? (
+            "Continue to payment"
           ) : (
             "Place order"
           )}
         </button>
         <p className="mt-2 text-center text-xs text-gray-500">
-          Payment on delivery. Online payment coming soon.
+          {paymentEnabled
+            ? "Secure payment • you'll confirm on the next screen."
+            : "Payment on delivery."}
         </p>
       </div>
     </form>

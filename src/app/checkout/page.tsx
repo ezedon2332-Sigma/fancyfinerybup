@@ -4,6 +4,7 @@ import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import type { CountryOption } from "@/components/checkout/CountrySelect";
 import { getCurrentProfile, requireUser } from "@/infrastructure/supabase/auth";
 import { getShippingRepository } from "@/infrastructure/supabase/shipping-service";
+import { onlinePaymentEnabled } from "@/infrastructure/payments/providers";
 import { COUNTRIES } from "@/domain/shipping/countries";
 
 export const metadata: Metadata = { title: "Checkout" };
@@ -43,6 +44,7 @@ export default async function CheckoutPage() {
       <div className="mt-8">
         <CheckoutForm
           countries={countries}
+          paymentEnabled={onlinePaymentEnabled()}
           initial={{
             name: profile?.fullName ?? "",
             email: user.email ?? "",

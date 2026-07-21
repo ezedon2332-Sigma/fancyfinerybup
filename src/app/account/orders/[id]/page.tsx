@@ -15,11 +15,11 @@ export default async function OrderDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string }>;
+  searchParams: Promise<{ placed?: string; paid?: string }>;
 }) {
   await requireUser();
   const { id } = await params;
-  const { placed } = await searchParams;
+  const { placed, paid } = await searchParams;
 
   const orders = await getOrderRepository();
   const order = await orders.findById(id); // RLS: only the owner (or admin) sees it
@@ -27,7 +27,18 @@ export default async function OrderDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 lg:px-10">
-      {placed && (
+      {paid ? (
+        <div className="mb-8 flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/5 p-5">
+          <CheckCircle2 className="h-6 w-6 text-green-400" />
+          <div>
+            <p className="font-semibold text-green-300">Payment received!</p>
+            <p className="text-sm text-gray-400">
+              Thank you — your payment is confirmed and your order is being
+              prepared.
+            </p>
+          </div>
+        </div>
+      ) : placed ? (
         <div className="mb-8 flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/5 p-5">
           <CheckCircle2 className="h-6 w-6 text-green-400" />
           <div>
@@ -37,7 +48,7 @@ export default async function OrderDetailPage({
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Order #{order.id.slice(0, 8)}</h1>
