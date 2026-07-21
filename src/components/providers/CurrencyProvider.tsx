@@ -4,7 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 
 import { formatMoney } from "@/domain/shared/money";
 
-export type DisplayCurrency = "NGN" | "USD";
+export type DisplayCurrency = "NGN" | "USD" | "EUR" | "GBP";
+
+export const DISPLAY_CURRENCIES: DisplayCurrency[] = ["NGN", "USD", "EUR", "GBP"];
 
 export interface DisplayRates {
   usd: number;
@@ -53,7 +55,9 @@ export function CurrencyProvider({
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "USD" || saved === "NGN") setCurrencyState(saved);
+    if (saved && (DISPLAY_CURRENCIES as string[]).includes(saved)) {
+      setCurrencyState(saved as DisplayCurrency);
+    }
   }, []);
 
   const setCurrency = useCallback((c: DisplayCurrency) => {
@@ -67,13 +71,17 @@ export function CurrencyProvider({
 
   const format = useCallback(
     (ngnMinor: number) => {
-      if (currency === "USD") {
-        const r = rate > 0 ? rate : 1600;
-        return formatMoney(Math.round(ngnMinor / r), "USD");
-      }
-      return formatMoney(ngnMinor, "NGN");
+      if (currency === "NGN") return formatMoney(ngnMinor, "NGN");
+      const perUnit =
+        currency === "EUR"
+          ? displayRates.eur
+          : currency === "GBP"
+            ? displayRates.gbp
+            : displayRates.usd;
+      const r = perUnit > 0 ? perUnit : rate > 0 ? rate : 1600;
+      return formatMoney(Math.round(ngnMinor / r), currency);
     },
-    [currency, rate],
+    [currency, rate, displayRates],
   );
 
   return (

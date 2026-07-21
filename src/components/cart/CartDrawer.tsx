@@ -5,12 +5,13 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 
-import { formatMoney } from "@/domain/shared/money";
 import { useCart } from "./CartProvider";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 
 export function CartDrawer() {
   const { items, isOpen, closeCart, removeItem, updateQty, subtotal, count } =
     useCart();
+  const { format } = useCurrency();
 
   return (
     <AnimatePresence>
@@ -133,7 +134,7 @@ export function CartDrawer() {
                             </button>
                           </div>
                           <p className="text-sm font-semibold text-yellow-400">
-                            {formatMoney(item.price * item.qty, item.currency)}
+                            {format(item.price * item.qty)}
                           </p>
                         </div>
                       </div>
@@ -145,7 +146,7 @@ export function CartDrawer() {
                   <div className="mb-4 flex items-center justify-between text-sm">
                     <span className="text-gray-400">Subtotal</span>
                     <span className="text-lg font-semibold">
-                      {formatMoney(subtotal, items[0]?.currency ?? "NGN")}
+                      {format(subtotal)}
                     </span>
                   </div>
                   <Link

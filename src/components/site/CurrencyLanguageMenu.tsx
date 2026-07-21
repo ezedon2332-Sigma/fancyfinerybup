@@ -6,7 +6,13 @@ import { ChevronDown, Globe } from "lucide-react";
 import { useCurrency, type DisplayCurrency } from "@/components/providers/CurrencyProvider";
 import { useLanguage, LANGUAGES } from "@/components/providers/LanguageProvider";
 
-const CURRENCIES: DisplayCurrency[] = ["NGN", "USD"];
+const CURRENCIES: DisplayCurrency[] = ["NGN", "USD", "EUR", "GBP"];
+const CURRENCY_LABEL: Record<DisplayCurrency, string> = {
+  NGN: "₦ NGN",
+  USD: "$ USD",
+  EUR: "€ EUR",
+  GBP: "£ GBP",
+};
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "—";
@@ -59,7 +65,7 @@ function Dropdown({
 }
 
 export function CurrencyLanguageMenu() {
-  const { currency, setCurrency, rate, updatedAt } = useCurrency();
+  const { currency, setCurrency, rates, updatedAt } = useCurrency();
   const { language, setLanguage } = useLanguage();
   const langLabel =
     LANGUAGES.find((l) => l.code === language)?.label ?? "English";
@@ -90,9 +96,11 @@ export function CurrencyLanguageMenu() {
         {(close) => (
           <>
             <div className="border-b border-white/5 px-3 py-2 text-[10px] leading-tight text-gray-400">
-              1 USD = ₦{rate.toLocaleString()}
-              <span className="mt-0.5 block text-gray-500">
-                Rate updated {timeAgo(updatedAt)}
+              <div>$1 = ₦{rates.usd.toLocaleString()}</div>
+              <div>€1 = ₦{rates.eur.toLocaleString()}</div>
+              <div>£1 = ₦{rates.gbp.toLocaleString()}</div>
+              <span className="mt-1 block text-gray-500">
+                Updated {timeAgo(updatedAt)}
               </span>
             </div>
             {CURRENCIES.map((c) => (
@@ -107,7 +115,7 @@ export function CurrencyLanguageMenu() {
                 c === currency ? "text-yellow-400" : "text-gray-200"
               }`}
             >
-              {c === "NGN" ? "₦ NGN" : "$ USD"}
+              {CURRENCY_LABEL[c]}
             </button>
             ))}
           </>
