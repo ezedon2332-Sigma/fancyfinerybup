@@ -408,10 +408,7 @@ export function CheckoutForm({
               </div>
               <div className="flex-1 text-sm">
                 <p className="line-clamp-1">{i.name}</p>
-                <p className="text-gray-400">
-                  {[i.size, i.color].filter(Boolean).join(" · ")}
-                  {(i.size || i.color) && " · "}Qty {i.qty}
-                </p>
+                <p className="text-gray-400">Qty {i.qty}</p>
               </div>
               <p className="text-sm text-yellow-400">
                 {formatMoney(Math.round(i.price * i.qty * convFactor), displayCurrency)}
