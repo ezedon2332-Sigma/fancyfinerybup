@@ -10,6 +10,7 @@ import { TrackView } from "@/components/recent/TrackView";
 import { RecentlyViewedRow } from "@/components/recent/RecentlyViewedRow";
 import { getProductBySlug, listProducts } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 
@@ -63,6 +64,24 @@ export default async function ProductPage({
   ];
   const sku = product.variants.find((v) => v.sku)?.sku ?? null;
 
+  // Load the master colour list for the request dialog (falls back to the
+  // built-in popular colours if the table isn't available).
+  let colorOptions: { name: string; code: string | null }[] = [];
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("colors")
+      .select("color_name, color_code")
+      .eq("active", true)
+      .order("color_name", { ascending: true });
+    colorOptions = (data ?? []).map((c) => ({
+      name: c.color_name,
+      code: c.color_code,
+    }));
+  } catch {
+    /* colours table not migrated yet — dialog uses its built-in list */
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">
       <TrackView
@@ -90,6 +109,7 @@ export default async function ProductPage({
           productName={product.name}
           productSku={sku}
           sizes={sizes}
+          colors={colorOptions}
         />
       </div>
 

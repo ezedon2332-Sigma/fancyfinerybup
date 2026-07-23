@@ -10,18 +10,30 @@ import { submitColorRequestAction } from "@/app/products/color-request-actions";
 
 const CUSTOM = "Custom Color";
 
+export interface ColorOption {
+  name: string;
+  code: string | null;
+}
+
 export function RequestColorSection({
   productId,
   productName,
   productSku,
   sizes,
+  colors,
 }: {
   productId: string;
   productName: string;
   productSku: string | null;
   sizes: string[];
+  colors?: ColorOption[];
 }) {
   const [open, setOpen] = useState(false);
+  // Load from the DB colours; fall back to the built-in popular list.
+  const palette: ColorOption[] =
+    colors && colors.length > 0
+      ? colors
+      : POPULAR_COLORS.map((c) => ({ name: c, code: null }));
   return (
     <div className="mt-6 rounded-2xl border border-yellow-600/30 bg-neutral-950/50 p-5">
       <p className="text-sm font-semibold text-gray-200">Looking for another colour?</p>
@@ -44,6 +56,7 @@ export function RequestColorSection({
             productName={productName}
             productSku={productSku}
             sizes={sizes}
+            palette={palette}
             onClose={() => setOpen(false)}
           />
         )}
@@ -57,12 +70,14 @@ function RequestColorModal({
   productName,
   productSku,
   sizes,
+  palette,
   onClose,
 }: {
   productId: string;
   productName: string;
   productSku: string | null;
   sizes: string[];
+  palette: ColorOption[];
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -91,13 +106,13 @@ function RequestColorModal({
     };
   }, [onClose]);
 
-  const swatches = useMemo(() => {
+  const swatches: ColorOption[] = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = q
-      ? POPULAR_COLORS.filter((c) => c.toLowerCase().includes(q))
-      : [...POPULAR_COLORS];
-    return [...list, CUSTOM];
-  }, [query]);
+      ? palette.filter((c) => c.name.toLowerCase().includes(q))
+      : palette;
+    return [...list, { name: CUSTOM, code: null }];
+  }, [query, palette]);
 
   async function submit() {
     setError(null);
@@ -199,14 +214,14 @@ function RequestColorModal({
                 />
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {swatches.map((c) => {
-                  const selected = color === c;
-                  const isCustomSwatch = c === CUSTOM;
+                {swatches.map((sw) => {
+                  const selected = color === sw.name;
+                  const isCustomSwatch = sw.name === CUSTOM;
                   return (
                     <button
-                      key={c}
+                      key={sw.name}
                       type="button"
-                      onClick={() => setColor(c)}
+                      onClick={() => setColor(sw.name)}
                       className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition-colors ${
                         selected
                           ? "border-yellow-500 bg-yellow-500/10 text-yellow-300"
@@ -221,10 +236,10 @@ function RequestColorModal({
                                 background:
                                   "conic-gradient(from 0deg, #ef4444, #eab308, #22c55e, #3b82f6, #a855f7, #ef4444)",
                               }
-                            : { background: colorHex(c) }
+                            : { background: sw.code ?? colorHex(sw.name) }
                         }
                       />
-                      <span className="truncate">{c}</span>
+                      <span className="truncate">{sw.name}</span>
                     </button>
                   );
                 })}

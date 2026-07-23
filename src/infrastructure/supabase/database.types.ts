@@ -429,6 +429,28 @@ export interface Database {
         Update: { email?: string; created_at?: string };
         Relationships: [];
       };
+      colors: {
+        Row: {
+          id: string;
+          color_name: string;
+          color_code: string | null;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          color_name: string;
+          color_code?: string | null;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          color_name?: string;
+          color_code?: string | null;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
       color_requests: {
         Row: {
           id: string;
