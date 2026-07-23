@@ -11,6 +11,27 @@ import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 import { useCart } from "@/components/cart/CartProvider";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
 
+/** Best-effort colour-name → swatch colour (falls back to a neutral dot). */
+const COLOR_HEX: Record<string, string> = {
+  black: "#111111", white: "#f5f5f0", ivory: "#f4efe1", cream: "#f3ead3",
+  gold: "#d4af37", amber: "#c98a2b", tangerine: "#f28500", orange: "#ea580c",
+  red: "#b91c1c", wine: "#722f37", burgundy: "#5b1a1a", maroon: "#5b1a1a",
+  pink: "#ec4899", rose: "#e11d48", beige: "#d8c3a5", tan: "#c19a6b",
+  brown: "#6b4a2b", chocolate: "#3f2a1c", slate: "#475569", charcoal: "#36393f",
+  grey: "#6b7280", gray: "#6b7280", silver: "#c0c0c0", navy: "#1e293b",
+  blue: "#2563eb", teal: "#0d9488", green: "#166534", olive: "#556b2f",
+  purple: "#7c3aed", lilac: "#b794f4", yellow: "#eab308",
+};
+function swatchColor(name: string): string {
+  return COLOR_HEX[name.trim().toLowerCase()] ?? "#9ca3af";
+}
+/** Light swatches need a visible outline on the dark theme. */
+function isLight(name: string): boolean {
+  return ["white", "ivory", "cream", "beige", "silver", "gold", "yellow"].includes(
+    name.trim().toLowerCase(),
+  );
+}
+
 export function ProductDetail({
   product,
   isAuthenticated,
@@ -21,6 +42,7 @@ export function ProductDetail({
   const router = useRouter();
   const { addItem } = useCart();
   const { format } = useCurrency();
+
   const media =
     product.images.length > 0
       ? product.images.map((img) => ({
@@ -30,35 +52,88 @@ export function ProductDetail({
         }))
       : [{ url: "/image.jpeg", alt: product.name, type: "image" as const }];
 
+  // Distinct colours / sizes from the existing variant system.
+  const colours = useMemo(
+    () => [...new Set(product.variants.map((v) => v.color).filter(Boolean))] as string[],
+    [product.variants],
+  );
+  const sizes = useMemo(
+    () => [...new Set(product.variants.map((v) => v.size).filter(Boolean))] as string[],
+    [product.variants],
+  );
+
   const [activeImage, setActiveImage] = useState(0);
-  const [variantId, setVariantId] = useState<string | null>(
-    product.variants.find((v) => v.stockQty > 0)?.id ?? null,
+  const [selectedColor, setSelectedColor] = useState<string | null>(
+    colours.length === 1 ? colours[0] : null,
+  );
+  const [selectedSize, setSelectedSize] = useState<string | null>(
+    sizes.length === 1 ? sizes[0] : null,
   );
   const [added, setAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const selectedVariant = useMemo(
-    () => product.variants.find((v) => v.id === variantId) ?? null,
-    [product.variants, variantId],
+  // Resolve the variant from the chosen colour + size.
+  const resolvedVariant = useMemo(
+    () =>
+      product.variants.find(
+        (v) =>
+          (colours.length === 0 || v.color === selectedColor) &&
+          (sizes.length === 0 || v.size === selectedSize),
+      ) ?? null,
+    [product.variants, colours.length, sizes.length, selectedColor, selectedSize],
   );
+  const inStock = resolvedVariant ? resolvedVariant.stockQty > 0 : false;
 
-  const inStock = selectedVariant ? selectedVariant.stockQty > 0 : false;
+  function selectColor(c: string) {
+    setSelectedColor(c);
+    setError(null);
+    // Switch to a colour-matching image if one exists (matched by alt text).
+    const idx = media.findIndex(
+      (m) => m.type === "image" && (m.alt ?? "").toLowerCase().includes(c.toLowerCase()),
+    );
+    if (idx >= 0) setActiveImage(idx);
+    // Drop an incompatible size selection.
+    if (
+      selectedSize &&
+      !product.variants.some((v) => v.color === c && v.size === selectedSize)
+    ) {
+      setSelectedSize(sizes.length === 1 ? sizes[0] : null);
+    }
+  }
+
+  const cartImage =
+    media[activeImage]?.type === "image"
+      ? media[activeImage].url
+      : (media.find((m) => m.type === "image") ?? media[0]).url;
 
   function handleAdd() {
     if (!isAuthenticated) {
       router.push(`/login?redirect=/products/${product.slug}`);
       return;
     }
-    if (!inStock) return;
+    setError(null);
+    if (colours.length > 0 && !selectedColor) {
+      setError("Please select a colour.");
+      return;
+    }
+    if (sizes.length > 0 && !selectedSize) {
+      setError("Please select a size.");
+      return;
+    }
+    if (!resolvedVariant || resolvedVariant.stockQty <= 0) {
+      setError("That option is out of stock.");
+      return;
+    }
     addItem({
       productId: product.id,
-      variantId: selectedVariant?.id ?? null,
+      variantId: resolvedVariant.id,
       slug: product.slug,
       name: product.name,
       price: product.price,
       currency: product.currency,
-      image: (media.find((m) => m.type === "image") ?? media[0]).url,
-      size: selectedVariant?.size ?? null,
-      color: selectedVariant?.color ?? null,
+      image: cartImage,
+      size: resolvedVariant.size,
+      color: resolvedVariant.color,
       qty: 1,
     });
     setAdded(true);
@@ -133,49 +208,117 @@ export function ProductDetail({
           </p>
         )}
 
-        {/* Variants */}
-        {product.variants.length > 0 && (
+        {/* Colour swatches */}
+        {colours.length > 0 && (
           <div className="mt-8">
-            <p className="text-xs uppercase tracking-widest text-gray-400">
-              Select option
-            </p>
-            <div className="mt-3 flex flex-wrap gap-3">
-              {product.variants.map((v) => {
-                const label = [v.size, v.color].filter(Boolean).join(" · ") || "One size";
-                const disabled = v.stockQty <= 0;
-                const selected = v.id === variantId;
+            <div className="flex items-center gap-2">
+              <p className="text-xs uppercase tracking-widest text-gray-400">Colour</p>
+              <span className="text-sm text-gray-200">
+                {selectedColor ?? "Choose a colour"}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-4">
+              {colours.map((c) => {
+                const active = c === selectedColor;
+                const soldOut = !product.variants.some(
+                  (v) => v.color === c && v.stockQty > 0,
+                );
                 return (
                   <button
-                    key={v.id}
+                    key={c}
                     type="button"
-                    disabled={disabled}
-                    onClick={() => setVariantId(v.id)}
-                    className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
-                      selected
-                        ? "border-yellow-500 bg-yellow-500/10 text-yellow-400"
-                        : "border-white/20 text-gray-200 hover:border-yellow-500"
-                    } ${disabled ? "cursor-not-allowed opacity-40 line-through" : ""}`}
+                    onClick={() => selectColor(c)}
+                    disabled={soldOut}
+                    aria-pressed={active}
+                    aria-label={`Colour: ${c}${soldOut ? " (sold out)" : ""}`}
+                    title={c}
+                    className="group flex flex-col items-center gap-1.5 disabled:cursor-not-allowed"
                   >
-                    {label}
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-full transition-all ${
+                        active
+                          ? "ring-2 ring-yellow-500 ring-offset-2 ring-offset-black"
+                          : "ring-1 ring-white/20 group-hover:ring-white/50"
+                      } ${isLight(c) ? "border border-white/30" : ""} ${
+                        soldOut ? "opacity-30" : ""
+                      }`}
+                      style={{ backgroundColor: swatchColor(c) }}
+                    >
+                      {active && (
+                        <Check
+                          className={`h-4 w-4 ${isLight(c) ? "text-black" : "text-white"}`}
+                        />
+                      )}
+                    </span>
+                    <span
+                      className={`text-[11px] ${
+                        active ? "text-yellow-400" : "text-gray-400"
+                      } ${soldOut ? "line-through" : ""}`}
+                    >
+                      {c}
+                    </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-3 text-sm text-gray-400">
-              {inStock
-                ? `${selectedVariant?.stockQty} in stock`
-                : "Out of stock"}
-            </p>
           </div>
         )}
+
+        {/* Sizes */}
+        {sizes.length > 0 && (
+          <div className="mt-6">
+            <p className="text-xs uppercase tracking-widest text-gray-400">Size</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sizes.map((s) => {
+                const active = s === selectedSize;
+                const available = product.variants.some(
+                  (v) =>
+                    v.size === s &&
+                    (colours.length === 0 || v.color === selectedColor) &&
+                    v.stockQty > 0,
+                );
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => {
+                      setSelectedSize(s);
+                      setError(null);
+                    }}
+                    className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                      active
+                        ? "border-yellow-500 bg-yellow-500/10 text-yellow-400"
+                        : "border-white/20 text-gray-200 hover:border-yellow-500"
+                    } ${!available ? "cursor-not-allowed opacity-40 line-through" : ""}`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {product.variants.length > 0 && (
+          <p className="mt-4 text-sm text-gray-400">
+            {resolvedVariant
+              ? inStock
+                ? `${resolvedVariant.stockQty} in stock`
+                : "Out of stock"
+              : "Select options above"}
+          </p>
+        )}
+
+        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
 
         {/* Add to bag — requires sign-in */}
         <motion.button
           whileTap={{ scale: 0.97 }}
           type="button"
-          disabled={isAuthenticated && !inStock}
+          disabled={isAuthenticated && !!resolvedVariant && !inStock}
           onClick={handleAdd}
-          className="mt-8 flex items-center justify-center gap-2 rounded-sm bg-yellow-500 px-8 py-4 font-semibold text-black transition-colors hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-6 flex items-center justify-center gap-2 rounded-sm bg-yellow-500 px-8 py-4 font-semibold text-black transition-colors hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {!isAuthenticated ? (
             <>
