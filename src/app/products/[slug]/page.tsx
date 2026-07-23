@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { ProductDetail } from "@/components/catalog/ProductDetail";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { RequestColorSection } from "@/components/catalog/RequestColorSection";
 import { TrackView } from "@/components/recent/TrackView";
 import { RecentlyViewedRow } from "@/components/recent/RecentlyViewedRow";
 import { getProductBySlug, listProducts } from "@/application/use-cases/catalog";
@@ -55,6 +56,13 @@ export default async function ProductPage({
   const thumb =
     product.images.find((m) => m.mediaType === "image") ?? product.images[0];
 
+  const sizes = [
+    ...new Set(
+      product.variants.map((v) => v.size).filter((s): s is string => Boolean(s)),
+    ),
+  ];
+  const sku = product.variants.find((v) => v.sku)?.sku ?? null;
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">
       <TrackView
@@ -75,6 +83,15 @@ export default async function ProductPage({
       </Link>
 
       <ProductDetail product={product} isAuthenticated={Boolean(user)} />
+
+      <div className="mt-8 lg:max-w-md lg:ml-auto">
+        <RequestColorSection
+          productId={product.id}
+          productName={product.name}
+          productSku={sku}
+          sizes={sizes}
+        />
+      </div>
 
       {related.length > 0 && (
         <section className="mt-16">

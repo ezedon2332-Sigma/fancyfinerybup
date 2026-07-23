@@ -116,6 +116,22 @@ export const profileSchema = z.object({
 
 export type ProfileInput = z.infer<typeof profileSchema>;
 
+/** On-demand colour request submitted from a product page. */
+export const colorRequestSchema = z.object({
+  productId: z.string().uuid().nullable().optional(),
+  productName: z.string().trim().min(1).max(200),
+  productSku: z.string().trim().max(80).nullable().optional(),
+  requestedColor: z.string().trim().min(1, "Please choose a colour").max(60),
+  requestedSize: z.string().trim().max(40).nullable().optional(),
+  quantity: z.number().int().positive().max(99),
+  customerName: z.string().trim().min(2, "Your name is required").max(120),
+  customerEmail: emailSchema,
+  customerPhone: z.string().trim().max(40).nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+});
+
+export type ColorRequestInput = z.infer<typeof colorRequestSchema>;
+
 /** Slugify a display name into a URL-safe slug. */
 export function slugify(input: string): string {
   return input

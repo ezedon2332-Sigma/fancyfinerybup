@@ -4,6 +4,7 @@ import {
   Boxes,
   LayoutDashboard,
   Package,
+  Palette,
   ShoppingCart,
   Tags,
   Truck,
@@ -40,6 +41,7 @@ export default async function AdminLayout({
         { href: "/admin/products", icon: <Package className="h-4 w-4" />, label: "Products" },
         { href: "/admin/categories", icon: <Tags className="h-4 w-4" />, label: "Categories" },
         { href: "/admin/inventory", icon: <Boxes className="h-4 w-4" />, label: "Inventory" },
+        { href: "/admin/color-requests", icon: <Palette className="h-4 w-4" />, label: "Color Requests" },
       ],
     },
     {

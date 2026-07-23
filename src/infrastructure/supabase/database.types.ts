@@ -429,6 +429,48 @@ export interface Database {
         Update: { email?: string; created_at?: string };
         Relationships: [];
       };
+      color_requests: {
+        Row: {
+          id: string;
+          product_id: string | null;
+          product_name: string;
+          product_sku: string | null;
+          requested_color: string;
+          requested_size: string | null;
+          quantity: number;
+          customer_name: string;
+          customer_email: string;
+          customer_phone: string | null;
+          note: string | null;
+          status: string;
+          admin_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id?: string | null;
+          product_name: string;
+          product_sku?: string | null;
+          requested_color: string;
+          requested_size?: string | null;
+          quantity?: number;
+          customer_name: string;
+          customer_email: string;
+          customer_phone?: string | null;
+          note?: string | null;
+          status?: string;
+          admin_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: string;
+          admin_note?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
