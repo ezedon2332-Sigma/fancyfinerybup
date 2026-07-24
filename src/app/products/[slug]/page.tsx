@@ -13,6 +13,7 @@ import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { SITE_URL, SITE_NAME } from "@/lib/site";
 
 type Params = { slug: string };
 
@@ -82,8 +83,35 @@ export default async function ProductPage({
     /* colours table not migrated yet — dialog uses its built-in list */
   }
 
+  const abs = (u: string) => (u.startsWith("http") ? u : `${SITE_URL}${u}`);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description ?? undefined,
+    image: product.images
+      .filter((m) => m.mediaType === "image")
+      .slice(0, 5)
+      .map((m) => abs(resolveImageUrl(m.storagePath))),
+    ...(sku ? { sku } : {}),
+    brand: { "@type": "Brand", name: SITE_NAME },
+    offers: {
+      "@type": "Offer",
+      url: `${SITE_URL}/products/${product.slug}`,
+      priceCurrency: product.currency,
+      price: (product.price / 100).toFixed(2),
+      availability: product.variants.some((v) => v.stockQty > 0)
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    },
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <TrackView
         item={{
           productId: product.id,

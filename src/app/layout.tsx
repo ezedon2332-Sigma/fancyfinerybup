@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Cormorant_Garamond } from "next/font/google";
 import "../styles/globals.css";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,12 +21,39 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Fancy Finery — Luxury Fashion House",
     template: "%s · Fancy Finery",
   },
-  description:
-    "Fancy Finery — a curated luxury fashion house. Shop refined ready-to-wear and statement pieces.",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "luxury fashion",
+    "designer clothing",
+    "ready-to-wear",
+    "Fancy Finery",
+    "worldwide shipping",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: "Fancy Finery — Luxury Fashion House",
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: SITE_NAME }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Fancy Finery — Luxury Fashion House",
+    description: SITE_DESCRIPTION,
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
 };
 
 import { SiteHeader } from "@/components/site/SiteHeader";
