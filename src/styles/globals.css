@@ -21,6 +21,23 @@ h2,
   letter-spacing: 0.006em;
 }
 
+/* Cinematic gold-gradient brand wordmark. */
+.brand-wordmark {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  background: linear-gradient(
+    180deg,
+    #fde68a 0%,
+    #f0c245 42%,
+    #eab308 60%,
+    #a9791b 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;

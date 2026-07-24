@@ -56,7 +56,7 @@ export function IntroSplash() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1, duration: 0.9, ease: "easeOut" }}
-            className="font-display mt-6 text-2xl font-semibold uppercase tracking-[0.45em] text-yellow-500 sm:text-3xl"
+            className="brand-wordmark mt-6 text-2xl uppercase tracking-[0.45em] sm:text-3xl"
           >
             Fancy Finery
           </motion.p>

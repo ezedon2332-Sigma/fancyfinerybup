@@ -10,6 +10,7 @@ import type { ProductWithDetails } from "@/domain/entities/product";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 import { useCart } from "@/components/cart/CartProvider";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
+import { ZoomableImage } from "./ZoomableImage";
 
 export function ProductDetail({
   product,
@@ -84,13 +85,9 @@ export function ProductDetail({
               className="h-full w-full object-cover"
             />
           ) : (
-            <Image
+            <ZoomableImage
               src={media[activeImage].url}
               alt={media[activeImage].alt}
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-              priority
             />
           )}
         </motion.div>
