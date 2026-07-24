@@ -13,7 +13,7 @@ import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
-import { SITE_URL, SITE_NAME } from "@/lib/site";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 type Params = { slug: string };
 
@@ -26,9 +26,31 @@ export async function generateMetadata({
   const deps = await getCatalogDeps();
   const product = await getProductBySlug(deps, slug);
   if (!product) return { title: "Product not found" };
+
+  const img =
+    product.images.find((m) => m.mediaType === "image") ?? product.images[0];
+  const raw = img ? resolveImageUrl(img.storagePath) : "/logo.png";
+  const imageUrl = raw.startsWith("http") ? raw : `${SITE_URL}${raw}`;
+  const description = product.description ?? SITE_DESCRIPTION;
+
   return {
     title: product.name,
-    description: product.description ?? undefined,
+    description,
+    alternates: { canonical: `/products/${slug}` },
+    openGraph: {
+      type: "website",
+      siteName: SITE_NAME,
+      title: product.name,
+      description,
+      url: `${SITE_URL}/products/${slug}`,
+      images: [{ url: imageUrl, alt: product.name }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description,
+      images: [imageUrl],
+    },
   };
 }
 
