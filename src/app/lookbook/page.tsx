@@ -17,8 +17,10 @@ export const metadata: Metadata = {
 export default async function LookbookPage() {
   const deps = await getCatalogDeps();
   const products = await listProducts(deps);
-  const withImages = products.filter((p) => p.primaryImage);
-  const items: LookItem[] = (withImages.length > 0 ? withImages : products)
+  // Lookbook panels are full-bleed photography — only products with an actual
+  // IMAGE (never video-only, whose URL can't render in <Image>).
+  const items: LookItem[] = products
+    .filter((p) => p.primaryImage?.mediaType === "image")
     .slice(0, 8)
     .map((p) => ({
       image: p.primaryImage
