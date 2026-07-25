@@ -81,6 +81,9 @@ export function ProductDetail({
             <video
               src={media[activeImage].url}
               controls
+              muted
+              autoPlay
+              loop
               playsInline
               className="h-full w-full object-cover"
             />

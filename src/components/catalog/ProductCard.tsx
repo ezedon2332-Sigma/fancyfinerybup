@@ -54,6 +54,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
               src={src}
               muted
               loop
+              autoPlay
               playsInline
               preload="metadata"
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
