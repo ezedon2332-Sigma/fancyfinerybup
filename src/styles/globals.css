@@ -124,172 +124,60 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Hero stage — deep matte black, film grain, spotlight, gold dust.
-   The logo PNG ships on an opaque black square, so it is composited with
-   `screen`: black drops out, the gold survives, and the mark sits on the
-   textured ground with no visible plate edge.
+   Hero — the brand mark alone on a deep matte black stage.
    --------------------------------------------------------------------------- */
 .hero-stage {
-  background-color: #030303;
+  background-color: #050505;
 }
 
-.hero-grain {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.055;
-  mix-blend-mode: screen;
-}
-
-/* Fine woven sheen over the grain — reads as matte fabric, not flat paint. */
-.hero-grain::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.018) 0 2px,
-    transparent 2px 6px
-  );
-}
-
-.hero-spotlight {
-  background: radial-gradient(
-    ellipse 48% 82% at 50% -10%,
-    rgba(255, 226, 150, 0.17),
-    rgba(255, 226, 150, 0.05) 42%,
-    transparent 72%
-  );
-}
-
-/* Soft beam falling from the top of the stage. */
-.hero-spotlight::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  clip-path: polygon(37% 0, 63% 0, 90% 100%, 10% 100%);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 224, 150, 0.11),
-    transparent 74%
-  );
-  filter: blur(30px);
-}
-
-.hero-dust {
-  position: absolute;
-  border-radius: 9999px;
-  background: radial-gradient(
-    circle,
-    rgba(253, 230, 138, 0.95),
-    rgba(234, 179, 8, 0.35) 60%,
-    transparent 72%
-  );
-  opacity: 0;
-  will-change: transform, opacity;
-  animation: hero-dust var(--dust-d, 20s) linear var(--dust-delay, 0s) infinite;
-}
-
-@keyframes hero-dust {
-  0% {
-    transform: translate3d(0, 14px, 0) scale(0.75);
-    opacity: 0;
-  }
-  18%,
-  82% {
-    opacity: var(--dust-o, 0.3);
-  }
-  100% {
-    transform: translate3d(var(--dust-x, 12px), -140px, 0) scale(1.15);
-    opacity: 0;
-  }
-}
-
-.hero-logo {
-  position: relative;
-}
-
-/* Cinematic glow behind the mark. */
-.hero-logo::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
-  width: 116%;
-  height: 116%;
-  background: radial-gradient(
-    circle,
-    rgba(234, 179, 8, 0.24),
-    rgba(234, 179, 8, 0.07) 46%,
-    transparent 68%
-  );
-  filter: blur(44px);
-  pointer-events: none;
-  transition:
-    opacity 700ms ease,
-    transform 700ms ease;
-}
-
-/* Grounding shadow so the mark sits in the space rather than on it. */
-.hero-logo::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 1%;
-  translate: -50% 0;
-  width: 58%;
-  height: 6%;
-  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.9), transparent 72%);
-  filter: blur(16px);
-  pointer-events: none;
-}
-
-.hero-logo-img {
+/* The logo PNG ships on an opaque black square. `screen` merges that plate
+   into the matte black ground; against near-black, screen is mathematically
+   identity, so the gold gradient, proportions and detail are untouched.
+   Deliberately no filters here — no recolouring of the supplied artwork. */
+.hero-mark {
   height: auto;
   mix-blend-mode: screen;
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.hero-logo:hover .hero-logo-img {
-  transform: scale(1.025);
-}
-
-.hero-logo:hover::before {
-  opacity: 1;
-  transform: scale(1.07);
-}
-
-@keyframes hero-logo-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-    filter: blur(7px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-    filter: blur(0);
-  }
-}
-
-.hero-logo-in {
-  animation: hero-logo-in 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
-}
-
-/* Gold CTA with a light sweep on hover. */
-.hero-cta {
+/* --- Luxury buttons -------------------------------------------------------
+   Shared geometry, two finishes: solid gold and thin-gold outline. */
+.btn-gold,
+.btn-gold-ghost {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  background-image: linear-gradient(135deg, #f7d976 0%, #eab308 46%, #c08d17 100%);
-  box-shadow:
-    0 10px 30px -10px rgba(234, 179, 8, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  padding: 1rem 2.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
   transition:
     transform 450ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 450ms ease;
-  animation: fade-up 0.8s ease-out 0.9s both;
+    box-shadow 450ms ease,
+    background-color 450ms ease,
+    border-color 450ms ease,
+    color 450ms ease;
 }
 
-.hero-cta::after {
+@media (min-width: 640px) {
+  .btn-gold,
+  .btn-gold-ghost {
+    font-size: 0.75rem;
+  }
+}
+
+.btn-gold {
+  color: #0a0a0a;
+  background-image: linear-gradient(135deg, #f7d976 0%, #eab308 46%, #c08d17 100%);
+  box-shadow:
+    0 10px 30px -12px rgba(234, 179, 8, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Light sweep across the face on hover. */
+.btn-gold::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -303,15 +191,29 @@ body {
   transition: transform 900ms ease;
 }
 
-.hero-cta:hover {
+.btn-gold:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 18px 44px -12px rgba(234, 179, 8, 0.7),
+    0 18px 44px -14px rgba(234, 179, 8, 0.72),
     inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
-.hero-cta:hover::after {
+.btn-gold:hover::after {
   transform: translateX(130%);
+}
+
+.btn-gold-ghost {
+  color: #f5e7bd;
+  border: 1px solid rgba(234, 179, 8, 0.55);
+  background-color: transparent;
+}
+
+.btn-gold-ghost:hover {
+  transform: translateY(-2px);
+  color: #0a0a0a;
+  border-color: #eab308;
+  background-color: #eab308;
+  box-shadow: 0 16px 40px -16px rgba(234, 179, 8, 0.6);
 }
 
 /* Soft gold sheen sweep for premium accents. */
@@ -361,15 +263,12 @@ body {
   .animate-fade-up,
   .animate-ken-burns,
   .intro-sweep,
-  .hero-logo-in,
-  .hero-cta {
-    animation: none;
+  .btn-gold,
+  .btn-gold-ghost {
+    transition: none;
   }
-  /* Drifting dust is the most motion-sensitive element here — remove it. */
-  .hero-dust {
-    display: none;
-  }
-  .hero-logo:hover .hero-logo-img {
+  .btn-gold:hover,
+  .btn-gold-ghost:hover {
     transform: none;
   }
 }

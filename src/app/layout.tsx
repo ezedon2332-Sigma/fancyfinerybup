@@ -103,7 +103,9 @@ export default async function RootLayout({
                 <RecentlyViewedProvider>
                   <SiteHeader />
                   {/* Offset matches the fixed header: ticker + utility bar + nav */}
-                  <main className="flex-1 pt-32 lg:pt-[168px]">{children}</main>
+                  {/* Offset matches the fixed header: announcement bar 36 +
+                      rate ticker + utility bar 40 (lg) + nav 80/96 */}
+                  <main className="flex-1 pt-[164px] lg:pt-[204px]">{children}</main>
                   <SiteFooter />
                   <RateChangeNotifier />
                 </RecentlyViewedProvider>

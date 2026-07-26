@@ -47,7 +47,14 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
-      {/* Live exchange-rate ticker (top of everything) */}
+      {/* Announcement bar — thin gold band at the very top */}
+      <div className="flex h-9 items-center justify-center bg-gradient-to-r from-[#a9791b] via-[#f0c245] to-[#a9791b] px-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-black sm:text-[11px] sm:tracking-[0.3em]">
+          Free worldwide shipping on orders over $200
+        </p>
+      </div>
+
+      {/* Live exchange-rate ticker */}
       <LiveRateTicker />
 
       {/* Top utility bar */}

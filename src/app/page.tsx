@@ -23,7 +23,8 @@ const PROMO_META: Record<string, { name: string; tagline: string }> = {
   women: { name: "Women", tagline: "Elegant designs for every occasion." },
   children: { name: "Children", tagline: "Premium fashion for the little ones." },
 };
-const PROMO_ORDER = ["men", "women", "children"];
+// Reference layout leads with Women, then Men, then Children.
+const PROMO_ORDER = ["women", "men", "children"];
 
 export default async function Home() {
   const deps = await getCatalogDeps();

@@ -23,9 +23,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
-    // Next 16 requires an explicit allowlist; 90 is for the hero brand mark,
+    // Next 16 requires an explicit allowlist; 95 is for the hero brand mark,
     // where gradient banding shows at the default 75.
-    qualities: [75, 90],
+    qualities: [75, 95],
     remotePatterns: [
       {
         // Supabase Storage public objects (product images).
