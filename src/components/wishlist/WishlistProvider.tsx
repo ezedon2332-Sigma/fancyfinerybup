@@ -33,9 +33,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
+  // Rehydrate after mount, never during render: localStorage does not exist on
+  // the server, so reading it in render would desync SSR markup from the client.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
       if (raw) setItems(JSON.parse(raw));
     } catch {
       /* ignore malformed storage */

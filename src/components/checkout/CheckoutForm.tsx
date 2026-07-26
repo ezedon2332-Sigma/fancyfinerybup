@@ -103,6 +103,7 @@ export function CheckoutForm({
   useEffect(() => {
     const code = form.countryCode;
     if (!code || items.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears a stale async quote when its inputs go away
       setQuote(null);
       return;
     }

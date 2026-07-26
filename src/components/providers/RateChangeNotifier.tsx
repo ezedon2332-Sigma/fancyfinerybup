@@ -18,15 +18,17 @@ export function RateChangeNotifier() {
   const { rate } = useCurrency();
   const [movePct, setMovePct] = useState<number | null>(null);
 
+  // Compares the new rate against the last one seen in localStorage, which
+  // only exists on the client — hence the post-mount effect.
   useEffect(() => {
     if (!rate) return;
     const prev = Number(localStorage.getItem(KEY) || "0");
     if (prev > 0 && prev !== rate) {
       const change = Math.abs(rate - prev) / prev;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- derived from an external store, not from render state
       if (change >= SIGNIFICANT_CHANGE) setMovePct(Math.round(change * 100));
     }
     localStorage.setItem(KEY, String(rate));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rate]);
 
   if (movePct === null) return null;

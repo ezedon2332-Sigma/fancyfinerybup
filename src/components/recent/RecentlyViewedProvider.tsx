@@ -35,9 +35,12 @@ export function RecentlyViewedProvider({
   const [items, setItems] = useState<RecentItem[]>([]);
   const hydrated = useRef(false);
 
+  // Rehydrate after mount — localStorage is unavailable on the server, so
+  // reading it during render would desync SSR markup.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
       if (raw) setItems(JSON.parse(raw));
     } catch {
       /* ignore */

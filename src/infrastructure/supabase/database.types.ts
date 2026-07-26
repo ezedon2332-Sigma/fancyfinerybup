@@ -16,6 +16,19 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 export type UserRole = "customer" | "admin";
+export type SubscriberStatus =
+  | "pending"
+  | "subscribed"
+  | "unsubscribed"
+  | "bounced"
+  | "complained";
+export type CampaignStatus =
+  | "draft"
+  | "scheduled"
+  | "sending"
+  | "sent"
+  | "cancelled"
+  | "failed";
 
 export type Json =
   | string
@@ -490,6 +503,279 @@ export interface Database {
           status?: string;
           admin_note?: string | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      newsletter_subscribers: {
+        Row: {
+          id: string;
+          email: string;
+          first_name: string;
+          last_name: string | null;
+          country: string | null;
+          birthday: string | null;
+          status: SubscriberStatus;
+          source: string;
+          consent: boolean;
+          consent_at: string;
+          consent_text: string | null;
+          ip_hash: string | null;
+          user_agent: string | null;
+          unsubscribe_token: string;
+          confirmed_at: string | null;
+          unsubscribed_at: string | null;
+          last_emailed_at: string | null;
+          profile_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          first_name: string;
+          last_name?: string | null;
+          country?: string | null;
+          birthday?: string | null;
+          status?: SubscriberStatus;
+          source?: string;
+          consent?: boolean;
+          consent_at?: string;
+          consent_text?: string | null;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          unsubscribe_token?: string;
+          confirmed_at?: string | null;
+          unsubscribed_at?: string | null;
+          last_emailed_at?: string | null;
+          profile_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          email?: string;
+          first_name?: string;
+          last_name?: string | null;
+          country?: string | null;
+          birthday?: string | null;
+          status?: SubscriberStatus;
+          source?: string;
+          consent?: boolean;
+          consent_at?: string;
+          consent_text?: string | null;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          confirmed_at?: string | null;
+          unsubscribed_at?: string | null;
+          last_emailed_at?: string | null;
+          profile_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      newsletter_preferences: {
+        Row: {
+          subscriber_id: string;
+          interest: string;
+          created_at: string;
+        };
+        Insert: {
+          subscriber_id: string;
+          interest: string;
+          created_at?: string;
+        };
+        Update: {
+          interest?: string;
+        };
+        Relationships: [];
+      };
+      email_templates: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          subject: string;
+          html: string;
+          text_body: string | null;
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          name: string;
+          subject: string;
+          html: string;
+          text_body?: string | null;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          name?: string;
+          subject?: string;
+          html?: string;
+          text_body?: string | null;
+          description?: string | null;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      email_campaigns: {
+        Row: {
+          id: string;
+          name: string;
+          subject: string;
+          preheader: string | null;
+          html: string | null;
+          text_body: string | null;
+          template_id: string | null;
+          status: CampaignStatus;
+          audience_filter: Json;
+          scheduled_at: string | null;
+          sent_at: string | null;
+          provider: string | null;
+          recipient_count: number;
+          sent_count: number;
+          open_count: number;
+          click_count: number;
+          conversion_count: number;
+          bounce_count: number;
+          unsubscribe_count: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          subject: string;
+          preheader?: string | null;
+          html?: string | null;
+          text_body?: string | null;
+          template_id?: string | null;
+          status?: string;
+          audience_filter?: Json;
+          scheduled_at?: string | null;
+          sent_at?: string | null;
+          provider?: string | null;
+          recipient_count?: number;
+          sent_count?: number;
+          open_count?: number;
+          click_count?: number;
+          conversion_count?: number;
+          bounce_count?: number;
+          unsubscribe_count?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          subject?: string;
+          preheader?: string | null;
+          html?: string | null;
+          text_body?: string | null;
+          template_id?: string | null;
+          status?: string;
+          audience_filter?: Json;
+          scheduled_at?: string | null;
+          sent_at?: string | null;
+          provider?: string | null;
+          recipient_count?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      campaign_analytics: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          subscriber_id: string | null;
+          event: string;
+          url: string | null;
+          user_agent: string | null;
+          ip_hash: string | null;
+          meta: Json;
+          occurred_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          subscriber_id?: string | null;
+          event: string;
+          url?: string | null;
+          user_agent?: string | null;
+          ip_hash?: string | null;
+          meta?: Json;
+          occurred_at?: string;
+        };
+        Update: {
+          event?: string;
+          meta?: Json;
+        };
+        Relationships: [];
+      };
+      subscription_history: {
+        Row: {
+          id: string;
+          subscriber_id: string | null;
+          email: string;
+          action: string;
+          source: string | null;
+          ip_hash: string | null;
+          user_agent: string | null;
+          meta: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          subscriber_id?: string | null;
+          email: string;
+          action: string;
+          source?: string | null;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          meta?: Json;
+          created_at?: string;
+        };
+        Update: {
+          action?: string;
+          meta?: Json;
+        };
+        Relationships: [];
+      };
+      automation_logs: {
+        Row: {
+          id: string;
+          automation: string;
+          subscriber_id: string | null;
+          campaign_id: string | null;
+          provider: string | null;
+          status: string;
+          error: string | null;
+          payload: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          automation: string;
+          subscriber_id?: string | null;
+          campaign_id?: string | null;
+          provider?: string | null;
+          status?: string;
+          error?: string | null;
+          payload?: Json;
+          created_at?: string;
+        };
+        Update: {
+          status?: string;
+          error?: string | null;
+          payload?: Json;
         };
         Relationships: [];
       };

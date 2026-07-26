@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { INTEREST_IDS, SUBSCRIBER_SOURCES } from "@/domain/newsletter";
+
 /** Shared zod schemas. Reused by client forms and server actions. */
 
 export const emailSchema = z
@@ -131,6 +133,47 @@ export const colorRequestSchema = z.object({
 });
 
 export type ColorRequestInput = z.infer<typeof colorRequestSchema>;
+
+/** Privé Circle — VIP newsletter signup. `website` is a honeypot: it is
+ *  hidden from humans, so anything in it means a bot filled the form. */
+export const newsletterSignupSchema = z.object({
+  firstName: z.string().trim().min(2, "Your first name is required").max(80),
+  lastName: z.string().trim().max(80).nullable().optional(),
+  email: emailSchema,
+  country: z.string().trim().max(80).nullable().optional(),
+  birthday: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  interests: z.array(z.enum(INTEREST_IDS as [string, ...string[]])).max(6),
+  consent: z.literal(true, {
+    message: "Please accept the terms to join",
+  }),
+  source: z.enum(SUBSCRIBER_SOURCES).default("homepage"),
+  // Deliberately permissive: the action inspects this itself and returns a
+  // fake success. Rejecting it here would parse-fail instead, telling the bot
+  // exactly which field gave it away.
+  website: z.string().max(200).optional(),
+});
+
+export type NewsletterSignupInput = z.infer<typeof newsletterSignupSchema>;
+
+/** Admin — campaign create/edit. */
+export const campaignSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Campaign name is required").max(160),
+  subject: z.string().trim().min(2, "Subject is required").max(200),
+  preheader: z.string().trim().max(200).nullable().optional(),
+  html: z.string().max(200000).nullable().optional(),
+  textBody: z.string().max(50000).nullable().optional(),
+  interests: z.array(z.enum(INTEREST_IDS as [string, ...string[]])).max(6),
+  scheduledAt: z.string().trim().nullable().optional(),
+});
+
+export type CampaignInput = z.infer<typeof campaignSchema>;
 
 /** Slugify a display name into a URL-safe slug. */
 export function slugify(input: string): string {

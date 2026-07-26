@@ -65,6 +65,7 @@ import { RecentlyViewedProvider } from "@/components/recent/RecentlyViewedProvid
 import { CurrencyProvider } from "@/components/providers/CurrencyProvider";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
 import { RateChangeNotifier } from "@/components/providers/RateChangeNotifier";
+import { VipInvitationModal } from "@/components/newsletter/VipInvitationModal";
 import {
   getExchangeRate,
   getDisplayRates,
@@ -102,12 +103,12 @@ export default async function RootLayout({
               <WishlistProvider>
                 <RecentlyViewedProvider>
                   <SiteHeader />
-                  {/* Offset matches the fixed header: ticker + utility bar + nav */}
                   {/* Offset matches the fixed header: rate ticker +
                       utility bar 40 (lg) + nav 80/96 */}
                   <main className="flex-1 pt-32 lg:pt-[168px]">{children}</main>
                   <SiteFooter />
                   <RateChangeNotifier />
+                  <VipInvitationModal />
                 </RecentlyViewedProvider>
               </WishlistProvider>
             </CartProvider>

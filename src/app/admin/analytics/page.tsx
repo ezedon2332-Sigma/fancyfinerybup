@@ -33,6 +33,9 @@ export default async function AnalyticsPage() {
   const statusCounts: Record<string, number> = {};
   let unitsSold = 0;
   let last30Ngn = 0;
+  // Server component: rendered once per request, so reading the clock here is
+  // deterministic for that render. The purity rule targets client re-renders.
+  // eslint-disable-next-line react-hooks/purity -- server component, evaluated once per request
   const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
   for (const o of orders) {

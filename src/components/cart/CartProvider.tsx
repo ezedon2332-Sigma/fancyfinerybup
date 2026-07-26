@@ -48,10 +48,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
-  // Load once on mount.
+  // Load once on mount — never during render, since localStorage does not
+  // exist on the server and reading it there would desync SSR markup.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
       if (raw) setItems(JSON.parse(raw));
     } catch {
       /* ignore malformed storage */

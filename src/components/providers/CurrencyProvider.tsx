@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { formatMoney } from "@/domain/shared/money";
 
@@ -46,16 +53,20 @@ export function CurrencyProvider({
   updatedAt?: string | null;
   children: React.ReactNode;
 }) {
-  const displayRates: DisplayRates = rates ?? {
-    usd: rate,
-    eur: rate,
-    gbp: rate,
-  };
+  // Memoised so the fallback object is not rebuilt each render, which would
+  // change the identity of every callback that depends on it.
+  const displayRates: DisplayRates = useMemo(
+    () => rates ?? { usd: rate, eur: rate, gbp: rate },
+    [rates, rate],
+  );
   const [currency, setCurrencyState] = useState<DisplayCurrency>("NGN");
 
+  // Restore the saved currency after mount — localStorage is unavailable on
+  // the server, so reading it during render would desync SSR markup.
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && (DISPLAY_CURRENCIES as string[]).includes(saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
       setCurrencyState(saved as DisplayCurrency);
     }
   }, []);

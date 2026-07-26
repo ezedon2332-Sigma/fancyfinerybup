@@ -22,9 +22,12 @@ const STORAGE_KEY = "ff.language";
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<LanguageCode>("en");
 
+  // Restore after mount — localStorage is unavailable on the server, so
+  // reading it during render would desync SSR markup.
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && LANGUAGES.some((l) => l.code === saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
       setLanguageState(saved as LanguageCode);
     }
   }, []);

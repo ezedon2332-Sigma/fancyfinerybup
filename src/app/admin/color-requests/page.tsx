@@ -23,6 +23,7 @@ export default async function ColorRequestsPage() {
   }
 
   // Trending insight: same product+colour requested ≥3× in the last 30 days.
+  // eslint-disable-next-line react-hooks/purity -- server component, evaluated once per request
   const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const counts = new Map<string, number>();
   for (const r of requests) {

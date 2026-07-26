@@ -3,6 +3,7 @@ import {
   BarChart3,
   Boxes,
   LayoutDashboard,
+  Mail,
   Package,
   Palette,
   ShoppingCart,
@@ -55,6 +56,7 @@ export default async function AdminLayout({
       heading: "People",
       links: [
         { href: "/admin/customers", icon: <Users className="h-4 w-4" />, label: "Customers" },
+        { href: "/admin/newsletter", icon: <Mail className="h-4 w-4" />, label: "Newsletter" },
       ],
     },
   ];

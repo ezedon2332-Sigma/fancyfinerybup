@@ -20,6 +20,7 @@ export function IntroSplash() {
     } catch {
       /* storage unavailable — just play it */
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- gated on sessionStorage, which only exists after mount
     setShow(true);
     const t = setTimeout(() => setShow(false), 2600);
     return () => clearTimeout(t);

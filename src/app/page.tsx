@@ -4,6 +4,7 @@ import path from "node:path";
 import { HeroSection } from "@/components/HeroSection";
 import { PromoCards, type PromoItem } from "@/components/home/PromoCards";
 import { ProductRow } from "@/components/home/ProductRow";
+import { PriveCircleSection } from "@/components/newsletter/PriveCircleSection";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
@@ -76,6 +77,7 @@ export default async function Home() {
       <ProductRow eyebrow="Handpicked" title="Featured Collection" viewAllHref="/collections" products={featuredRow} />
       <ProductRow eyebrow="Most Loved" title="Best Sellers" viewAllHref="/collections" products={bestSellers} />
       <ProductRow eyebrow="What's Hot" title="Trending Now" viewAllHref="/collections" products={trending} />
+      <PriveCircleSection />
     </div>
   );
 }
