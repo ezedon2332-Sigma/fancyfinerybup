@@ -6,7 +6,10 @@ import type {
 import type { ProductRepository } from "@/domain/repositories/product-repository";
 import type { ShippingRepository } from "@/domain/repositories/shipping-repository";
 import { convertFromNgnMinor } from "@/domain/shipping/currency";
-import type { ShippingMethod } from "@/domain/shipping/shipping";
+import {
+  totalCartWeight,
+  type CartWeightLine,
+} from "@/domain/shipping/engine";
 import { resolveShipping, ShippingError } from "@/application/use-cases/shipping";
 
 export interface CheckoutDeps {
@@ -24,7 +27,8 @@ export interface CheckoutLine {
 export interface PlaceOrderInput {
   userId: string;
   shipping: ShippingDetails;
-  method: ShippingMethod;
+  /** Shipping method *code* — legacy "standard"/"express" or an engine code. */
+  method: string;
   lines: CheckoutLine[];
 }
 
@@ -49,6 +53,7 @@ export async function placeOrder(
 
   // 1) Recompute the subtotal in the base currency (NGN kobo) from the DB.
   const priced: { item: Omit<NewOrderItem, "unitPrice">; priceNgn: number }[] = [];
+  const weightLines: CartWeightLine[] = [];
   let subtotalNgn = 0;
 
   for (const line of input.lines) {
@@ -73,6 +78,7 @@ export async function placeOrder(
     }
 
     subtotalNgn += product.price * line.qty;
+    weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
     priced.push({
       item: {
         productId: product.id,
@@ -86,13 +92,21 @@ export async function placeOrder(
     });
   }
 
-  // 2) Resolve shipping + order currency authoritatively.
+  // 2) Resolve shipping + order currency authoritatively. Weight is recomputed
+  //     here from the catalogue for the same reason the subtotal is: a client
+  //     could otherwise declare a featherweight cart and underpay postage.
   let resolved;
   try {
+    const settings = await deps.shipping.getSettings();
+    const weightGrams = totalCartWeight(
+      weightLines,
+      settings.defaultItemWeightGrams,
+    );
     resolved = await resolveShipping(deps, {
       countryCode: input.shipping.countryCode,
       method: input.method,
       subtotalNgn,
+      weightGrams,
     });
   } catch (e) {
     if (e instanceof ShippingError) throw new CheckoutError(e.message);
@@ -110,6 +124,9 @@ export async function placeOrder(
     currency: resolved.currency,
     subtotal: resolved.subtotal,
     shippingCost: resolved.shippingCost,
+    tax: resolved.tax,
+    discount: resolved.discount,
+    totalWeightGrams: resolved.weightGrams,
     total: resolved.total,
     shippingMethod: resolved.method,
     shipping: input.shipping,

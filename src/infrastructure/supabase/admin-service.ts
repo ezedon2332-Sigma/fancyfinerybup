@@ -58,6 +58,8 @@ export interface AdminProductDetail {
   categoryId: string | null;
   status: ProductStatus;
   featured: boolean;
+  weightGrams: number;
+  weightUnit: "g" | "kg";
   media: { storagePath: string; mediaType: "image" | "video"; alt: string | null }[];
   variants: {
     id: string;
@@ -89,6 +91,8 @@ export async function getAdminProduct(
     categoryId: data.category_id,
     status: data.status,
     featured: data.featured,
+    weightGrams: data.weight_grams ?? 0,
+    weightUnit: (data.weight_unit ?? "g") === "kg" ? "kg" : "g",
     media: [...(data.product_images ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((m) => ({

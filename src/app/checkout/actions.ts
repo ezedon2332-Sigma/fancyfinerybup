@@ -13,6 +13,10 @@ import { createSupabaseServerClient } from "@/infrastructure/supabase/server-cli
 import { notifyOrderPlaced } from "@/infrastructure/notifications/email";
 import { checkoutSchema } from "@/lib/validation";
 import type { ShippingQuote } from "@/domain/shipping/shipping";
+import {
+  totalCartWeight,
+  type CartWeightLine,
+} from "@/domain/shipping/engine";
 
 export interface PlaceOrderResult {
   ok: boolean;
@@ -52,14 +56,22 @@ export async function getShippingQuoteAction(
   }
   try {
     const deps = await getCheckoutDeps();
+    // Subtotal AND weight are recomputed from the catalogue — a client that
+    // understated either could otherwise be quoted the wrong postage.
     let subtotalNgn = 0;
+    const weightLines: CartWeightLine[] = [];
     for (const line of parsed.data.items) {
       const product = await deps.products.findPublishedById(line.productId);
-      if (product) subtotalNgn += product.price * line.qty;
+      if (product) {
+        subtotalNgn += product.price * line.qty;
+        weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
+      }
     }
+    const settings = await deps.shipping.getSettings();
     const quote = await getShippingQuote(deps, {
       countryCode: parsed.data.countryCode,
       subtotalNgn,
+      weightGrams: totalCartWeight(weightLines, settings.defaultItemWeightGrams),
     });
     return { ok: true, quote };
   } catch (e) {

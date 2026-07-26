@@ -29,6 +29,12 @@ export interface Product {
   readonly categoryId: string | null;
   readonly status: ProductStatus;
   readonly featured: boolean;
+  /** Shipping weight in canonical grams. 0 = not recorded; the shipping
+   *  engine substitutes the configured default rather than treating it as
+   *  weightless. */
+  readonly weightGrams: number;
+  /** The unit the admin entered it in — display only, never arithmetic. */
+  readonly weightUnit: "g" | "kg";
   readonly createdAt: string;
   readonly updatedAt: string;
 }

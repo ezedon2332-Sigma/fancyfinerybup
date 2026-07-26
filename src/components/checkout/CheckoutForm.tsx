@@ -12,10 +12,10 @@ import { checkoutSchema } from "@/lib/validation";
 import { placeOrderAction, getShippingQuoteAction } from "@/app/checkout/actions";
 import { startPaymentAction } from "@/app/checkout/payment-actions";
 import type {
-  ShippingMethod,
   ShippingQuote,
   ShippingQuoteOption,
 } from "@/domain/shipping/shipping";
+import { computeTotals, formatWeight } from "@/domain/shipping/engine";
 import { CountrySelect, type CountryOption } from "./CountrySelect";
 
 interface FormState {
@@ -36,10 +36,18 @@ export interface CheckoutInitial extends FormState {
   lng: number | null;
 }
 
-const METHOD_LABEL: Record<ShippingMethod, string> = {
+/** Labels for the two legacy codes. Engine-defined methods carry their own
+ *  name in the quote, so this is only a fallback. */
+const METHOD_LABEL: Record<string, string> = {
   standard: "Standard",
   express: "Express",
 };
+
+/** Prefer the name the quote supplied; fall back to a known code, then the
+ *  code itself so an unlabelled method still reads sensibly. */
+function methodLabel(opt: { method: string; methodName?: string }): string {
+  return opt.methodName ?? METHOD_LABEL[opt.method] ?? opt.method;
+}
 
 function deliveryDate(daysAhead: number): string {
   const d = new Date();
@@ -75,7 +83,7 @@ export function CheckoutForm({
     address: initial?.address ?? "",
     apartment: initial?.apartment ?? "",
   });
-  const [method, setMethod] = useState<ShippingMethod>("standard");
+  const [method, setMethod] = useState<string>("standard");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     initial?.lat != null && initial?.lng != null
       ? { lat: initial.lat, lng: initial.lng }
@@ -147,7 +155,23 @@ export function CheckoutForm({
   const convFactor = quote && subtotal > 0 ? quote.subtotal / subtotal : 1;
   const shownSubtotal = quote?.subtotal ?? subtotal;
   const shippingCost = selectedOption?.cost ?? 0;
-  const shownTotal = shownSubtotal + shippingCost;
+
+  // Recomputed with the same pure function the server uses, so switching
+  // method updates every line instantly and the figures still match what
+  // checkout charges when the order is re-priced server-side. Plain integer
+  // arithmetic — not worth memoising.
+  const totals = computeTotals(
+    { subtotal: shownSubtotal, shipping: shippingCost },
+    quote?.taxConfig ?? {
+      taxEnabled: false,
+      taxRateBps: 0,
+      taxLabel: "VAT",
+      discountEnabled: false,
+      discountBps: 0,
+      discountLabel: "Discount",
+    },
+  );
+  const shownTotal = totals.total;
 
   async function useMyLocation() {
     setError(null);
@@ -374,7 +398,7 @@ export function CheckoutForm({
                     />
                     <span>
                       <span className="block text-sm font-medium text-gray-100">
-                        {METHOD_LABEL[opt.method]}
+                        {methodLabel(opt)}
                       </span>
                       <span className="block text-xs text-gray-400">
                         {deliveryDate(opt.minDays)} – {deliveryDate(opt.maxDays)}{" "}
@@ -420,13 +444,21 @@ export function CheckoutForm({
 
         <div className="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
           <div className="flex justify-between text-gray-300">
-            <span>Subtotal</span>
+            <span>Product subtotal</span>
             <span>{formatMoney(shownSubtotal, displayCurrency)}</span>
           </div>
+
+          {totals.discount > 0 && (
+            <div className="flex justify-between text-green-400">
+              <span>{quote?.taxConfig.discountLabel ?? "Discount"}</span>
+              <span>−{formatMoney(totals.discount, displayCurrency)}</span>
+            </div>
+          )}
+
           <div className="flex justify-between text-gray-300">
             <span>
               Shipping
-              {selectedOption ? ` · ${METHOD_LABEL[selectedOption.method]}` : ""}
+              {selectedOption ? ` · ${methodLabel(selectedOption)}` : ""}
             </span>
             <span>
               {!form.countryCode
@@ -438,8 +470,28 @@ export function CheckoutForm({
                   : "—"}
             </span>
           </div>
+
+          {/* Weight and bracket, so the shopper can see why postage costs
+              what it does rather than being shown an unexplained number. */}
+          {quote && quote.weightGrams > 0 && (
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>
+                Parcel weight
+                {quote.bracketLabel ? ` · ${quote.bracketLabel}` : ""}
+              </span>
+              <span>{formatWeight(quote.weightGrams)}</span>
+            </div>
+          )}
+
+          {totals.tax > 0 && (
+            <div className="flex justify-between text-gray-300">
+              <span>{quote?.taxConfig.taxLabel ?? "VAT"}</span>
+              <span>{formatMoney(totals.tax, displayCurrency)}</span>
+            </div>
+          )}
+
           <div className="flex justify-between border-t border-white/10 pt-2 text-base font-semibold">
-            <span>Total</span>
+            <span>Grand total</span>
             <span>{formatMoney(shownTotal, displayCurrency)}</span>
           </div>
           {quote && quote.currency !== "NGN" && (

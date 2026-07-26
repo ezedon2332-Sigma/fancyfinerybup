@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+
+import { fromGrams, toGrams } from "@/domain/shipping/engine";
 import {
   AlertCircle,
   ArrowLeft,
@@ -69,6 +71,13 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [status, setStatus] = useState(initial?.status ?? "draft");
   const [featured, setFeatured] = useState(initial?.featured ?? false);
+  // Shown in whichever unit it was saved in; converted to grams on submit.
+  const [weightUnit, setWeightUnit] = useState<"g" | "kg">(
+    initial?.weightUnit ?? "g",
+  );
+  const [weight, setWeight] = useState<number>(
+    fromGrams(initial?.weightGrams ?? 0, initial?.weightUnit ?? "g"),
+  );
   const [media, setMedia] = useState<MediaItem[]>(
     (initial?.media ?? []).map((m) => ({
       storagePath: m.storagePath,
@@ -189,6 +198,8 @@ export function ProductForm({
       categoryId: categoryId || null,
       status,
       featured,
+      weight: Number(weight) || 0,
+      weightUnit,
       media: media.map((m) => ({
         storagePath: m.storagePath,
         mediaType: m.mediaType,
@@ -257,6 +268,41 @@ export function ProductForm({
             <option value="published">Published</option>
             <option value="archived">Archived</option>
           </select>
+        </label>
+        <label className="block">
+          <span className="text-xs uppercase tracking-widest text-gray-400">
+            Shipping weight
+          </span>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={0}
+              step={weightUnit === "kg" ? 0.01 : 1}
+              value={weight}
+              onChange={(e) => setWeight(Number(e.target.value))}
+              className={field}
+              placeholder="0"
+            />
+            <select
+              value={weightUnit}
+              onChange={(e) => {
+                // Keep the physical weight the same when the unit changes, so
+                // switching g -> kg reads 0.5 rather than silently becoming 500 kg.
+                const next = e.target.value as "g" | "kg";
+                setWeight(fromGrams(toGrams(Number(weight) || 0, weightUnit), next));
+                setWeightUnit(next);
+              }}
+              aria-label="Weight unit"
+              className={`${field} w-20 shrink-0`}
+            >
+              <option value="g">g</option>
+              <option value="kg">kg</option>
+            </select>
+          </div>
+          <span className="mt-1 block text-[11px] text-gray-500">
+            Used to pick the shipping weight bracket. Leave 0 to fall back to
+            the default parcel weight in Shipping settings.
+          </span>
         </label>
         <label className="flex items-center gap-2 sm:col-span-2">
           <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="h-4 w-4 accent-yellow-500" />

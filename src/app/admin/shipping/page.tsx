@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { getShippingRepository } from "@/infrastructure/supabase/shipping-service";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { ShippingManager } from "@/components/admin/ShippingManager";
+import { ShippingEngine } from "@/components/admin/ShippingEngine";
+import type { RateTable } from "@/domain/shipping/engine";
 import type {
   ShippingCountry,
   ShippingSettings,
@@ -58,12 +60,23 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export default async function AdminShippingPage() {
   let countries: ShippingCountry[] = [];
-  let settings: ShippingSettings = { ngnPerUsd: DEFAULT_NGN_PER_USD };
+  let settings: ShippingSettings = {
+    ngnPerUsd: DEFAULT_NGN_PER_USD,
+    taxEnabled: false,
+    taxRateBps: 0,
+    taxLabel: "VAT",
+    discountEnabled: false,
+    discountBps: 0,
+    discountLabel: "Discount",
+    defaultItemWeightGrams: 500,
+  };
+  let rateTable: RateTable = { zones: [], methods: [], brackets: [], rates: [] };
   try {
     const repo = await getShippingRepository();
-    [countries, settings] = await Promise.all([
+    [countries, settings, rateTable] = await Promise.all([
       repo.listCountries(),
       repo.getSettings(),
+      repo.getRateTable(),
     ]);
   } catch {
     // Tables not migrated yet — render the empty state so the admin can seed.
@@ -91,7 +104,20 @@ export default async function AdminShippingPage() {
       </div>
 
       <div className="mt-8">
-        <ShippingManager countries={countries} settings={settings} />
+        <ShippingEngine table={rateTable} settings={settings} />
+      </div>
+
+      <div className="mt-10">
+        <h2 className="font-display text-xl text-white">
+          Legacy per-country rates
+        </h2>
+        <p className="mt-1 text-xs text-gray-500">
+          Used as a fallback wherever the engine above has no matching rate, and
+          still the switch for whether a country is shippable at all.
+        </p>
+        <div className="mt-4">
+          <ShippingManager countries={countries} settings={settings} />
+        </div>
       </div>
     </div>
   );

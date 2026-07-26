@@ -5,6 +5,7 @@ import type {
   ShippingSettings,
 } from "@/domain/shipping/shipping";
 import type { ShippingZone } from "@/domain/shipping/countries";
+import type { RateSource, RateTable } from "@/domain/shipping/engine";
 import { DEFAULT_NGN_PER_USD } from "@/domain/shipping/currency";
 import type { ShippingRepository } from "@/domain/repositories/shipping-repository";
 import type { Database } from "../database.types";
@@ -63,11 +64,89 @@ export function createShippingRepository(
     async getSettings(): Promise<ShippingSettings> {
       const { data, error } = await client
         .from("shipping_settings")
-        .select("ngn_per_usd")
+        .select("*")
         .eq("id", true)
         .maybeSingle();
       if (error) throw error;
-      return { ngnPerUsd: data?.ngn_per_usd ?? DEFAULT_NGN_PER_USD };
+      return {
+        ngnPerUsd: data?.ngn_per_usd ?? DEFAULT_NGN_PER_USD,
+        taxEnabled: data?.tax_enabled ?? false,
+        taxRateBps: data?.tax_rate_bps ?? 0,
+        taxLabel: data?.tax_label ?? "VAT",
+        discountEnabled: data?.discount_enabled ?? false,
+        discountBps: data?.discount_bps ?? 0,
+        discountLabel: data?.discount_label ?? "Discount",
+        defaultItemWeightGrams: data?.default_item_weight_grams ?? 500,
+      };
+    },
+
+    /**
+     * Whole rate table in four parallel reads.
+     *
+     * Returns an empty table rather than throwing if the engine migration has
+     * not been applied yet — the use-case falls back to the legacy per-country
+     * prices in that case, so checkout keeps working either way.
+     */
+    async getRateTable(): Promise<RateTable> {
+      const [zonesRes, assignRes, methodsRes, bracketsRes, ratesRes] =
+        await Promise.all([
+          client.from("shipping_zones").select("*").order("sort_order"),
+          client.from("shipping_zone_countries").select("*"),
+          client.from("shipping_methods").select("*").order("sort_order"),
+          client.from("shipping_weight_brackets").select("*").order("min_grams"),
+          client.from("shipping_rates").select("*"),
+        ]);
+
+      if (zonesRes.error || methodsRes.error || bracketsRes.error || ratesRes.error) {
+        return { zones: [], methods: [], brackets: [], rates: [] };
+      }
+
+      const byZone = new Map<string, string[]>();
+      for (const a of assignRes.data ?? []) {
+        const list = byZone.get(a.zone_id) ?? [];
+        list.push(a.country_code.toUpperCase());
+        byZone.set(a.zone_id, list);
+      }
+
+      return {
+        zones: (zonesRes.data ?? []).map((z) => ({
+          id: z.id,
+          code: z.code,
+          name: z.name,
+          enabled: z.enabled,
+          sortOrder: z.sort_order,
+          countries: byZone.get(z.id) ?? [],
+        })),
+        methods: (methodsRes.data ?? []).map((m) => ({
+          id: m.id,
+          code: m.code,
+          name: m.name,
+          description: m.description,
+          rateSource: m.rate_source as RateSource,
+          carrierCode: m.carrier_code,
+          enabled: m.enabled,
+          sortOrder: m.sort_order,
+          minDays: m.min_days,
+          maxDays: m.max_days,
+        })),
+        brackets: (bracketsRes.data ?? []).map((b) => ({
+          id: b.id,
+          label: b.label,
+          minGrams: b.min_grams,
+          maxGrams: b.max_grams,
+          sortOrder: b.sort_order,
+        })),
+        rates: (ratesRes.data ?? []).map((r) => ({
+          id: r.id,
+          zoneId: r.zone_id,
+          countryCode: r.country_code,
+          methodId: r.method_id,
+          bracketId: r.bracket_id,
+          price: r.price,
+          freeOver: r.free_over,
+          enabled: r.enabled,
+        })),
+      };
     },
   };
 }

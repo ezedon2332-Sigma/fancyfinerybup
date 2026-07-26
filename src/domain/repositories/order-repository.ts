@@ -3,7 +3,6 @@ import type {
   OrderWithItems,
   ShippingDetails,
 } from "@/domain/entities/order";
-import type { ShippingMethod } from "@/domain/shipping/shipping";
 
 export interface NewOrderItem {
   productId: string;
@@ -18,8 +17,13 @@ export interface NewOrder {
   currency: string;
   subtotal: number; // minor units (order currency)
   shippingCost: number; // minor units (order currency)
-  total: number; // minor units (subtotal + shippingCost)
-  shippingMethod: ShippingMethod;
+  tax: number; // minor units
+  discount: number; // minor units
+  /** Cart weight the postage was priced on — kept for audit and reprints. */
+  totalWeightGrams: number;
+  total: number; // minor units (subtotal - discount + shipping + tax)
+  /** Method *code*: legacy "standard"/"express" or an engine-defined code. */
+  shippingMethod: string;
   shipping: ShippingDetails;
   items: NewOrderItem[];
 }

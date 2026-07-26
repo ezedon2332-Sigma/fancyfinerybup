@@ -38,6 +38,8 @@ export function toProduct(row: Row<"products">): Product {
     categoryId: row.category_id,
     status: row.status,
     featured: row.featured,
+    weightGrams: row.weight_grams ?? 0,
+    weightUnit: (row.weight_unit ?? "g") === "kg" ? "kg" : "g",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -124,6 +124,8 @@ export interface Database {
           category_id: string | null;
           status: ProductStatus;
           featured: boolean;
+          weight_grams: number;
+          weight_unit: string;
           created_at: string;
           updated_at: string;
         };
@@ -137,6 +139,8 @@ export interface Database {
           category_id?: string | null;
           status?: ProductStatus;
           featured?: boolean;
+          weight_grams?: number;
+          weight_unit?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -150,6 +154,8 @@ export interface Database {
           category_id?: string | null;
           status?: ProductStatus;
           featured?: boolean;
+          weight_grams?: number;
+          weight_unit?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -249,6 +255,9 @@ export interface Database {
           shipping_lng: number | null;
           subtotal: number;
           shipping_cost: number;
+          tax: number;
+          discount: number;
+          total_weight_grams: number;
           shipping_method: string | null;
           shipping_country_code: string | null;
           shipping_postal: string | null;
@@ -278,6 +287,9 @@ export interface Database {
           shipping_lng?: number | null;
           subtotal?: number;
           shipping_cost?: number;
+          tax?: number;
+          discount?: number;
+          total_weight_grams?: number;
           shipping_method?: string | null;
           shipping_country_code?: string | null;
           shipping_postal?: string | null;
@@ -416,6 +428,13 @@ export interface Database {
           rate_mode: string;
           rate_source: string | null;
           rate_updated_at: string | null;
+          tax_rate_bps: number;
+          tax_label: string;
+          tax_enabled: boolean;
+          discount_bps: number;
+          discount_label: string;
+          discount_enabled: boolean;
+          default_item_weight_grams: number;
           updated_at: string;
         };
         Insert: {
@@ -424,6 +443,13 @@ export interface Database {
           rate_mode?: string;
           rate_source?: string | null;
           rate_updated_at?: string | null;
+          tax_rate_bps?: number;
+          tax_label?: string;
+          tax_enabled?: boolean;
+          discount_bps?: number;
+          discount_label?: string;
+          discount_enabled?: boolean;
+          default_item_weight_grams?: number;
           updated_at?: string;
         };
         Update: {
@@ -432,6 +458,151 @@ export interface Database {
           rate_mode?: string;
           rate_source?: string | null;
           rate_updated_at?: string | null;
+          tax_rate_bps?: number;
+          tax_label?: string;
+          tax_enabled?: boolean;
+          discount_bps?: number;
+          discount_label?: string;
+          discount_enabled?: boolean;
+          default_item_weight_grams?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shipping_zones: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          enabled: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          name: string;
+          enabled?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          name?: string;
+          enabled?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shipping_zone_countries: {
+        Row: { country_code: string; zone_id: string; created_at: string };
+        Insert: { country_code: string; zone_id: string; created_at?: string };
+        Update: { zone_id?: string };
+        Relationships: [];
+      };
+      shipping_methods: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          description: string | null;
+          rate_source: string;
+          carrier_code: string | null;
+          carrier_config: Json;
+          enabled: boolean;
+          sort_order: number;
+          min_days: number;
+          max_days: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          name: string;
+          description?: string | null;
+          rate_source?: string;
+          carrier_code?: string | null;
+          carrier_config?: Json;
+          enabled?: boolean;
+          sort_order?: number;
+          min_days?: number;
+          max_days?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          name?: string;
+          description?: string | null;
+          rate_source?: string;
+          carrier_code?: string | null;
+          carrier_config?: Json;
+          enabled?: boolean;
+          sort_order?: number;
+          min_days?: number;
+          max_days?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shipping_weight_brackets: {
+        Row: {
+          id: string;
+          label: string;
+          min_grams: number;
+          max_grams: number | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          label: string;
+          min_grams: number;
+          max_grams?: number | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          label?: string;
+          min_grams?: number;
+          max_grams?: number | null;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      shipping_rates: {
+        Row: {
+          id: string;
+          zone_id: string | null;
+          country_code: string | null;
+          method_id: string;
+          bracket_id: string;
+          price: number;
+          free_over: number | null;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          zone_id?: string | null;
+          country_code?: string | null;
+          method_id: string;
+          bracket_id: string;
+          price?: number;
+          free_over?: number | null;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          price?: number;
+          free_over?: number | null;
+          enabled?: boolean;
           updated_at?: string;
         };
         Relationships: [];

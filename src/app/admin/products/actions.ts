@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/infrastructure/supabase/auth";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { productSchema, slugify } from "@/lib/validation";
+import { toGrams } from "@/domain/shipping/engine";
 
 const BUCKET = "product-images";
 const MAX_BYTES = 50 * 1024 * 1024; // 50MB (covers short videos)
@@ -68,6 +69,9 @@ export async function saveProduct(payload: unknown): Promise<SaveResult> {
     category_id: input.categoryId ?? null,
     status: input.status,
     featured: input.featured,
+    // Stored canonically in grams; weight_unit only records how it was typed.
+    weight_grams: toGrams(input.weight, input.weightUnit),
+    weight_unit: input.weightUnit,
   };
 
   let productId = input.id;
