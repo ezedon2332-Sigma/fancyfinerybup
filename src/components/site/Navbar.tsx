@@ -74,29 +74,42 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
       </div>
 
-      {/* Main nav */}
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-10">
-        <Link href="/" className="flex items-center gap-3">
+      {/* Main nav — permanent brand identity left, links optically centred
+          (equal 1fr side tracks), actions right. */}
+      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:grid lg:h-24 lg:grid-cols-[1fr_auto_1fr] lg:gap-6 lg:px-10">
+        <Link
+          href="/"
+          aria-label="Fancy Finery — home"
+          className="brand-lockup flex shrink-0 items-center gap-2.5 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-yellow-500/70 sm:gap-4 lg:col-start-1 lg:row-start-1"
+        >
           <Image
             src="/logo.png"
             alt="Fancy Finery"
-            width={40}
-            height={40}
+            width={112}
+            height={112}
             priority
-            className="h-9 w-9 object-contain"
+            className="brand-mark h-10 w-10 object-contain sm:h-[54px] sm:w-[54px] lg:h-[52px] lg:w-[52px] xl:h-14 xl:w-14"
           />
-          <span className="flex flex-col leading-none">
-            <span className="brand-wordmark text-base tracking-[3px] sm:text-lg">
+          <span className="flex flex-col justify-center leading-none">
+            <span className="brand-wordmark whitespace-nowrap text-center text-base leading-none tracking-[0.12em] sm:text-2xl sm:tracking-[0.16em] lg:text-[22px] xl:text-[26px]">
               FANCY FINERY
             </span>
-            <span className="hidden text-[10px] uppercase tracking-[5px] text-gray-400 sm:block">
+            <span className="brand-tagline mt-2 hidden items-center gap-2 text-[9px] uppercase leading-none tracking-[0.38em] text-gray-400 sm:flex lg:text-[10px]">
+              <span
+                aria-hidden
+                className="h-px min-w-2 flex-1 bg-gradient-to-r from-transparent to-yellow-600/60"
+              />
               Luxury Fashion House
+              <span
+                aria-hidden
+                className="h-px min-w-2 flex-1 bg-gradient-to-l from-transparent to-yellow-600/60"
+              />
             </span>
           </span>
         </Link>
 
-        {/* Desktop links */}
-        <div className="hidden items-center gap-7 text-xs font-medium uppercase tracking-widest lg:flex">
+        {/* Desktop links — centre track */}
+        <div className="hidden items-center justify-center gap-4 text-[10px] font-medium uppercase tracking-[0.14em] lg:col-start-2 lg:row-start-1 lg:flex xl:gap-7 xl:text-[11px] xl:tracking-[0.16em] 2xl:text-xs">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -120,7 +133,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 lg:col-start-3 lg:row-start-1">
           {/* Always-visible currency selector */}
           <CurrencySwitcher />
           <Link

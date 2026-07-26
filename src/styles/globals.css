@@ -36,6 +36,44 @@ h2,
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+  transition: filter 450ms ease;
+}
+
+/* Header brand lockup: mark + wordmark + subtitle. Hover lifts the whole
+   lockup a hair and warms the gold — prestige, not sparkle. */
+.brand-lockup .brand-mark {
+  transition:
+    transform 450ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 450ms ease;
+}
+
+.brand-lockup:hover .brand-mark,
+.brand-lockup:focus-visible .brand-mark {
+  transform: scale(1.04);
+  filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.45))
+    drop-shadow(0 0 24px rgba(234, 179, 8, 0.16));
+}
+
+.brand-lockup:hover .brand-wordmark,
+.brand-lockup:focus-visible .brand-wordmark {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 14px rgba(240, 194, 69, 0.38));
+}
+
+.brand-lockup .brand-tagline {
+  transition: color 450ms ease;
+}
+
+.brand-lockup:hover .brand-tagline,
+.brand-lockup:focus-visible .brand-tagline {
+  color: #e5c76b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-lockup:hover .brand-mark,
+  .brand-lockup:focus-visible .brand-mark {
+    transform: none;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -85,6 +123,73 @@ body {
   animation: ken-burns 18s ease-out both;
 }
 
+/* Hero wordmark — polished gold with a specular band that sweeps slowly
+   across the metal. Layer 1 is the moving highlight, layer 2 the base ramp. */
+.hero-wordmark {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  background-image:
+    linear-gradient(
+      100deg,
+      transparent 34%,
+      rgba(255, 255, 255, 0.5) 47%,
+      rgba(255, 255, 255, 0) 60%
+    ),
+    linear-gradient(
+      180deg,
+      #fff8e1 0%,
+      #fde68a 20%,
+      #f0c245 44%,
+      #eab308 62%,
+      #b8862a 84%,
+      #8f6516 100%
+    );
+  background-size:
+    220% 100%,
+    100% 100%;
+  background-position:
+    220% 0,
+    0 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65))
+    drop-shadow(0 4px 26px rgba(234, 179, 8, 0.3));
+  animation: hero-sheen 9s ease-in-out 1.4s infinite;
+}
+
+@keyframes hero-sheen {
+  0%,
+  55% {
+    background-position:
+      220% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      -120% 0,
+      0 0;
+  }
+}
+
+/* Hero emblem — gold glow, plus a slow breathing lift for depth. */
+.hero-emblem {
+  filter: drop-shadow(0 0 14px rgba(234, 179, 8, 0.35))
+    drop-shadow(0 0 44px rgba(234, 179, 8, 0.14));
+  animation: hero-emblem-float 7s ease-in-out 1s infinite;
+}
+
+@keyframes hero-emblem-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 /* Soft gold sheen sweep for premium accents. */
 @keyframes shimmer {
   0% {
@@ -131,7 +236,9 @@ body {
   }
   .animate-fade-up,
   .animate-ken-burns,
-  .intro-sweep {
+  .intro-sweep,
+  .hero-wordmark,
+  .hero-emblem {
     animation: none;
   }
 }
