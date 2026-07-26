@@ -4,18 +4,15 @@ import type {
   OrderRepository,
 } from "@/domain/repositories/order-repository";
 import type { ProductRepository } from "@/domain/repositories/product-repository";
-import type { ShippingRepository } from "@/domain/repositories/shipping-repository";
-import { convertFromNgnMinor } from "@/domain/shipping/currency";
 import {
-  totalCartWeight,
-  type CartWeightLine,
-} from "@/domain/shipping/engine";
-import { resolveShipping, ShippingError } from "@/application/use-cases/shipping";
+  convertFromNgnMinor,
+  orderCurrencyForCountry,
+} from "@/domain/shipping/currency";
+import { getExchangeRate } from "@/infrastructure/exchange-rate/service";
 
 export interface CheckoutDeps {
   products: ProductRepository;
   orders: OrderRepository;
-  shipping: ShippingRepository;
 }
 
 export interface CheckoutLine {
@@ -27,18 +24,23 @@ export interface CheckoutLine {
 export interface PlaceOrderInput {
   userId: string;
   shipping: ShippingDetails;
-  /** Shipping method *code* — legacy "standard"/"express" or an engine code. */
-  method: string;
   lines: CheckoutLine[];
 }
 
 export class CheckoutError extends Error {}
 
 /**
- * Place an order. Prices, names, stock, AND shipping cost are taken from the DB
- * — never trusted from the client — so a tampered cart or shipping selection
- * cannot change what's charged. Amounts are converted into the order's currency
- * (NGN for Nigeria, USD elsewhere) authoritatively here.
+ * Place an order.
+ *
+ * Prices, names and stock are taken from the database — never trusted from the
+ * client — so a tampered cart cannot change what is charged. Amounts are
+ * converted into the order's currency (NGN for Nigeria, USD elsewhere) here.
+ *
+ * Delivery is currently free: the shipping module has been removed and no rate
+ * engine exists, so every order is placed with a zero shipping cost. The
+ * address is still captured in full, and orders carry `shipping_cost` and
+ * `shipping_method` columns, so reinstating a charge later is a change in this
+ * function rather than a schema migration.
  */
 export async function placeOrder(
   deps: CheckoutDeps,
@@ -53,8 +55,8 @@ export async function placeOrder(
 
   // 1) Recompute the subtotal in the base currency (NGN kobo) from the DB.
   const priced: { item: Omit<NewOrderItem, "unitPrice">; priceNgn: number }[] = [];
-  const weightLines: CartWeightLine[] = [];
   let subtotalNgn = 0;
+  let totalWeightGrams = 0;
 
   for (const line of input.lines) {
     const product = await deps.products.findPublishedById(line.productId);
@@ -78,7 +80,7 @@ export async function placeOrder(
     }
 
     subtotalNgn += product.price * line.qty;
-    weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
+    totalWeightGrams += product.weightGrams * line.qty;
     priced.push({
       item: {
         productId: product.id,
@@ -92,43 +94,28 @@ export async function placeOrder(
     });
   }
 
-  // 2) Resolve shipping + order currency authoritatively. Weight is recomputed
-  //     here from the catalogue for the same reason the subtotal is: a client
-  //     could otherwise declare a featherweight cart and underpay postage.
-  let resolved;
-  try {
-    const settings = await deps.shipping.getSettings();
-    const weightGrams = totalCartWeight(
-      weightLines,
-      settings.defaultItemWeightGrams,
-    );
-    resolved = await resolveShipping(deps, {
-      countryCode: input.shipping.countryCode,
-      method: input.method,
-      subtotalNgn,
-      weightGrams,
-    });
-  } catch (e) {
-    if (e instanceof ShippingError) throw new CheckoutError(e.message);
-    throw e;
-  }
+  // 2) Order currency follows the destination; the live rate converts into it.
+  const currency = orderCurrencyForCountry(input.shipping.countryCode);
+  const { ngnPerUsd } = await getExchangeRate();
+
+  const subtotal = convertFromNgnMinor(subtotalNgn, currency, ngnPerUsd);
 
   // 3) Snapshot each line's unit price in the order currency.
   const items: NewOrderItem[] = priced.map(({ item, priceNgn }) => ({
     ...item,
-    unitPrice: convertFromNgnMinor(priceNgn, resolved.currency, resolved.ngnPerUsd),
+    unitPrice: convertFromNgnMinor(priceNgn, currency, ngnPerUsd),
   }));
 
   return deps.orders.create({
     userId: input.userId,
-    currency: resolved.currency,
-    subtotal: resolved.subtotal,
-    shippingCost: resolved.shippingCost,
-    tax: resolved.tax,
-    discount: resolved.discount,
-    totalWeightGrams: resolved.weightGrams,
-    total: resolved.total,
-    shippingMethod: resolved.method,
+    currency,
+    subtotal,
+    shippingCost: 0,
+    tax: 0,
+    discount: 0,
+    totalWeightGrams,
+    total: subtotal,
+    shippingMethod: null,
     shipping: input.shipping,
     items,
   });

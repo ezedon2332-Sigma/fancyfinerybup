@@ -1,4 +1,3 @@
-import type { ShippingMethod } from "@/domain/shipping/shipping";
 
 /** Fulfilment lifecycle. Legacy values are remapped by migration, so live data
  *  only ever carries one of these. */
@@ -60,7 +59,7 @@ export interface Order {
   /** Grand total in minor units (subtotal + shippingCost). */
   readonly total: number;
   readonly currency: string;
-  readonly shippingMethod: ShippingMethod | null;
+  readonly shippingMethod: string | null;
   readonly trackingNumber: string | null;
   readonly paystackReference: string | null;
   readonly shipping: ShippingDetails;

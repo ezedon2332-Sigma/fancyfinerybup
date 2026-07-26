@@ -8,7 +8,6 @@ import {
   Palette,
   ShoppingCart,
   Tags,
-  Truck,
   Users,
 } from "lucide-react";
 
@@ -49,7 +48,6 @@ export default async function AdminLayout({
       heading: "Sales",
       links: [
         { href: "/admin/orders", icon: <ShoppingCart className="h-4 w-4" />, label: "Orders" },
-        { href: "/admin/shipping", icon: <Truck className="h-4 w-4" />, label: "Shipping" },
       ],
     },
     {

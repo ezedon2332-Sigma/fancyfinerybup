@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import type { CountryOption } from "@/components/checkout/CountrySelect";
 import { getCurrentProfile, requireUser } from "@/infrastructure/supabase/auth";
-import { getShippingRepository } from "@/infrastructure/supabase/shipping-service";
 import { onlinePaymentEnabled } from "@/infrastructure/payments/providers";
 import { COUNTRIES } from "@/domain/shipping/countries";
 
@@ -14,20 +13,12 @@ export default async function CheckoutPage() {
   const profile = await getCurrentProfile();
   const a = profile?.address;
 
-  // Enabled shipping destinations (alphabetical). Fall back to the full ISO set
-  // if the shipping tables aren't reachable, so the page never hard-fails.
-  let countries: CountryOption[];
-  try {
-    const enabled = await getShippingRepository().then((r) =>
-      r.listEnabledCountries(),
-    );
-    countries =
-      enabled.length > 0
-        ? enabled.map((c) => ({ code: c.code, name: c.name }))
-        : COUNTRIES.map((c) => ({ code: c.code, name: c.name }));
-  } catch {
-    countries = COUNTRIES.map((c) => ({ code: c.code, name: c.name }));
-  }
+  // The full ISO set. With the shipping module removed there is no per-country
+  // enable/disable list, so every destination is selectable.
+  const countries: CountryOption[] = COUNTRIES.map((c) => ({
+    code: c.code,
+    name: c.name,
+  }));
 
   // Resolve the saved country name back to a code, if possible.
   const savedCode =

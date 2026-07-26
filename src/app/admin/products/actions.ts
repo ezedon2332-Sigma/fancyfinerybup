@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/infrastructure/supabase/auth";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { productSchema, slugify } from "@/lib/validation";
-import { toGrams } from "@/domain/shipping/engine";
+import { toGrams } from "@/domain/entities/product";
 
 const BUCKET = "product-images";
 const MAX_BYTES = 50 * 1024 * 1024; // 50MB (covers short videos)

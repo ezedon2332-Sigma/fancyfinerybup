@@ -2,6 +2,28 @@ export type ProductStatus = "draft" | "published" | "archived";
 
 export type MediaType = "image" | "video";
 
+/** Unit an admin enters a product's weight in. Storage is always grams. */
+export type WeightUnit = "g" | "kg";
+
+/** Normalise an entered weight to canonical grams. */
+export function toGrams(value: number, unit: WeightUnit): number {
+  const grams = unit === "kg" ? value * 1000 : value;
+  return Math.max(0, Math.round(grams));
+}
+
+/** Render canonical grams in the unit the admin prefers. */
+export function fromGrams(grams: number, unit: WeightUnit): number {
+  return unit === "kg" ? grams / 1000 : grams;
+}
+
+export function formatWeight(grams: number): string {
+  if (grams >= 1000) {
+    // parseFloat drops trailing zeros, so 2500 g reads "2.5 kg", not "2.50 kg".
+    return `${parseFloat((grams / 1000).toFixed(2))} kg`;
+  }
+  return `${grams} g`;
+}
+
 export interface ProductImage {
   readonly id: string;
   readonly storagePath: string;

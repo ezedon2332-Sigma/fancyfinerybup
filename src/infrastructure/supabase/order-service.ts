@@ -5,15 +5,13 @@ import type { OrderRepository } from "@/domain/repositories/order-repository";
 import { createSupabaseServerClient } from "./server-client";
 import { createOrderRepository } from "./repositories/order-repository";
 import { createProductRepository } from "./repositories/product-repository";
-import { createShippingRepository } from "./repositories/shipping-repository";
 
-/** Deps for placing an order (product pricing + shipping + order writes), RLS-scoped. */
+/** Deps for placing an order (product pricing + order writes), RLS-scoped. */
 export async function getCheckoutDeps(): Promise<CheckoutDeps> {
   const client = await createSupabaseServerClient();
   return {
     products: createProductRepository(client),
     orders: createOrderRepository(client),
-    shipping: createShippingRepository(client),
   };
 }
 

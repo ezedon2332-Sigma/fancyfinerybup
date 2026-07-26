@@ -3,19 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Loader2, MapPin, Truck } from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
 import { formatMoney } from "@/domain/shared/money";
 import { checkoutSchema } from "@/lib/validation";
-import { placeOrderAction, getShippingQuoteAction } from "@/app/checkout/actions";
+import { placeOrderAction } from "@/app/checkout/actions";
 import { startPaymentAction } from "@/app/checkout/payment-actions";
-import type {
-  ShippingQuote,
-  ShippingQuoteOption,
-} from "@/domain/shipping/shipping";
-import { computeTotals, formatWeight } from "@/domain/shipping/engine";
 import { CountrySelect, type CountryOption } from "./CountrySelect";
 
 interface FormState {
@@ -34,29 +29,6 @@ interface FormState {
 export interface CheckoutInitial extends FormState {
   lat: number | null;
   lng: number | null;
-}
-
-/** Labels for the two legacy codes. Engine-defined methods carry their own
- *  name in the quote, so this is only a fallback. */
-const METHOD_LABEL: Record<string, string> = {
-  standard: "Standard",
-  express: "Express",
-};
-
-/** Prefer the name the quote supplied; fall back to a known code, then the
- *  code itself so an unlabelled method still reads sensibly. */
-function methodLabel(opt: { method: string; methodName?: string }): string {
-  return opt.methodName ?? METHOD_LABEL[opt.method] ?? opt.method;
-}
-
-function deliveryDate(daysAhead: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export function CheckoutForm({
@@ -83,7 +55,6 @@ export function CheckoutForm({
     address: initial?.address ?? "",
     apartment: initial?.apartment ?? "",
   });
-  const [method, setMethod] = useState<string>("standard");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     initial?.lat != null && initial?.lng != null
       ? { lat: initial.lat, lng: initial.lng }
@@ -93,85 +64,18 @@ export function CheckoutForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [quote, setQuote] = useState<ShippingQuote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
-
   const set =
     (k: keyof FormState) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const itemsKey = useMemo(
-    () => items.map((i) => `${i.productId}:${i.variantId}:${i.qty}`).join(","),
-    [items],
-  );
-
-  // Fetch a fresh shipping quote whenever the country or cart changes.
-  useEffect(() => {
-    const code = form.countryCode;
-    if (!code || items.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears a stale async quote when its inputs go away
-      setQuote(null);
-      return;
-    }
-    let cancelled = false;
-    setQuoteLoading(true);
-    setQuoteError(null);
-    getShippingQuoteAction({
-      countryCode: code,
-      items: items.map((i) => ({
-        productId: i.productId,
-        variantId: i.variantId,
-        qty: i.qty,
-      })),
-    })
-      .then((res) => {
-        if (cancelled) return;
-        if (res.ok && res.quote) {
-          setQuote(res.quote);
-          const available = res.quote.options.map((o) => o.method);
-          if (!available.includes(method) && available.length > 0) {
-            setMethod(available[0]);
-          }
-        } else {
-          setQuote(null);
-          setQuoteError(res.error ?? "Could not calculate shipping.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setQuoteLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.countryCode, itemsKey]);
-
-  const selectedOption: ShippingQuoteOption | null =
-    quote?.options.find((o) => o.method === method) ?? null;
-
-  const displayCurrency = quote?.currency ?? items[0]?.currency ?? "NGN";
-  const convFactor = quote && subtotal > 0 ? quote.subtotal / subtotal : 1;
-  const shownSubtotal = quote?.subtotal ?? subtotal;
-  const shippingCost = selectedOption?.cost ?? 0;
-
-  // Recomputed with the same pure function the server uses, so switching
-  // method updates every line instantly and the figures still match what
-  // checkout charges when the order is re-priced server-side. Plain integer
-  // arithmetic — not worth memoising.
-  const totals = computeTotals(
-    { subtotal: shownSubtotal, shipping: shippingCost },
-    quote?.taxConfig ?? {
-      taxEnabled: false,
-      taxRateBps: 0,
-      taxLabel: "VAT",
-      discountEnabled: false,
-      discountBps: 0,
-      discountLabel: "Discount",
-    },
-  );
-  const shownTotal = totals.total;
+  // No shipping module, so no quote to fetch: delivery is free and the total
+  // is the cart subtotal. The server re-prices independently when the order is
+  // placed, so these figures are a display of that, not the source of truth.
+  const displayCurrency = items[0]?.currency ?? "NGN";
+  const convFactor = 1;
+  const shownSubtotal = subtotal;
+  const shownTotal = subtotal;
 
   async function useMyLocation() {
     setError(null);
@@ -240,7 +144,6 @@ export function CheckoutForm({
       postal: form.postal,
       address: form.address,
       apartment: form.apartment || null,
-      method,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
       items: items.map((i) => ({
@@ -362,61 +265,23 @@ export function CheckoutForm({
           </div>
         </div>
 
-        {/* Shipping method */}
+        {/* Delivery */}
         <div className="pt-2">
           <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-300">
-            Shipping method
+            Delivery
           </h3>
-          {!form.countryCode ? (
-            <p className="mt-2 text-sm text-gray-500">
-              Select your country to see shipping options.
-            </p>
-          ) : quoteLoading ? (
-            <p className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-              <Loader2 className="h-4 w-4 animate-spin" /> Calculating shipping…
-            </p>
-          ) : quoteError ? (
-            <p className="mt-2 text-sm text-red-400">{quoteError}</p>
-          ) : quote && quote.options.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {quote.options.map((opt) => (
-                <label
-                  key={opt.method}
-                  className={`flex cursor-pointer items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-                    method === opt.method
-                      ? "border-yellow-500 bg-yellow-500/10"
-                      : "border-white/15 hover:border-white/30"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="method"
-                      checked={method === opt.method}
-                      onChange={() => setMethod(opt.method)}
-                      className="h-4 w-4 accent-yellow-500"
-                    />
-                    <span>
-                      <span className="block text-sm font-medium text-gray-100">
-                        {methodLabel(opt)}
-                      </span>
-                      <span className="block text-xs text-gray-400">
-                        {deliveryDate(opt.minDays)} – {deliveryDate(opt.maxDays)}{" "}
-                        ({opt.minDays}–{opt.maxDays} days)
-                      </span>
-                    </span>
-                  </span>
-                  <span className="text-sm font-semibold text-yellow-400">
-                    {opt.free ? "FREE" : formatMoney(opt.cost, opt.currency)}
-                  </span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-gray-500">
-              No shipping options available for this destination.
-            </p>
-          )}
+          <div className="mt-3 flex items-center gap-3 rounded-lg border border-yellow-600/40 bg-yellow-500/5 px-4 py-3">
+            <Truck className="h-4 w-4 shrink-0 text-yellow-500" />
+            <span>
+              <span className="block text-sm font-medium text-gray-100">
+                Complimentary worldwide delivery
+              </span>
+              <span className="block text-xs text-gray-400">
+                We will confirm your dispatch date by email after your order is
+                placed.
+              </span>
+            </span>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -448,68 +313,20 @@ export function CheckoutForm({
             <span>{formatMoney(shownSubtotal, displayCurrency)}</span>
           </div>
 
-          {totals.discount > 0 && (
-            <div className="flex justify-between text-green-400">
-              <span>{quote?.taxConfig.discountLabel ?? "Discount"}</span>
-              <span>−{formatMoney(totals.discount, displayCurrency)}</span>
-            </div>
-          )}
-
           <div className="flex justify-between text-gray-300">
-            <span>
-              Shipping
-              {selectedOption ? ` · ${methodLabel(selectedOption)}` : ""}
-            </span>
-            <span>
-              {!form.countryCode
-                ? "—"
-                : selectedOption
-                  ? selectedOption.free
-                    ? "FREE"
-                    : formatMoney(shippingCost, displayCurrency)
-                  : "—"}
-            </span>
+            <span>Shipping</span>
+            <span className="font-medium text-yellow-400">FREE</span>
           </div>
-
-          {/* Weight and bracket, so the shopper can see why postage costs
-              what it does rather than being shown an unexplained number. */}
-          {quote && quote.weightGrams > 0 && (
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>
-                Parcel weight
-                {quote.bracketLabel ? ` · ${quote.bracketLabel}` : ""}
-              </span>
-              <span>{formatWeight(quote.weightGrams)}</span>
-            </div>
-          )}
-
-          {totals.tax > 0 && (
-            <div className="flex justify-between text-gray-300">
-              <span>{quote?.taxConfig.taxLabel ?? "VAT"}</span>
-              <span>{formatMoney(totals.tax, displayCurrency)}</span>
-            </div>
-          )}
 
           <div className="flex justify-between border-t border-white/10 pt-2 text-base font-semibold">
             <span>Grand total</span>
             <span>{formatMoney(shownTotal, displayCurrency)}</span>
           </div>
-          {quote && quote.currency !== "NGN" && (
-            <p className="pt-1 text-xs text-gray-500">
-              Charged in {quote.currency} for international delivery.
-            </p>
-          )}
-          {selectedOption && (
-            <p className="pt-1 text-xs text-gray-400">
-              Estimated delivery {deliveryDate(selectedOption.minDays)} –{" "}
-              {deliveryDate(selectedOption.maxDays)}.
-            </p>
-          )}
         </div>
 
         <button
           type="submit"
-          disabled={submitting || !form.countryCode || !selectedOption}
+          disabled={submitting || !form.countryCode}
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-sm bg-yellow-500 py-4 font-semibold text-black transition-colors hover:bg-yellow-600 disabled:opacity-50"
         >
           {submitting ? (

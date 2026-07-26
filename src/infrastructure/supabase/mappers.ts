@@ -4,7 +4,6 @@ import type {
   OrderItem,
   OrderWithItems,
 } from "@/domain/entities/order";
-import type { ShippingMethod } from "@/domain/shipping/shipping";
 import type {
   Product,
   ProductImage,
@@ -88,7 +87,7 @@ export function toOrder(row: Row<"orders">): Order {
     shippingCost: row.shipping_cost,
     total: row.total,
     currency: row.currency,
-    shippingMethod: (row.shipping_method as ShippingMethod | null) ?? null,
+    shippingMethod: row.shipping_method ?? null,
     trackingNumber: row.tracking_number,
     paystackReference: row.paystack_reference,
     shipping: {

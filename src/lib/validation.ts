@@ -16,12 +16,10 @@ export const magicLinkSchema = z.object({
 
 export type MagicLinkInput = z.infer<typeof magicLinkSchema>;
 
-/** Shipping method chosen at checkout. */
-export const shippingMethodSchema = z.enum(["standard", "express"]);
-
-/** Checkout — full shipping address + method + cart lines.
- *  Prices AND shipping cost are recomputed server-side; the client sends only
- *  the destination (country/method) and cart line references. */
+/** Checkout — full delivery address + cart lines.
+ *  Prices are recomputed server-side; the client sends only the destination
+ *  and cart line references. Delivery is currently free, so no method is
+ *  selected or submitted. */
 export const checkoutSchema = z.object({
   name: z.string().trim().min(2, "Full name is required"),
   email: emailSchema,
@@ -37,7 +35,6 @@ export const checkoutSchema = z.object({
   postal: z.string().trim().min(1, "ZIP/Postal code is required").max(32),
   address: z.string().trim().min(5, "Street address is required"),
   apartment: z.string().trim().max(120).nullable().optional(),
-  method: shippingMethodSchema,
   lat: z.number().finite().nullable().optional(),
   lng: z.number().finite().nullable().optional(),
   items: z

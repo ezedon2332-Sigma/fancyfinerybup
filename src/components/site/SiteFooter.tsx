@@ -91,11 +91,6 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/shipping" className="hover:text-yellow-400">
-                Shipping Rates
-              </Link>
-            </li>
-            <li>
               <Link href="/account" className="hover:text-yellow-400">
                 My Account
               </Link>

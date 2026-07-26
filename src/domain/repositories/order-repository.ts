@@ -23,7 +23,7 @@ export interface NewOrder {
   totalWeightGrams: number;
   total: number; // minor units (subtotal - discount + shipping + tax)
   /** Method *code*: legacy "standard"/"express" or an engine-defined code. */
-  shippingMethod: string;
+  shippingMethod: string | null;
   shipping: ShippingDetails;
   items: NewOrderItem[];
 }
