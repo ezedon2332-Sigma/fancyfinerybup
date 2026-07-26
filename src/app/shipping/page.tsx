@@ -143,27 +143,64 @@ export default async function ShippingRatesPage() {
                 </span>
               </header>
 
-              {/* Definition list rather than a table: two aligned columns read
-                  cleanly at any width and need no horizontal scroll on a phone. */}
-              <dl className="mt-4 space-y-2.5">
-                {card.bands.map((b) => (
-                  <div
-                    key={`${b.fromGrams}-${b.toGrams}`}
-                    className="flex items-baseline justify-between gap-4"
-                  >
-                    <dt className="text-sm text-gray-400">
-                      {b.fromGrams === 0
-                        ? `Up to ${formatWeight(b.toGrams ?? 0)}`
-                        : b.toGrams == null
-                          ? `Over ${formatWeight(b.fromGrams)}`
-                          : `${formatWeight(b.fromGrams)} – ${formatWeight(b.toGrams)}`}
-                    </dt>
-                    <dd className="shrink-0 font-semibold tabular-nums text-yellow-400">
-                      ₦{b.priceNaira.toLocaleString()}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              {/* Two columns only, so the table never needs horizontal scroll
+                  even on the narrowest phone. */}
+              <table className="mt-4 w-full text-left">
+                <caption className="sr-only">
+                  {card.methodName} shipping rates to {card.name} by parcel weight
+                </caption>
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th
+                      scope="col"
+                      className="pb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-gray-500"
+                    >
+                      Weight
+                    </th>
+                    <th
+                      scope="col"
+                      className="pb-2 text-right text-[10px] font-medium uppercase tracking-[0.18em] text-gray-500"
+                    >
+                      Shipping Cost
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {card.bands.map((b) => {
+                    const openEnded = b.toGrams == null;
+                    return (
+                      <tr
+                        key={`${b.fromGrams}-${b.toGrams}`}
+                        className={
+                          openEnded
+                            ? "border-t border-yellow-600/30"
+                            : "border-t border-white/[0.06]"
+                        }
+                      >
+                        <th
+                          scope="row"
+                          className={`py-1.5 pr-3 text-sm font-normal ${
+                            openEnded ? "text-yellow-200" : "text-gray-400"
+                          }`}
+                        >
+                          {b.fromGrams === 0
+                            ? `Up to ${formatWeight(b.toGrams ?? 0)}`
+                            : openEnded
+                              ? `${formatWeight(b.fromGrams)} +`
+                              : `${formatWeight(b.fromGrams)} – ${formatWeight(b.toGrams as number)}`}
+                        </th>
+                        <td
+                          className={`py-1.5 text-right text-sm font-semibold tabular-nums ${
+                            openEnded ? "text-yellow-300" : "text-yellow-400"
+                          }`}
+                        >
+                          ₦{b.priceNaira.toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </article>
           ))}
         </div>
@@ -174,8 +211,8 @@ export default async function ShippingRatesPage() {
         <p className="mt-3 text-xs leading-relaxed text-gray-400">
           Weight ranges are inclusive of their upper limit — a parcel weighing
           exactly 2 kg is charged the “up to 2 kg” rate. Destinations not listed
-          are quoted individually at checkout. For orders above the heaviest
-          band shown, please{" "}
+          are quoted individually at checkout. For unusually large consignments,
+          please{" "}
           <Link href="/contact" className="text-yellow-400 underline">
             contact us
           </Link>{" "}
