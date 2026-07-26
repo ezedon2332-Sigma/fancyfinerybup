@@ -234,10 +234,16 @@ const rateSchema = z.object({
 });
 
 /**
- * Upsert one cell of the rate matrix.
+ * Save one cell of the rate matrix.
  *
- * Two upsert targets because a zone rate and a country override are stored in
- * the same table with different unique indexes — see the migration.
+ * Deliberately select-then-write rather than upsert. The uniqueness of a rate
+ * is enforced by two *partial* indexes (one for zone rows, one for country
+ * rows — see the migration), and Postgres cannot infer a partial index in an
+ * ON CONFLICT clause: it raises 42P10. Looking the row up first sidesteps that
+ * without needing a schema change.
+ *
+ * The partial indexes still guard against a concurrent double-insert, so a
+ * lost race surfaces as 23505 and is retried as an update.
  */
 export async function saveRate(input: unknown): Promise<SEResult> {
   await requireAdmin();
@@ -249,26 +255,54 @@ export async function saveRate(input: unknown): Promise<SEResult> {
   if (!scoped) return fail("A rate belongs to either a zone or a country, not both.");
 
   const admin = createSupabaseAdminClient();
-  const row = {
-    zone_id: d.zoneId ?? null,
-    country_code: d.countryCode ? d.countryCode.toUpperCase() : null,
-    method_id: d.methodId,
-    bracket_id: d.bracketId,
+  const countryCode = d.countryCode ? d.countryCode.toUpperCase() : null;
+  const values = {
     price: Math.round(d.priceNaira * 100),
-    free_over:
-      d.freeOverNaira == null ? null : Math.round(d.freeOverNaira * 100),
+    free_over: d.freeOverNaira == null ? null : Math.round(d.freeOverNaira * 100),
     enabled: true,
   };
 
-  const { error } = await admin
-    .from("shipping_rates")
-    .upsert(row, {
-      onConflict: d.zoneId
-        ? "zone_id,method_id,bracket_id"
-        : "country_code,method_id,bracket_id",
-    });
+  const findExisting = async () => {
+    let query = admin
+      .from("shipping_rates")
+      .select("id")
+      .eq("method_id", d.methodId)
+      .eq("bracket_id", d.bracketId);
+    query = d.zoneId
+      ? query.eq("zone_id", d.zoneId)
+      : query.eq("country_code", countryCode as string);
+    const { data } = await query.maybeSingle();
+    return data?.id ?? null;
+  };
 
-  if (error) return fail(error.message);
+  const existingId = await findExisting();
+  if (existingId) {
+    const { error } = await admin
+      .from("shipping_rates")
+      .update(values)
+      .eq("id", existingId);
+    if (error) return fail(error.message);
+  } else {
+    const { error } = await admin.from("shipping_rates").insert({
+      zone_id: d.zoneId ?? null,
+      country_code: countryCode,
+      method_id: d.methodId,
+      bracket_id: d.bracketId,
+      ...values,
+    });
+    if (error) {
+      if (error.code !== "23505") return fail(error.message);
+      // Someone else inserted the same cell between our read and write.
+      const raced = await findExisting();
+      if (!raced) return fail(error.message);
+      const { error: updateError } = await admin
+        .from("shipping_rates")
+        .update(values)
+        .eq("id", raced);
+      if (updateError) return fail(updateError.message);
+    }
+  }
+
   revalidatePath("/admin/shipping");
   return ok("Rate saved.");
 }
