@@ -13,7 +13,6 @@ import { createSupabaseServerClient } from "@/infrastructure/supabase/server-cli
 import { notifyOrderPlaced } from "@/infrastructure/notifications/email";
 import { checkoutSchema } from "@/lib/validation";
 import type { ShippingQuote } from "@/domain/shipping/shipping";
-import { chargeableWeightGrams } from "@/domain/entities/product";
 import {
   totalCartWeight,
   type CartWeightLine,
@@ -65,7 +64,7 @@ export async function getShippingQuoteAction(
       const product = await deps.products.findPublishedById(line.productId);
       if (product) {
         subtotalNgn += product.price * line.qty;
-        weightLines.push({ weightGrams: chargeableWeightGrams(product), qty: line.qty });
+        weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
       }
     }
     const settings = await deps.shipping.getSettings();

@@ -6,7 +6,6 @@ import type {
 import type { ProductRepository } from "@/domain/repositories/product-repository";
 import type { ShippingRepository } from "@/domain/repositories/shipping-repository";
 import { convertFromNgnMinor } from "@/domain/shipping/currency";
-import { chargeableWeightGrams } from "@/domain/entities/product";
 import {
   totalCartWeight,
   type CartWeightLine,
@@ -79,7 +78,7 @@ export async function placeOrder(
     }
 
     subtotalNgn += product.price * line.qty;
-    weightLines.push({ weightGrams: chargeableWeightGrams(product), qty: line.qty });
+    weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
     priced.push({
       item: {
         productId: product.id,

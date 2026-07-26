@@ -7,7 +7,6 @@ import { requireUser } from "@/infrastructure/supabase/auth";
 import { getOrderRepository } from "@/infrastructure/supabase/order-service";
 import { formatMoney } from "@/domain/shared/money";
 import { orderStatusBadge, orderStatusLabel } from "@/lib/order-status";
-import { ShipmentTimeline } from "@/components/orders/ShipmentTimeline";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -100,34 +99,18 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      {/* Shipment journey — shown for every order, not only tracked ones, so
-          a customer can always see where their order stands. */}
-      <div className="mt-6 rounded-2xl border border-yellow-600/30 bg-neutral-950/60 p-6 sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      {order.trackingNumber && (
+        <div className="mt-6 rounded-2xl border border-yellow-600/30 bg-neutral-950/60 p-6">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-300">
-            Shipment
+            Tracking
           </h2>
-          {order.trackingNumber && (
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-widest text-gray-500">
-                Tracking number
-              </p>
-              <p className="mt-0.5 font-mono text-sm text-yellow-400">
-                {order.trackingNumber}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <ShipmentTimeline status={order.status} className="mt-7" />
-
-        {!order.trackingNumber && order.status !== "cancelled" && (
-          <p className="mt-7 border-t border-white/10 pt-4 text-xs text-gray-500">
-            A tracking number will appear here as soon as your parcel is
-            collected by the carrier.
+          <p className="mt-2 text-sm text-gray-300">
+            Your order is <strong>{orderStatusLabel(order.status)}</strong>.
+            Tracking number:{" "}
+            <span className="font-mono text-yellow-400">{order.trackingNumber}</span>
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-300">

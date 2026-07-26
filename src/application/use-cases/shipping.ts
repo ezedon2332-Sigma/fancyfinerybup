@@ -96,7 +96,7 @@ export async function getShippingQuote(
   const [country, settings, table] = await Promise.all([
     deps.shipping.getCountry(params.countryCode),
     deps.shipping.getSettings(),
-    deps.shipping.getRateTable(params.countryCode),
+    deps.shipping.getRateTable(),
   ]);
 
   // The legacy table is still the source of truth for *whether* we ship
@@ -194,7 +194,7 @@ export async function resolveShipping(
   const [country, settings, table] = await Promise.all([
     deps.shipping.getCountry(params.countryCode),
     deps.shipping.getSettings(),
-    deps.shipping.getRateTable(params.countryCode),
+    deps.shipping.getRateTable(),
   ]);
 
   if (country && !country.enabled) {

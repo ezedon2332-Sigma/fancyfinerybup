@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { INTEREST_IDS, SUBSCRIBER_SOURCES } from "@/domain/newsletter";
-import { SHIPPING_CLASSES } from "@/domain/entities/product";
 
 /** Shared zod schemas. Reused by client forms and server actions. */
 
@@ -86,17 +85,6 @@ export const productSchema = z.object({
   /** Shipping weight, in `weightUnit`. Converted to canonical grams on save. */
   weight: z.number().nonnegative("Weight must be 0 or more").max(500),
   weightUnit: z.enum(["g", "kg"]),
-  /** Parcel dimensions in centimetres, stored as millimetres. */
-  lengthCm: z.number().nonnegative().max(500).default(0),
-  widthCm: z.number().nonnegative().max(500).default(0),
-  heightCm: z.number().nonnegative().max(500).default(0),
-  shippingClass: z.enum(SHIPPING_CLASSES).default("standard"),
-  isFragile: z.boolean().default(false),
-  isOversized: z.boolean().default(false),
-  shipsSeparately: z.boolean().default(false),
-  freeShippingEligible: z.boolean().default(false),
-  warehouseLocation: z.string().trim().max(120).nullable().optional(),
-  countryOfOrigin: z.string().trim().max(80).nullable().optional(),
   media: z.array(productMediaSchema).max(100),
   variants: z.array(productVariantSchema).max(50),
 });

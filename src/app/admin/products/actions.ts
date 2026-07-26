@@ -72,63 +72,20 @@ export async function saveProduct(payload: unknown): Promise<SaveResult> {
     // Stored canonically in grams; weight_unit only records how it was typed.
     weight_grams: toGrams(input.weight, input.weightUnit),
     weight_unit: input.weightUnit,
-    // Dimensions are entered in cm and stored in mm, so integer maths holds.
-    length_mm: Math.round(input.lengthCm * 10),
-    width_mm: Math.round(input.widthCm * 10),
-    height_mm: Math.round(input.heightCm * 10),
-    shipping_class: input.shippingClass,
-    is_fragile: input.isFragile,
-    is_oversized: input.isOversized,
-    ships_separately: input.shipsSeparately,
-    free_shipping_eligible: input.freeShippingEligible,
-    warehouse_location: input.warehouseLocation || null,
-    country_of_origin: input.countryOfOrigin || null,
   };
-
-  // The shipping attributes arrive with the shipping-module migration. If the
-  // deploy lands first, drop them and save the rest rather than refusing to
-  // save the product at all.
-  const isUnknownColumn = (e: { code?: string; message?: string }) =>
-    e.code === "PGRST204" ||
-    e.code === "42703" ||
-    /column .* does not exist/i.test(e.message ?? "");
-
-  const SHIPPING_COLUMNS = [
-    "length_mm", "width_mm", "height_mm", "shipping_class", "is_fragile",
-    "is_oversized", "ships_separately", "free_shipping_eligible",
-    "warehouse_location", "country_of_origin",
-  ];
-  const withoutShipping = () =>
-    Object.fromEntries(
-      Object.entries(row).filter(([k]) => !SHIPPING_COLUMNS.includes(k)),
-    ) as typeof row;
 
   let productId = input.id;
   try {
     if (productId) {
-      let { error } = await supabase.from("products").update(row).eq("id", productId);
-      if (error && isUnknownColumn(error)) {
-        ({ error } = await supabase
-          .from("products")
-          .update(withoutShipping())
-          .eq("id", productId));
-      }
+      const { error } = await supabase.from("products").update(row).eq("id", productId);
       if (error) throw error;
     } else {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from("products")
         .insert(row)
         .select("id")
         .single();
-      if (error && isUnknownColumn(error)) {
-        ({ data, error } = await supabase
-          .from("products")
-          .insert(withoutShipping())
-          .select("id")
-          .single());
-      }
       if (error) throw error;
-      if (!data) throw new Error("Product insert returned no row.");
       productId = data.id;
     }
 
