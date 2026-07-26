@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Mail } from "lucide-react";
@@ -8,14 +8,18 @@ import { Loader2, Mail } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
 import { magicLinkSchema } from "@/lib/validation";
 
-type Status = "idle" | "sending" | "sent" | "error";
+type Status = "idle" | "sending" | "sent" | "reset-sent" | "error";
+type Mode = "password" | "link";
 
 export function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("redirect") ?? "/account";
   const authError = searchParams.get("error");
 
+  const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(
     authError ? "Sign-in link was invalid or expired. Try again." : null,
@@ -23,6 +27,63 @@ export function LoginForm() {
 
   const redirectTo = () =>
     `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+
+  /** Password sign-in. Preferred for staff: it works on any device and does
+   *  not depend on an email arriving. */
+  async function handlePassword(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = magicLinkSchema.safeParse({ email });
+    if (!parsed.success) {
+      setStatus("error");
+      setMessage(parsed.error.issues[0].message);
+      return;
+    }
+    if (!password) {
+      setStatus("error");
+      setMessage("Enter your password");
+      return;
+    }
+    setStatus("sending");
+    setMessage(null);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password,
+    });
+    if (error) {
+      setStatus("error");
+      setMessage(
+        error.message === "Invalid login credentials"
+          ? "That email and password don't match. If you've never set a password, use “Forgot password?” below."
+          : error.message,
+      );
+      return;
+    }
+    // Full navigation so Server Components re-read the fresh session cookie.
+    router.replace(next);
+    router.refresh();
+  }
+
+  async function handleForgot() {
+    const parsed = magicLinkSchema.safeParse({ email });
+    if (!parsed.success) {
+      setStatus("error");
+      setMessage("Enter your email first, then choose “Forgot password?”");
+      return;
+    }
+    setStatus("sending");
+    setMessage(null);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
+    if (error) {
+      setStatus("error");
+      setMessage(error.message);
+    } else {
+      setStatus("reset-sent");
+    }
+  }
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
@@ -74,13 +135,22 @@ export function LoginForm() {
         </p>
       </div>
 
-      {status === "sent" ? (
+      {status === "sent" || status === "reset-sent" ? (
         <div className="mt-8 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-5 text-center">
           <Mail className="mx-auto h-8 w-8 text-yellow-400" />
           <p className="mt-3 text-sm text-gray-200">
-            Check your inbox — we sent a sign-in link to{" "}
+            {status === "reset-sent"
+              ? "Check your inbox — we sent a link to set a new password for "
+              : "Check your inbox — we sent a sign-in link to "}
             <span className="font-medium text-white">{email}</span>.
           </p>
+          <button
+            type="button"
+            onClick={() => setStatus("idle")}
+            className="mt-4 text-xs uppercase tracking-widest text-gray-500 transition-colors hover:text-yellow-400"
+          >
+            Back to sign in
+          </button>
         </div>
       ) : (
         <>
@@ -96,7 +166,10 @@ export function LoginForm() {
             <span className="h-px flex-1 bg-white/10" /> or <span className="h-px flex-1 bg-white/10" />
           </div>
 
-          <form onSubmit={handleMagicLink} className="space-y-4">
+          <form
+            onSubmit={mode === "password" ? handlePassword : handleMagicLink}
+            className="space-y-4"
+          >
             <div>
               <label htmlFor="email" className="sr-only">
                 Email
@@ -111,6 +184,24 @@ export function LoginForm() {
                 className="w-full rounded-sm border border-white/20 bg-black/40 px-4 py-3 text-white outline-none transition-colors placeholder:text-gray-500 focus:border-yellow-500"
               />
             </div>
+
+            {mode === "password" && (
+              <div>
+                <label htmlFor="password" className="sr-only">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Your password"
+                  autoComplete="current-password"
+                  className="w-full rounded-sm border border-white/20 bg-black/40 px-4 py-3 text-white outline-none transition-colors placeholder:text-gray-500 focus:border-yellow-500"
+                />
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={status === "sending"}
@@ -118,13 +209,41 @@ export function LoginForm() {
             >
               {status === "sending" ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Sending…
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {mode === "password" ? "Signing in…" : "Sending…"}
                 </>
+              ) : mode === "password" ? (
+                "Sign in"
               ) : (
                 "Email me a sign-in link"
               )}
             </button>
           </form>
+
+          <div className="mt-5 flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "password" ? "link" : "password");
+                setMessage(null);
+                setStatus("idle");
+              }}
+              className="text-gray-400 transition-colors hover:text-yellow-400"
+            >
+              {mode === "password"
+                ? "Use a sign-in link instead"
+                : "Sign in with a password"}
+            </button>
+            {mode === "password" && (
+              <button
+                type="button"
+                onClick={handleForgot}
+                className="text-gray-400 transition-colors hover:text-yellow-400"
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
         </>
       )}
 

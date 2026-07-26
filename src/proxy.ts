@@ -51,7 +51,10 @@ export async function proxy(request: NextRequest) {
   const isProtected =
     pathname.startsWith("/admin") ||
     pathname.startsWith("/account") ||
-    pathname.startsWith("/checkout");
+    pathname.startsWith("/checkout") ||
+    // Reached with a session already established by /auth/callback when
+    // following a recovery link; bounce anyone arriving without one.
+    pathname.startsWith("/reset-password");
 
   if (isProtected && !isSignedIn) {
     const redirectUrl = request.nextUrl.clone();
