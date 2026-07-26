@@ -42,12 +42,14 @@ delete from public.shipping_rates;
 delete from public.shipping_weight_brackets;
 
 -- 100 bands: 0–0.5, 0.5–1, … 49.5–50 kg.
+-- rtrim the '.' because FM strips the fractional digit on whole numbers but
+-- leaves the decimal point behind, which would label the first band "0. – 0.5".
 insert into public.shipping_weight_brackets (label, min_grams, max_grams, sort_order)
 select
   format(
     '%s – %s kg',
-    trim(to_char(s.step * 0.5 - 0.5, 'FM990.9')),
-    trim(to_char(s.step * 0.5,       'FM990.9'))
+    rtrim(to_char(s.step * 0.5 - 0.5, 'FM990.9'), '.'),
+    rtrim(to_char(s.step * 0.5,       'FM990.9'), '.')
   ),
   ((s.step - 1) * 500)::int,
   (s.step * 500)::int,
