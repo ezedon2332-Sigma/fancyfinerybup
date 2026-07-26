@@ -4,20 +4,25 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, LogIn, Play, ShoppingBag } from "lucide-react";
+import { Check, Globe, LogIn, Play, ShoppingBag, Truck, Weight } from "lucide-react";
 
 import type { ProductWithDetails } from "@/domain/entities/product";
+import { formatWeight } from "@/domain/shipping/pricing";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 import { useCart } from "@/components/cart/CartProvider";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
+import { ShippingCalculator } from "@/components/shipping/ShippingCalculator";
+import type { CountryOption } from "@/components/checkout/CountrySelect";
 import { ZoomableImage } from "./ZoomableImage";
 
 export function ProductDetail({
   product,
   isAuthenticated,
+  countries,
 }: {
   product: ProductWithDetails;
   isAuthenticated: boolean;
+  countries: CountryOption[];
 }) {
   const router = useRouter();
   const { addItem } = useCart();
@@ -127,6 +132,39 @@ export function ProductDetail({
         <p className="mt-4 text-2xl font-semibold text-yellow-400">
           {format(product.price)}
         </p>
+
+        {/* Facts a shopper needs before committing. Weight is shown because it
+            is what sets the shipping cost — hiding it would make the delivery
+            figure look arbitrary. */}
+        <ul className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-2 text-[11px]">
+          <li className="inline-flex items-center gap-1.5 rounded-full border border-yellow-600/40 px-3 py-1.5 text-yellow-500">
+            <Weight className="h-3 w-3" />
+            {formatWeight(product.weightGrams)}
+          </li>
+          <li className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-gray-300">
+            <Globe className="h-3 w-3 text-yellow-500" />
+            Ships worldwide
+          </li>
+          <li className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-gray-300">
+            <Truck className="h-3 w-3 text-yellow-500" />
+            UPS
+          </li>
+          <li
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${
+              inStock
+                ? "border-green-500/40 text-green-300"
+                : "border-white/15 text-gray-500"
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                inStock ? "bg-green-400" : "bg-gray-600"
+              }`}
+            />
+            {inStock ? "In stock" : "Out of stock"}
+          </li>
+        </ul>
+
         {product.description && (
           <p className="mt-6 leading-relaxed text-gray-300">
             {product.description}
@@ -196,6 +234,16 @@ export function ProductDetail({
             ? "Added items appear in your bag."
             : "You need an account to shop your bag."}
         </p>
+
+        {/* Live delivery cost. Deliberately below the CTA: it answers the
+            "what will this actually cost me" question without delaying the
+            shopper who already knows. */}
+        <ShippingCalculator
+          productId={product.id}
+          weightGrams={product.weightGrams}
+          countries={countries}
+          className="mt-8"
+        />
       </div>
     </div>
   );

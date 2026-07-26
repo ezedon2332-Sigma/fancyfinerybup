@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { ChevronLeft } from "lucide-react";
 
 import { ProductDetail } from "@/components/catalog/ProductDetail";
+import { COUNTRIES } from "@/domain/shipping/countries";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { RequestColorSection } from "@/components/catalog/RequestColorSection";
 import { TrackView } from "@/components/recent/TrackView";
@@ -151,7 +152,11 @@ export default async function ProductPage({
         <ChevronLeft className="h-4 w-4" /> Back to collections
       </Link>
 
-      <ProductDetail product={product} isAuthenticated={Boolean(user)} />
+      <ProductDetail
+        product={product}
+        isAuthenticated={Boolean(user)}
+        countries={COUNTRIES.map((c) => ({ code: c.code, name: c.name }))}
+      />
 
       <div className="mt-8 lg:max-w-md lg:ml-auto">
         <RequestColorSection
