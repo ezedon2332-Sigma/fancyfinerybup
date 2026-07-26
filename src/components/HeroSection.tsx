@@ -6,7 +6,7 @@ import Link from "next/link";
  *  never redrawn, recoloured or stretched. */
 export function HeroSection() {
   return (
-    <section className="hero-stage relative flex min-h-[calc(100svh-164px)] w-full items-center justify-center overflow-hidden lg:min-h-[calc(100svh-204px)]">
+    <section className="hero-stage relative flex min-h-[calc(100svh-128px)] w-full items-center justify-center overflow-hidden lg:min-h-[calc(100svh-168px)]">
       {/* Soft gold ambience — sits behind the mark, never over it */}
       <div
         aria-hidden
