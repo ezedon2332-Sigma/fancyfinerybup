@@ -141,6 +141,46 @@ export function buildWelcomeEmail(opts: {
   };
 }
 
+/** Birthday note. Sent once a year by the newsletter cron. */
+export function buildBirthdayEmail(opts: {
+  firstName: string;
+  token: string;
+}): WelcomeEmail {
+  const url = unsubscribeUrl(opts.token);
+  const name = escapeHtml(opts.firstName);
+
+  const body = `
+    <h1 style="margin:26px 0 0;font-size:26px;line-height:1.35;font-weight:normal;color:#ffffff;text-align:center;">
+      Happy Birthday, <span style="color:${GOLD};">${name}</span>
+    </h1>
+    <p style="margin:22px 0 0;font-size:15px;line-height:1.85;color:#c9c9c9;text-align:center;">
+      From all of us at ${SITE_NAME}, we hope your day is as remarkable as you are.
+    </p>
+    <p style="margin:20px 0 0;font-size:14px;line-height:1.9;color:#9d9d9d;text-align:center;font-family:Arial,Helvetica,sans-serif;">
+      As a member of the Privé Circle, something has been set aside for you.
+      Visit the house this month to discover it.
+    </p>
+    ${button(`${SITE_URL}/collections`, "Claim your gift")}
+  `;
+
+  const text = [
+    `Happy Birthday, ${opts.firstName}.`,
+    "",
+    `From all of us at ${SITE_NAME}, we hope your day is as remarkable as you are.`,
+    "",
+    "As a member of the Privé Circle, something has been set aside for you.",
+    `Visit the house this month to discover it: ${SITE_URL}/collections`,
+    "",
+    `Unsubscribe: ${url}`,
+  ].join("\n");
+
+  return {
+    subject: `A gift for your birthday, ${opts.firstName}`,
+    html: shell("Happy Birthday", body, url),
+    text,
+  };
+}
+
 /** Generic campaign wrapper — admin supplies the body, the house supplies the
  *  frame, so every send looks like it came from the same maison. */
 export function buildCampaignEmail(opts: {

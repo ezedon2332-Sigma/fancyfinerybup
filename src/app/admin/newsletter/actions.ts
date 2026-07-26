@@ -5,16 +5,12 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/infrastructure/supabase/auth";
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
 import { campaignSchema } from "@/lib/validation";
-import { interestLabel, type FashionInterest } from "@/domain/newsletter";
+import { interestLabel } from "@/domain/newsletter";
 import {
+  dispatchCampaign,
   listSubscribers,
   recordHistory,
 } from "@/infrastructure/supabase/newsletter-service";
-import { sendViaProvider } from "@/infrastructure/notifications/email-provider";
-import {
-  buildCampaignEmail,
-  unsubscribeUrl,
-} from "@/infrastructure/notifications/newsletter-emails";
 
 export interface NLActionResult {
   ok: boolean;
@@ -163,99 +159,19 @@ export async function deleteCampaign(id: string): Promise<NLActionResult> {
   return { ok: true };
 }
 
-/**
- * Send a campaign to everyone matching its audience filter.
- *
- * Sends sequentially in small batches and writes a `sent` analytics row per
- * recipient, which the database trigger folds into the campaign counters. For
- * very large lists this should move behind a queue — see the note in the
- * dashboard — but it is correct and restartable as written.
- */
+/** Send a campaign now. The work lives in the service layer so this and the
+ *  scheduled-campaign cron take exactly the same path. */
 export async function sendCampaign(id: string): Promise<NLActionResult> {
   await requireAdmin();
-  const admin = createSupabaseAdminClient();
 
-  const { data: campaign } = await admin
-    .from("email_campaigns")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (!campaign) return { ok: false, error: "Campaign not found." };
-  if (campaign.status === "sending" || campaign.status === "sent") {
-    return { ok: false, error: "This campaign has already been sent." };
-  }
-
-  const filter = (campaign.audience_filter ?? {}) as { interests?: string[] };
-  const interests = filter.interests ?? [];
-
-  let audience = await listSubscribers({ status: "subscribed", limit: 10_000 });
-  if (interests.length > 0) {
-    audience = audience.filter((s) =>
-      s.interests.some((i) => interests.includes(i as FashionInterest)),
-    );
-  }
-
-  if (audience.length === 0) {
-    return { ok: false, error: "No subscribers match this audience." };
-  }
-
-  await admin
-    .from("email_campaigns")
-    .update({ status: "sending", recipient_count: audience.length })
-    .eq("id", id);
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const member of audience) {
-    const mail = buildCampaignEmail({
-      subject: campaign.subject,
-      bodyHtml: campaign.html ?? "",
-      bodyText: campaign.text_body ?? "",
-      token: member.unsubscribeToken,
-    });
-
-    const result = await sendViaProvider({
-      to: member.email,
-      toName: member.firstName,
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-      unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
-    });
-
-    if (result.ok) {
-      sent += 1;
-      await admin.from("campaign_analytics").insert({
-        campaign_id: id,
-        subscriber_id: member.id,
-        event: "sent",
-      });
-    } else {
-      failed += 1;
-      await admin.from("automation_logs").insert({
-        automation: "new_collection",
-        subscriber_id: member.id,
-        campaign_id: id,
-        status: "failed",
-        error: result.error ?? "unknown",
-      });
-    }
-  }
-
-  await admin
-    .from("email_campaigns")
-    .update({
-      status: failed === audience.length ? "failed" : "sent",
-      sent_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
+  const result = await dispatchCampaign(id);
   revalidatePath("/admin/newsletter");
+
+  if (!result.ok) return { ok: false, error: result.error };
   return {
     ok: true,
-    message: `Sent to ${sent} member${sent === 1 ? "" : "s"}${
-      failed > 0 ? `, ${failed} failed` : ""
+    message: `Sent to ${result.sent} member${result.sent === 1 ? "" : "s"}${
+      result.failed > 0 ? `, ${result.failed} failed` : ""
     }.`,
   };
 }

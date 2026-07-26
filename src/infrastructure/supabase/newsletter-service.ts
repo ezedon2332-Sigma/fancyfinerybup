@@ -16,6 +16,8 @@ import {
 } from "@/domain/newsletter";
 import { activeProvider, sendViaProvider } from "@/infrastructure/notifications/email-provider";
 import {
+  buildBirthdayEmail,
+  buildCampaignEmail,
   buildWelcomeEmail,
   unsubscribeUrl,
 } from "@/infrastructure/notifications/newsletter-emails";
@@ -309,6 +311,208 @@ async function sendWelcome(subscriber: Subscriber): Promise<void> {
       /* non-critical */
     }
   }
+}
+
+export interface DispatchResult {
+  ok: boolean;
+  sent: number;
+  failed: number;
+  error?: string;
+}
+
+/**
+ * Send one campaign to everyone matching its audience filter.
+ *
+ * Shared by the admin "Send now" button and the cron that fires scheduled
+ * campaigns, so both take exactly the same path. Refuses to run twice: the
+ * status is flipped to `sending` up front, which is also what makes a
+ * concurrent cron tick and a button press safe together.
+ *
+ * Sends inline, one message at a time. Fine for a few thousand members; past
+ * that this wants a queue so it is not bound by request timeouts.
+ */
+export async function dispatchCampaign(id: string): Promise<DispatchResult> {
+  const admin = createSupabaseAdminClient();
+
+  const { data: campaign } = await admin
+    .from("email_campaigns")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!campaign) return { ok: false, sent: 0, failed: 0, error: "Campaign not found." };
+  if (campaign.status === "sending" || campaign.status === "sent") {
+    return { ok: false, sent: 0, failed: 0, error: "This campaign has already been sent." };
+  }
+
+  const filter = (campaign.audience_filter ?? {}) as { interests?: string[] };
+  const interests = filter.interests ?? [];
+
+  let audience = await listSubscribers({ status: "subscribed", limit: 10_000 });
+  if (interests.length > 0) {
+    audience = audience.filter((s) =>
+      s.interests.some((i) => interests.includes(i as FashionInterest)),
+    );
+  }
+  if (audience.length === 0) {
+    return { ok: false, sent: 0, failed: 0, error: "No subscribers match this audience." };
+  }
+
+  await admin
+    .from("email_campaigns")
+    .update({ status: "sending", recipient_count: audience.length })
+    .eq("id", id);
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const member of audience) {
+    const mail = buildCampaignEmail({
+      subject: campaign.subject,
+      bodyHtml: campaign.html ?? "",
+      bodyText: campaign.text_body ?? "",
+      token: member.unsubscribeToken,
+    });
+
+    const result = await sendViaProvider({
+      to: member.email,
+      toName: member.firstName,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
+    });
+
+    if (result.ok) {
+      sent += 1;
+      await admin
+        .from("campaign_analytics")
+        .insert({ campaign_id: id, subscriber_id: member.id, event: "sent" });
+    } else {
+      failed += 1;
+      await admin.from("automation_logs").insert({
+        automation: "new_collection",
+        subscriber_id: member.id,
+        campaign_id: id,
+        provider: activeProvider(),
+        status: "failed",
+        error: result.error ?? "unknown",
+      });
+    }
+  }
+
+  await admin
+    .from("email_campaigns")
+    .update({
+      status: failed === audience.length ? "failed" : "sent",
+      sent_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  return { ok: true, sent, failed };
+}
+
+/** Fire every campaign whose scheduled time has arrived. */
+export async function runDueCampaigns(): Promise<{
+  campaigns: number;
+  sent: number;
+  failed: number;
+}> {
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("email_campaigns")
+    .select("id")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", new Date().toISOString())
+    .limit(10);
+
+  let sent = 0;
+  let failed = 0;
+  const due = data ?? [];
+  for (const c of due) {
+    const r = await dispatchCampaign(c.id);
+    sent += r.sent;
+    failed += r.failed;
+  }
+  return { campaigns: due.length, sent, failed };
+}
+
+/**
+ * Birthday wishes for members whose birthday is today (UTC).
+ *
+ * Month/day matching happens in memory rather than in SQL, so this does not
+ * need a database function the operator would have to install separately. It
+ * reads every member with a birthday on file — fine into the low tens of
+ * thousands; past that, move the match into an RPC and the expression index
+ * from the migration starts earning its keep.
+ */
+export async function runBirthdayEmails(): Promise<{
+  matched: number;
+  sent: number;
+  skipped: number;
+}> {
+  const admin = createSupabaseAdminClient();
+  const today = new Date();
+  const month = today.getUTCMonth() + 1;
+  const day = today.getUTCDate();
+
+  const { data } = await admin
+    .from("newsletter_subscribers")
+    .select("id, email, first_name, birthday, unsubscribe_token")
+    .eq("status", "subscribed")
+    .not("birthday", "is", null)
+    .limit(20_000);
+
+  const birthdayFolk = (data ?? []).filter((s) => {
+    if (!s.birthday) return false;
+    // Parsed as UTC parts, not via Date, so a local timezone cannot shift the day.
+    const [, m, d] = s.birthday.split("-").map(Number);
+    return m === month && d === day;
+  });
+
+  if (birthdayFolk.length === 0) return { matched: 0, sent: 0, skipped: 0 };
+
+  // Anyone already wished this year is skipped, so a re-run is harmless.
+  const yearAgo = new Date(Date.now() - 300 * 86_400_000).toISOString();
+  const { data: recent } = await admin
+    .from("automation_logs")
+    .select("subscriber_id")
+    .eq("automation", "birthday")
+    .eq("status", "sent")
+    .gte("created_at", yearAgo);
+  const alreadyWished = new Set(
+    (recent ?? []).map((r) => r.subscriber_id).filter(Boolean),
+  );
+
+  let sent = 0;
+  let skipped = 0;
+
+  for (const person of birthdayFolk) {
+    if (alreadyWished.has(person.id)) {
+      skipped += 1;
+      continue;
+    }
+    const mail = buildBirthdayEmail({
+      firstName: person.first_name,
+      token: person.unsubscribe_token,
+    });
+    const result = await sendViaProvider({
+      to: person.email,
+      toName: person.first_name,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      unsubscribeUrl: unsubscribeUrl(person.unsubscribe_token),
+    });
+    if (result.ok) sent += 1;
+    await logAutomation({
+      automation: "birthday",
+      subscriberId: person.id,
+      status: result.ok ? "sent" : "failed",
+      error: result.error,
+    });
+  }
+
+  return { matched: birthdayFolk.length, sent, skipped };
 }
 
 /** One-click unsubscribe by token. Returns false for an unknown token. */
