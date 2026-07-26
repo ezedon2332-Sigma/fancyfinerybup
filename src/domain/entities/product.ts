@@ -35,8 +35,55 @@ export interface Product {
   readonly weightGrams: number;
   /** The unit the admin entered it in — display only, never arithmetic. */
   readonly weightUnit: "g" | "kg";
+  /** Parcel dimensions in millimetres. 0 = not recorded. */
+  readonly lengthMm: number;
+  readonly widthMm: number;
+  readonly heightMm: number;
+  readonly shippingClass: ShippingClass;
+  readonly isFragile: boolean;
+  readonly isOversized: boolean;
+  /** Cannot be consolidated with other items — ships in its own parcel. */
+  readonly shipsSeparately: boolean;
+  readonly freeShippingEligible: boolean;
+  readonly warehouseLocation: string | null;
+  readonly countryOfOrigin: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export const SHIPPING_CLASSES = [
+  "standard",
+  "fragile",
+  "oversized",
+  "hazardous",
+  "jewellery",
+] as const;
+
+export type ShippingClass = (typeof SHIPPING_CLASSES)[number];
+
+/**
+ * Volumetric ("dimensional") weight in grams, the figure couriers bill on when
+ * a parcel is bulky but light. The 5000 divisor is the express-industry
+ * standard for centimetres; here the maths is done in millimetres, hence
+ * 5,000,000.
+ */
+export function volumetricWeightGrams(p: {
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+}): number {
+  if (p.lengthMm <= 0 || p.widthMm <= 0 || p.heightMm <= 0) return 0;
+  return Math.round((p.lengthMm * p.widthMm * p.heightMm) / 5000);
+}
+
+/** What a courier actually charges on: the greater of actual and volumetric. */
+export function chargeableWeightGrams(p: {
+  weightGrams: number;
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+}): number {
+  return Math.max(p.weightGrams, volumetricWeightGrams(p));
 }
 
 /** Lightweight list read model — a product plus its primary image. */

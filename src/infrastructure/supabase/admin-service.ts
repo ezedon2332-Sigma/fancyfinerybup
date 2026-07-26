@@ -60,6 +60,16 @@ export interface AdminProductDetail {
   featured: boolean;
   weightGrams: number;
   weightUnit: "g" | "kg";
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  shippingClass: string;
+  isFragile: boolean;
+  isOversized: boolean;
+  shipsSeparately: boolean;
+  freeShippingEligible: boolean;
+  warehouseLocation: string | null;
+  countryOfOrigin: string | null;
   media: { storagePath: string; mediaType: "image" | "video"; alt: string | null }[];
   variants: {
     id: string;
@@ -93,6 +103,16 @@ export async function getAdminProduct(
     featured: data.featured,
     weightGrams: data.weight_grams ?? 0,
     weightUnit: (data.weight_unit ?? "g") === "kg" ? "kg" : "g",
+    lengthMm: data.length_mm ?? 0,
+    widthMm: data.width_mm ?? 0,
+    heightMm: data.height_mm ?? 0,
+    shippingClass: data.shipping_class ?? "standard",
+    isFragile: data.is_fragile ?? false,
+    isOversized: data.is_oversized ?? false,
+    shipsSeparately: data.ships_separately ?? false,
+    freeShippingEligible: data.free_shipping_eligible ?? false,
+    warehouseLocation: data.warehouse_location ?? null,
+    countryOfOrigin: data.country_of_origin ?? null,
     media: [...(data.product_images ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((m) => ({

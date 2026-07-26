@@ -4,7 +4,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { fromGrams, toGrams } from "@/domain/shipping/engine";
+import { formatWeight, fromGrams, toGrams } from "@/domain/shipping/engine";
+import {
+  SHIPPING_CLASSES,
+  volumetricWeightGrams,
+} from "@/domain/entities/product";
 import {
   AlertCircle,
   ArrowLeft,
@@ -77,6 +81,27 @@ export function ProductForm({
   );
   const [weight, setWeight] = useState<number>(
     fromGrams(initial?.weightGrams ?? 0, initial?.weightUnit ?? "g"),
+  );
+  // Dimensions are stored in mm; the admin thinks in cm.
+  const [lengthCm, setLengthCm] = useState((initial?.lengthMm ?? 0) / 10);
+  const [widthCm, setWidthCm] = useState((initial?.widthMm ?? 0) / 10);
+  const [heightCm, setHeightCm] = useState((initial?.heightMm ?? 0) / 10);
+  const [shippingClass, setShippingClass] = useState(
+    initial?.shippingClass ?? "standard",
+  );
+  const [isFragile, setIsFragile] = useState(initial?.isFragile ?? false);
+  const [isOversized, setIsOversized] = useState(initial?.isOversized ?? false);
+  const [shipsSeparately, setShipsSeparately] = useState(
+    initial?.shipsSeparately ?? false,
+  );
+  const [freeShippingEligible, setFreeShippingEligible] = useState(
+    initial?.freeShippingEligible ?? false,
+  );
+  const [warehouseLocation, setWarehouseLocation] = useState(
+    initial?.warehouseLocation ?? "",
+  );
+  const [countryOfOrigin, setCountryOfOrigin] = useState(
+    initial?.countryOfOrigin ?? "",
   );
   const [media, setMedia] = useState<MediaItem[]>(
     (initial?.media ?? []).map((m) => ({
@@ -200,6 +225,16 @@ export function ProductForm({
       featured,
       weight: Number(weight) || 0,
       weightUnit,
+      lengthCm: Number(lengthCm) || 0,
+      widthCm: Number(widthCm) || 0,
+      heightCm: Number(heightCm) || 0,
+      shippingClass,
+      isFragile,
+      isOversized,
+      shipsSeparately,
+      freeShippingEligible,
+      warehouseLocation: warehouseLocation || null,
+      countryOfOrigin: countryOfOrigin || null,
       media: media.map((m) => ({
         storagePath: m.storagePath,
         mediaType: m.mediaType,
@@ -232,6 +267,15 @@ export function ProductForm({
 
   const field =
     "w-full rounded-sm border border-white/20 bg-black/40 px-3 py-2 text-white outline-none focus:border-yellow-500";
+
+  // Live dimensional-weight feedback, so the admin can see when a bulky-but-
+  // light piece would be billed on volume rather than on the scales.
+  const actualGrams = toGrams(Number(weight) || 0, weightUnit);
+  const volumetric = volumetricWeightGrams({
+    lengthMm: Math.round(lengthCm * 10),
+    widthMm: Math.round(widthCm * 10),
+    heightMm: Math.round(heightCm * 10),
+  });
 
   return (
     <form onSubmit={onSubmit} className="max-w-3xl space-y-8">
@@ -309,6 +353,76 @@ export function ProductForm({
           <span className="text-sm text-gray-200">Featured on home page</span>
         </label>
       </div>
+
+      {/* Shipping */}
+      <fieldset className="rounded-xl border border-white/10 p-5">
+        <legend className="px-2 text-xs font-semibold uppercase tracking-widest text-yellow-500">
+          Shipping &amp; Handling
+        </legend>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-gray-400">Length (cm)</span>
+            <input type="number" min={0} step="0.1" className={field} value={lengthCm} onChange={(e) => setLengthCm(Number(e.target.value))} />
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-gray-400">Width (cm)</span>
+            <input type="number" min={0} step="0.1" className={field} value={widthCm} onChange={(e) => setWidthCm(Number(e.target.value))} />
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-gray-400">Height (cm)</span>
+            <input type="number" min={0} step="0.1" className={field} value={heightCm} onChange={(e) => setHeightCm(Number(e.target.value))} />
+          </label>
+        </div>
+
+        {volumetric > 0 && (
+          <p className="mt-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5 text-[11px] leading-relaxed text-gray-400">
+            Volumetric weight <strong className="text-gray-200">{formatWeight(volumetric)}</strong>
+            {" · "}actual <strong className="text-gray-200">{formatWeight(actualGrams)}</strong>.
+            Couriers bill on the greater of the two, so this parcel would be
+            charged as{" "}
+            <strong className="text-yellow-400">{formatWeight(Math.max(volumetric, actualGrams))}</strong>.
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-gray-400">Shipping class</span>
+            <select className={field} value={shippingClass} onChange={(e) => setShippingClass(e.target.value)}>
+              {SHIPPING_CLASSES.map((c) => (
+                <option key={c} value={c} className="bg-neutral-950">
+                  {c[0].toUpperCase() + c.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-gray-400">Warehouse location</span>
+            <input className={field} value={warehouseLocation} onChange={(e) => setWarehouseLocation(e.target.value)} placeholder="e.g. Lagos — Ikoyi atelier" />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-xs uppercase tracking-widest text-gray-400">Country of origin</span>
+            <input className={field} value={countryOfOrigin} onChange={(e) => setCountryOfOrigin(e.target.value)} placeholder="e.g. Nigeria — shown on customs documents" />
+          </label>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {[
+            { on: isFragile, set: setIsFragile, label: "Fragile", hint: "Needs protective packaging" },
+            { on: isOversized, set: setIsOversized, label: "Oversized", hint: "May attract a carrier surcharge" },
+            { on: shipsSeparately, set: setShipsSeparately, label: "Ships separately", hint: "Never consolidated with other items" },
+            { on: freeShippingEligible, set: setFreeShippingEligible, label: "Free shipping eligible", hint: "Ignores weight-based charges" },
+          ].map((t) => (
+            <label key={t.label} className="flex items-start gap-2.5">
+              <input type="checkbox" checked={t.on} onChange={(e) => t.set(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-yellow-500" />
+              <span>
+                <span className="block text-sm text-gray-200">{t.label}</span>
+                <span className="block text-[11px] text-gray-500">{t.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {/* Media */}
       <div>

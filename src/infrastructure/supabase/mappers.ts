@@ -11,6 +11,7 @@ import type {
   ProductSummary,
   ProductVariant,
   ProductWithDetails,
+  ShippingClass,
 } from "@/domain/entities/product";
 import type { Database } from "./database.types";
 
@@ -40,6 +41,16 @@ export function toProduct(row: Row<"products">): Product {
     featured: row.featured,
     weightGrams: row.weight_grams ?? 0,
     weightUnit: (row.weight_unit ?? "g") === "kg" ? "kg" : "g",
+    lengthMm: row.length_mm ?? 0,
+    widthMm: row.width_mm ?? 0,
+    heightMm: row.height_mm ?? 0,
+    shippingClass: (row.shipping_class ?? "standard") as ShippingClass,
+    isFragile: row.is_fragile ?? false,
+    isOversized: row.is_oversized ?? false,
+    shipsSeparately: row.ships_separately ?? false,
+    freeShippingEligible: row.free_shipping_eligible ?? false,
+    warehouseLocation: row.warehouse_location ?? null,
+    countryOfOrigin: row.country_of_origin ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -143,13 +143,15 @@ export default async function ShippingRatesPage() {
                 </span>
               </header>
 
-              {/* Two columns only, so the table never needs horizontal scroll
-                  even on the narrowest phone. */}
-              <table className="mt-4 w-full text-left">
+              {/* The ladder runs to 50 kg in half-kilo steps, so the body
+                  scrolls inside the card rather than making the page enormous.
+                  Two columns only — never a horizontal scroll on a phone. */}
+              <div className="mt-4 max-h-[22rem] overflow-y-auto pr-1">
+              <table className="w-full text-left">
                 <caption className="sr-only">
                   {card.methodName} shipping rates to {card.name} by parcel weight
                 </caption>
-                <thead>
+                <thead className="sticky top-0 bg-[#0d0d0d]">
                   <tr className="border-b border-white/10">
                     <th
                       scope="col"
@@ -201,6 +203,7 @@ export default async function ShippingRatesPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </article>
           ))}
         </div>

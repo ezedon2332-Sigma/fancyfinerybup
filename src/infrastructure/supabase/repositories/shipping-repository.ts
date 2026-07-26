@@ -87,14 +87,37 @@ export function createShippingRepository(
      * not been applied yet — the use-case falls back to the legacy per-country
      * prices in that case, so checkout keeps working either way.
      */
-    async getRateTable(): Promise<RateTable> {
+    async getRateTable(countryCode?: string): Promise<RateTable> {
+      const code = countryCode?.trim().toUpperCase();
+
+      // The destination's zone has to be known before the rates can be
+      // narrowed to it, so that lookup goes first when a country is given.
+      let zoneId: string | null = null;
+      if (code) {
+        const { data } = await client
+          .from("shipping_zone_countries")
+          .select("zone_id")
+          .eq("country_code", code)
+          .maybeSingle();
+        zoneId = data?.zone_id ?? null;
+      }
+
+      let ratesQuery = client.from("shipping_rates").select("*");
+      if (code) {
+        ratesQuery = zoneId
+          ? ratesQuery.or(`country_code.eq.${code},zone_id.eq.${zoneId}`)
+          : ratesQuery.eq("country_code", code);
+      }
+
       const [zonesRes, assignRes, methodsRes, bracketsRes, ratesRes] =
         await Promise.all([
           client.from("shipping_zones").select("*").order("sort_order"),
           client.from("shipping_zone_countries").select("*"),
           client.from("shipping_methods").select("*").order("sort_order"),
           client.from("shipping_weight_brackets").select("*").order("min_grams"),
-          client.from("shipping_rates").select("*"),
+          // Postgrest caps rows by default; a full admin read of a fine ladder
+          // exceeds it, and a truncated rate table would price silently wrong.
+          ratesQuery.limit(20_000),
         ]);
 
       if (zonesRes.error || methodsRes.error || bracketsRes.error || ratesRes.error) {
