@@ -9,7 +9,20 @@ import { interestLabel } from "@/domain/newsletter";
 const GOLD = "#d4af37";
 const INK = "#111111";
 
-function shell(title: string, body: string, unsubscribeUrl: string): string {
+/** `unsubscribeUrl` is omitted for transactional mail: an order confirmation
+ *  must not offer to opt out, and legally does not need to. */
+function shell(title: string, body: string, unsubscribeUrl?: string): string {
+  const kicker = unsubscribeUrl
+    ? `<div style="margin-top:10px;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#8a8a8a;">Privé Circle</div>`
+    : "";
+
+  const footer = unsubscribeUrl
+    ? `You are receiving this because you joined the ${SITE_NAME} Privé Circle.<br>
+       <a href="${unsubscribeUrl}" style="color:${GOLD};text-decoration:underline;">Unsubscribe</a>
+       &nbsp;·&nbsp;
+       <a href="${SITE_URL}" style="color:${GOLD};text-decoration:underline;">Visit the house</a>`
+    : `<a href="${SITE_URL}" style="color:${GOLD};text-decoration:underline;">${SITE_NAME}</a>`;
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -20,20 +33,33 @@ function shell(title: string, body: string, unsubscribeUrl: string): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#0a0a0a;border:1px solid rgba(212,175,55,0.28);">
   <tr><td align="center" style="padding:40px 32px 8px;">
     <div style="font-size:13px;letter-spacing:6px;text-transform:uppercase;color:${GOLD};">${SITE_NAME}</div>
-    <div style="margin-top:10px;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#8a8a8a;">Privé Circle</div>
+    ${kicker}
   </td></tr>
   <tr><td style="padding:8px 32px 40px;">${body}</td></tr>
   <tr><td align="center" style="padding:24px 32px 36px;border-top:1px solid rgba(255,255,255,0.07);">
     <p style="margin:0;font-size:11px;line-height:1.7;color:#7d7d7d;font-family:Arial,Helvetica,sans-serif;">
-      You are receiving this because you joined the ${SITE_NAME} Privé Circle.<br>
-      <a href="${unsubscribeUrl}" style="color:${GOLD};text-decoration:underline;">Unsubscribe</a>
-      &nbsp;·&nbsp;
-      <a href="${SITE_URL}" style="color:${GOLD};text-decoration:underline;">Visit the house</a>
+      ${footer}
     </p>
   </td></tr>
 </table>
 </td></tr></table>
 </body></html>`;
+}
+
+/** Wrap a plain-text transactional message in the house frame. Paragraphs are
+ *  split on blank lines; the text is escaped, so order data cannot inject markup. */
+export function buildTransactionalEmail(subject: string, text: string): string {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => escapeHtml(p.trim()).replace(/\n/g, "<br>"))
+    .filter(Boolean)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 16px;font-size:15px;line-height:1.85;color:#c9c9c9;">${p}</p>`,
+    )
+    .join("");
+
+  return shell(subject, `<div style="margin-top:24px;">${paragraphs}</div>`);
 }
 
 function button(href: string, label: string): string {

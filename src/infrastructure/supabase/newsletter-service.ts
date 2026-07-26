@@ -14,7 +14,7 @@ import {
   type SubscriberSource,
   type SubscriptionAction,
 } from "@/domain/newsletter";
-import { activeProvider, sendMarketingEmail } from "@/infrastructure/notifications/email-provider";
+import { activeProvider, sendViaProvider } from "@/infrastructure/notifications/email-provider";
 import {
   buildWelcomeEmail,
   unsubscribeUrl,
@@ -28,12 +28,29 @@ import {
  * reachable from the browser.
  */
 
+let warnedAboutSalt = false;
+
 /** IPs are hashed before storage: enough to rate-limit and audit, but not a
- *  plaintext record of who signed up from where. */
+ *  plaintext record of who signed up from where.
+ *
+ *  The salt must be secret. An IPv4 space is small enough to brute-force in
+ *  seconds, so an unsalted — or publicly-known — hash is reversible and the
+ *  column stops being pseudonymous. Falls back so local dev works, but says so
+ *  loudly once in production. */
 export function hashIp(ip: string | null): string | null {
   if (!ip) return null;
-  const salt = process.env.IP_HASH_SALT ?? "fancy-finery";
-  return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
+  const salt = process.env.IP_HASH_SALT;
+  if (!salt && !warnedAboutSalt) {
+    warnedAboutSalt = true;
+    console.warn(
+      "[newsletter] IP_HASH_SALT is not set — signup IP hashes are reversible. " +
+        "Set it in the environment.",
+    );
+  }
+  return createHash("sha256")
+    .update(`${salt ?? "fancy-finery-dev"}:${ip}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 interface SubscriberRow {
@@ -265,7 +282,7 @@ async function sendWelcome(subscriber: Subscriber): Promise<void> {
     interests: subscriber.interests,
     token: subscriber.unsubscribeToken,
   });
-  const result = await sendMarketingEmail({
+  const result = await sendViaProvider({
     to: subscriber.email,
     toName: subscriber.firstName,
     subject: mail.subject,

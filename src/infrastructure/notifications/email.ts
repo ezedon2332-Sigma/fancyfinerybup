@@ -2,34 +2,46 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
 import { orderStatusLabel } from "@/lib/order-status";
+import { sendViaProvider } from "@/infrastructure/notifications/email-provider";
+import { buildTransactionalEmail } from "@/infrastructure/notifications/newsletter-emails";
 
 /**
- * Pluggable transactional email.
+ * Transactional email — order confirmations and status updates.
  *
- * No provider is configured yet, so `sendEmail` safely no-ops (logging in dev).
- * The moment a provider key exists (e.g. RESEND_API_KEY) + a verified sender,
- * fill in the send call below and every notification starts delivering — no
- * other code changes needed. All notify* helpers are best-effort and never
- * throw, so they can't break checkout or admin actions.
+ * Delivery goes through the shared provider transport, so a single provider
+ * key powers both these notifications and the Privé Circle newsletter. With no
+ * provider configured the transport no-ops and logs in dev.
+ *
+ * No unsubscribe link is attached: these are transactional, not marketing, and
+ * a customer must not be able to opt out of hearing that their order shipped.
+ *
+ * All notify* helpers are best-effort and never throw, so they can't break
+ * checkout or admin actions.
  */
 
 export interface EmailMessage {
   to: string;
   subject: string;
   text: string;
+  /** Optional override; otherwise the text is wrapped in the house frame. */
+  html?: string;
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    if (process.env.NODE_ENV !== "production") {
-      console.info(`[email:noop] → ${msg.to}: ${msg.subject}`);
-    }
-    return; // no provider configured — hook point for real delivery
+  const result = await sendViaProvider({
+    to: msg.to,
+    subject: msg.subject,
+    text: msg.text,
+    html: msg.html ?? buildTransactionalEmail(msg.subject, msg.text),
+  });
+
+  if (!result.ok) {
+    // Surfaced rather than swallowed: a silent failure here is how order
+    // confirmations go missing without anyone noticing.
+    console.error(
+      `[email] delivery failed → ${msg.to} (${msg.subject}): ${result.error}`,
+    );
   }
-  // When enabling: POST to your provider here using `apiKey` and a verified
-  // FROM address (e.g. process.env.EMAIL_FROM). Kept out until configured so
-  // no build/runtime dependency is introduced prematurely.
 }
 
 async function loadOrderEmail(orderId: string): Promise<{

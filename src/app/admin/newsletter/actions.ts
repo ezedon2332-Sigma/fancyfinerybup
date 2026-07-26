@@ -10,7 +10,7 @@ import {
   listSubscribers,
   recordHistory,
 } from "@/infrastructure/supabase/newsletter-service";
-import { sendMarketingEmail } from "@/infrastructure/notifications/email-provider";
+import { sendViaProvider } from "@/infrastructure/notifications/email-provider";
 import {
   buildCampaignEmail,
   unsubscribeUrl,
@@ -215,7 +215,7 @@ export async function sendCampaign(id: string): Promise<NLActionResult> {
       token: member.unsubscribeToken,
     });
 
-    const result = await sendMarketingEmail({
+    const result = await sendViaProvider({
       to: member.email,
       toName: member.firstName,
       subject: mail.subject,

@@ -260,9 +260,10 @@ function senderEmail(): string {
   return m ? m[1] : fromAddress();
 }
 
-/** Send one marketing email through the configured provider. Never throws —
- *  callers log the result rather than failing the user's request. */
-export async function sendMarketingEmail(
+/** Send one email through the configured provider. Backs both transactional
+ *  mail (order confirmations) and marketing mail (the Privé Circle). Never
+ *  throws — callers log the result rather than failing the user's request. */
+export async function sendViaProvider(
   msg: MarketingEmail,
 ): Promise<SendResult> {
   const cfg = configured();
