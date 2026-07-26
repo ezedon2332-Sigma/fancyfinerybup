@@ -27,8 +27,8 @@ export function fromGrams(grams: number, unit: WeightUnit): number {
 
 export function formatWeight(grams: number): string {
   if (grams >= 1000) {
-    const kg = grams / 1000;
-    return `${Number.isInteger(kg) ? kg : kg.toFixed(2)} kg`;
+    // parseFloat drops trailing zeros, so 2500 g reads "2.5 kg", not "2.50 kg".
+    return `${parseFloat((grams / 1000).toFixed(2))} kg`;
   }
   return `${grams} g`;
 }
@@ -110,12 +110,19 @@ export function totalCartWeight(
 }
 
 /**
- * The bracket a weight falls into. Ranges are [min, max) so a weight sitting
- * exactly on a boundary lands in the higher bracket exactly once — 1000 g with
- * a 0.5–1 kg and a 1–2 kg bracket is a 1–2 kg parcel.
+ * The bracket a weight falls into, using carrier tariff semantics: a band
+ * labelled "up to 2 kg" INCLUDES a parcel weighing exactly 2.000 kg.
  *
- * Anything above the last bounded bracket uses the open-ended one; if there
- * isn't one, the heaviest bracket is used rather than returning nothing.
+ * The upper bound is therefore inclusive and the lower bound is not, so
+ * consecutive bands share a boundary value and the lower one claims it. Whole
+ * kilos are precisely where real parcels cluster, so the alternative — a
+ * half-open [min, max) range that pushes 2.000 kg into the 2–3 kg band —
+ * silently overcharges a large share of real orders.
+ *
+ * Returns null when nothing covers the weight: heavier than every band, with
+ * no open-ended top bracket. Declining to quote is the safe failure — the
+ * checkout then offers no method, which is visible, whereas falling back to
+ * the heaviest band would quietly undercharge a 40 kg parcel at the 20 kg price.
  */
 export function findBracket(
   brackets: WeightBracket[],
@@ -125,12 +132,11 @@ export function findBracket(
   const ordered = [...brackets].sort((a, b) => a.minGrams - b.minGrams);
 
   for (const b of ordered) {
-    const above = grams >= b.minGrams;
-    const below = b.maxGrams === null || grams < b.maxGrams;
-    if (above && below) return b;
+    if (grams < b.minGrams) continue; // gap below this band
+    if (b.maxGrams === null) return b; // open-ended top band
+    if (grams <= b.maxGrams) return b; // "up to max", inclusive
   }
-  // Heavier than every bounded bracket and no open-ended one exists.
-  return ordered[ordered.length - 1];
+  return null;
 }
 
 export function zoneForCountry(
