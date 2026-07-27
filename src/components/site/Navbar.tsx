@@ -79,13 +79,16 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
       {/* Inline links appear at xl, not lg. At 1024px a mark this size plus
           seven links plus the action icons needs ~1100px of a 944px row; the
           menu button covers 1024–1280 so the branding can breathe. */}
-      <nav className="mx-auto flex h-[116px] max-w-7xl items-center justify-between gap-3 px-4 sm:h-[140px] sm:px-6 lg:h-[164px] lg:px-10 xl:grid xl:grid-cols-[auto_1fr_auto] xl:gap-6">
+      <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-3 px-4 sm:h-[140px] sm:px-6 lg:h-[164px] lg:px-10 xl:grid xl:grid-cols-[auto_1fr_auto] xl:gap-6">
         {/* Branding column: lockup, then the live rate directly beneath it. */}
         <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2 xl:col-start-1 xl:row-start-1">
+          {/* Stacks on phones: side by side, the mark plus the name at its
+              desktop size needs ~463px of a 343px row. Vertical keeps the
+              name visible and the lockup hard left. */}
           <Link
             href="/"
             aria-label="Fancy Finery — home"
-            className="brand-lockup flex shrink-0 items-center gap-3 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-yellow-500/70 sm:gap-4 xl:gap-5"
+            className="brand-lockup flex shrink-0 flex-col items-start gap-1.5 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-yellow-500/70 sm:flex-row sm:items-center sm:gap-4 xl:gap-5"
           >
             <Image
               src="/logo.png"
@@ -95,13 +98,13 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
               priority
               className="brand-mark h-16 w-16 object-contain sm:h-[88px] sm:w-[88px] lg:h-[100px] lg:w-[100px] xl:h-[108px] xl:w-[108px]"
             />
-            {/* The mark already carries the name, so on phones it stands alone
-                rather than repeating it in half-legible type. */}
-            <span className="hidden flex-col justify-center leading-none sm:flex">
-              <span className="brand-wordmark whitespace-nowrap text-[30px] leading-none tracking-[0.17em] lg:text-[34px] xl:text-[40px]">
+            <span className="flex flex-col justify-center leading-none">
+              <span className="brand-wordmark whitespace-nowrap text-[19px] leading-none tracking-[0.14em] sm:text-[30px] sm:tracking-[0.17em] lg:text-[34px] xl:text-[40px]">
                 FANCY FINERY
               </span>
-              <span className="brand-tagline mt-3 flex items-center gap-2 text-[9px] uppercase leading-none tracking-[0.4em] text-gray-400 lg:text-[10px] lg:tracking-[0.44em]">
+              {/* Tagline stays off on phones — a third line would push the
+                  header taller than the content it introduces. */}
+              <span className="brand-tagline mt-3 hidden items-center gap-2 text-[9px] uppercase leading-none tracking-[0.4em] text-gray-400 sm:flex lg:text-[10px] lg:tracking-[0.44em]">
                 <span
                   aria-hidden
                   className="h-px min-w-2 flex-1 bg-gradient-to-r from-transparent to-yellow-600/60"
