@@ -11,6 +11,8 @@ import { placeOrderAction } from "@/app/checkout/actions";
 import { startPaymentAction } from "@/app/checkout/payment-actions";
 import { quoteShipping, type Quote } from "@/app/shipping/quote-actions";
 import { OrderSummary } from "./OrderSummary";
+import { CheckoutProgress } from "./CheckoutProgress";
+import { ShippingSummary, TrustBadges } from "./ShippingSummary";
 import { CountrySelect, type CountryOption } from "./CountrySelect";
 import {
   RatesBrowser,
@@ -241,7 +243,12 @@ export function CheckoutForm({
   const label = "mb-1 block text-xs uppercase tracking-widest text-gray-400";
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr_380px]">
+    <form onSubmit={handleSubmit}>
+      <div className="mx-auto mb-10 max-w-2xl">
+        <CheckoutProgress current={form.countryCode ? "Payment" : "Shipping"} />
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
       {/* Shipping address */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -312,6 +319,16 @@ export function CheckoutForm({
           <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-300">
             Delivery
           </h3>
+
+          {form.countryCode && (
+            <div className="mt-3">
+              <ShippingSummary
+                quote={quote}
+                loading={quoting}
+                countryName={form.country}
+              />
+            </div>
+          )}
           <div className="mt-3 flex items-center gap-3 rounded-lg border border-yellow-600/40 bg-yellow-500/5 px-4 py-3">
             <Truck className="h-4 w-4 shrink-0 text-yellow-500" />
             <span className="min-w-0">
@@ -357,7 +374,7 @@ export function CheckoutForm({
       </div>
 
       {/* Summary */}
-      <div className="h-fit">
+      <div className="h-fit lg:sticky lg:top-[220px]">
         <OrderSummary
           items={items}
           quote={quote}
@@ -393,7 +410,49 @@ export function CheckoutForm({
             ? "Secure payment • you'll confirm on the next screen."
             : "Payment on delivery."}
         </p>
+
+        <TrustBadges />
       </div>
+      </div>
+
+      {/* Mobile: the pay button follows the customer rather than living at
+          the bottom of a long form. Hidden once the desktop column, which
+          already keeps it in view, takes over. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-yellow-600/30 bg-black/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">
+              Total
+            </p>
+            <p className="truncate text-sm font-semibold text-yellow-400">
+              {quoting && !quote ? (
+                <span className="inline-block h-4 w-20 animate-pulse rounded bg-white/10" />
+              ) : quote ? (
+                `${quote.currency === "NGN" ? "₦" : "$"}${(
+                  quote.breakdown.total / 100
+                ).toLocaleString()}`
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={submitting || !form.countryCode}
+            className="shrink-0 rounded-sm bg-yellow-500 px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-yellow-600 disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : paymentEnabled ? (
+              "Continue"
+            ) : (
+              "Place order"
+            )}
+          </button>
+        </div>
+      </div>
+      {/* Spacer so the sticky bar never covers the last field. */}
+      <div aria-hidden className="h-20 lg:hidden" />
     </form>
   );
 }
