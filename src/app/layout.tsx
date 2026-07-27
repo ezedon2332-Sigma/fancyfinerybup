@@ -103,10 +103,12 @@ export default async function RootLayout({
               <WishlistProvider>
                 <RecentlyViewedProvider>
                   <SiteHeader />
-                  {/* Offset matches the fixed header. The rate ticker moved
-                      into the brand column, so there is no strip to allow for:
-                      mobile is nav 104; desktop is utility bar 40 + nav 124. */}
-                  <main className="flex-1 pt-[104px] lg:pt-[164px]">{children}</main>
+                  {/* Offset matches the fixed header exactly. Below lg the
+                      header is just the nav (116 / 140); from lg the utility
+                      bar adds 40 on top of a 164 nav. */}
+                  <main className="flex-1 pt-[116px] sm:pt-[140px] lg:pt-[204px]">
+                    {children}
+                  </main>
                   <SiteFooter />
                   <RateChangeNotifier />
                   <VipInvitationModal />

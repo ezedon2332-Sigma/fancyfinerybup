@@ -76,27 +76,32 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
       {/* Main nav — permanent brand identity left, links optically centred
           (equal 1fr side tracks), actions right. */}
-      <nav className="mx-auto flex h-[104px] max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:grid lg:h-[124px] lg:grid-cols-[1fr_auto_1fr] lg:gap-6 lg:px-10">
+      {/* Inline links appear at xl, not lg. At 1024px a mark this size plus
+          seven links plus the action icons needs ~1100px of a 944px row; the
+          menu button covers 1024–1280 so the branding can breathe. */}
+      <nav className="mx-auto flex h-[116px] max-w-7xl items-center justify-between gap-3 px-4 sm:h-[140px] sm:px-6 lg:h-[164px] lg:px-10 xl:grid xl:grid-cols-[auto_1fr_auto] xl:gap-6">
         {/* Branding column: lockup, then the live rate directly beneath it. */}
-        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2 lg:col-start-1 lg:row-start-1">
+        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2 xl:col-start-1 xl:row-start-1">
           <Link
             href="/"
             aria-label="Fancy Finery — home"
-            className="brand-lockup flex shrink-0 items-center gap-3 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-yellow-500/70 sm:gap-4"
+            className="brand-lockup flex shrink-0 items-center gap-3 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-yellow-500/70 sm:gap-4 xl:gap-5"
           >
             <Image
               src="/logo.png"
               alt="Fancy Finery"
-              width={160}
-              height={160}
+              width={256}
+              height={256}
               priority
-              className="brand-mark h-12 w-12 object-contain sm:h-16 sm:w-16 lg:h-16 lg:w-16 xl:h-[68px] xl:w-[68px]"
+              className="brand-mark h-16 w-16 object-contain sm:h-[88px] sm:w-[88px] lg:h-[100px] lg:w-[100px] xl:h-[108px] xl:w-[108px]"
             />
-            <span className="flex flex-col justify-center leading-none">
-              <span className="brand-wordmark whitespace-nowrap text-lg leading-none tracking-[0.14em] sm:text-[28px] sm:tracking-[0.17em] lg:text-[26px] xl:text-[31px]">
+            {/* The mark already carries the name, so on phones it stands alone
+                rather than repeating it in half-legible type. */}
+            <span className="hidden flex-col justify-center leading-none sm:flex">
+              <span className="brand-wordmark whitespace-nowrap text-[30px] leading-none tracking-[0.17em] lg:text-[34px] xl:text-[40px]">
                 FANCY FINERY
               </span>
-              <span className="brand-tagline mt-2.5 hidden items-center gap-2 text-[9px] uppercase leading-none tracking-[0.4em] text-gray-400 sm:flex lg:text-[10px]">
+              <span className="brand-tagline mt-3 flex items-center gap-2 text-[9px] uppercase leading-none tracking-[0.4em] text-gray-400 lg:text-[10px] lg:tracking-[0.44em]">
                 <span
                   aria-hidden
                   className="h-px min-w-2 flex-1 bg-gradient-to-r from-transparent to-yellow-600/60"
@@ -114,7 +119,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
 
         {/* Desktop links — centre track */}
-        <div className="hidden items-center justify-center gap-4 text-[10px] font-medium uppercase tracking-[0.14em] lg:col-start-2 lg:row-start-1 lg:flex xl:gap-7 xl:text-[11px] xl:tracking-[0.16em] 2xl:text-xs">
+        <div className="hidden items-center justify-center gap-4 text-[10px] font-medium uppercase tracking-[0.14em] xl:col-start-2 xl:row-start-1 xl:flex xl:gap-5 xl:tracking-[0.15em] 2xl:gap-7 2xl:text-[11px] 2xl:tracking-[0.16em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -138,7 +143,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
 
         {/* Actions */}
-        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 lg:col-start-3 lg:row-start-1">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 xl:col-start-3 xl:row-start-1">
           {/* Always-visible currency selector */}
           <CurrencySwitcher />
           <Link
@@ -186,7 +191,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             aria-label="Menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:hidden"
+            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 xl:hidden"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -201,7 +206,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-yellow-600/20 lg:hidden"
+            className="overflow-hidden border-t border-yellow-600/20 xl:hidden"
           >
             <div className="flex flex-col gap-1 px-4 py-3 sm:px-6">
               {LINKS.map((link) => (
