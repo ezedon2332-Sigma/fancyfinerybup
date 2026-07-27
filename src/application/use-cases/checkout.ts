@@ -8,11 +8,33 @@ import {
   convertFromNgnMinor,
   orderCurrencyForCountry,
 } from "@/domain/shipping/currency";
+import {
+  checkDiscount,
+  discountAmount,
+  priceOrder,
+  resolveTax,
+  shippingOptionsFor,
+  totalCartWeight,
+  type CartWeightLine,
+  type DiscountCode,
+  type PricingTable,
+} from "@/domain/shipping/pricing";
 import { getExchangeRate } from "@/infrastructure/exchange-rate/service";
 
 export interface CheckoutDeps {
   products: ProductRepository;
   orders: OrderRepository;
+  /** Loaded fresh per order — a rate or tax change must apply immediately. */
+  pricing: () => Promise<PricingTable>;
+  defaultItemWeightGrams: () => Promise<number>;
+  findDiscountCode: (code: string) => Promise<DiscountCode | null>;
+  isFirstOrder: (userId: string) => Promise<boolean>;
+  recordRedemption: (input: {
+    codeId: string;
+    orderId: string;
+    userId: string;
+    amountKobo: number;
+  }) => Promise<void>;
 }
 
 export interface CheckoutLine {
@@ -25,6 +47,9 @@ export interface PlaceOrderInput {
   userId: string;
   shipping: ShippingDetails;
   lines: CheckoutLine[];
+  /** Courier the customer picked; the cheapest is used if absent or stale. */
+  courierId?: string | null;
+  couponCode?: string | null;
 }
 
 export class CheckoutError extends Error {}
@@ -55,8 +80,8 @@ export async function placeOrder(
 
   // 1) Recompute the subtotal in the base currency (NGN kobo) from the DB.
   const priced: { item: Omit<NewOrderItem, "unitPrice">; priceNgn: number }[] = [];
+  const weightLines: CartWeightLine[] = [];
   let subtotalNgn = 0;
-  let totalWeightGrams = 0;
 
   for (const line of input.lines) {
     const product = await deps.products.findPublishedById(line.productId);
@@ -80,7 +105,7 @@ export async function placeOrder(
     }
 
     subtotalNgn += product.price * line.qty;
-    totalWeightGrams += product.weightGrams * line.qty;
+    weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
     priced.push({
       item: {
         productId: product.id,
@@ -94,29 +119,102 @@ export async function placeOrder(
     });
   }
 
-  // 2) Order currency follows the destination; the live rate converts into it.
+  // 2) Price the order server-side. Everything is re-derived here: the client
+  //     told us the destination and the coupon, nothing more. Whatever the
+  //     checkout screen displayed is irrelevant to what is charged.
+  const [table, defaultWeight, { ngnPerUsd }] = await Promise.all([
+    deps.pricing(),
+    deps.defaultItemWeightGrams(),
+    getExchangeRate(),
+  ]);
+
+  const weightGrams = totalCartWeight(weightLines, defaultWeight);
+  const lookup = shippingOptionsFor(table, {
+    countryCode: input.shipping.countryCode,
+    weightGrams,
+    subtotalKobo: subtotalNgn,
+  });
+
+  if (lookup.options.length === 0 && lookup.reason === "over-max-weight") {
+    throw new CheckoutError(
+      "This order exceeds our published weight bands. Please contact us for a freight quote.",
+    );
+  }
+
+  const courier =
+    lookup.options.find((o) => o.courierId === input.courierId) ??
+    lookup.options[0] ??
+    null;
+  const shippingKobo = courier?.priceKobo ?? 0;
+
+  // 3) Coupon. Re-validated here — a code that expired between the quote and
+  //    the submit must not be honoured.
+  let applied: { code: DiscountCode; amountKobo: number } | null = null;
+  if (input.couponCode) {
+    const code = await deps.findDiscountCode(input.couponCode);
+    const verdict = checkDiscount(code, {
+      subtotalKobo: subtotalNgn,
+      isFirstOrder: await deps.isFirstOrder(input.userId),
+      now: new Date(),
+    });
+    if (verdict.valid && code) {
+      applied = {
+        code,
+        amountKobo: discountAmount(code, {
+          subtotalKobo: subtotalNgn,
+          shippingKobo,
+        }),
+      };
+    }
+    // An invalid code is silently dropped rather than failing the order: the
+    // customer still wants the goods, and they are charged the correct,
+    // undiscounted amount.
+  }
+
+  const breakdown = priceOrder({
+    subtotalKobo: subtotalNgn,
+    shippingKobo,
+    taxRule: resolveTax(table, input.shipping.countryCode),
+    discount: applied,
+  });
+
+  // 4) Convert once, into the order's currency.
   const currency = orderCurrencyForCountry(input.shipping.countryCode);
-  const { ngnPerUsd } = await getExchangeRate();
+  const toOrder = (kobo: number) => convertFromNgnMinor(kobo, currency, ngnPerUsd);
 
-  const subtotal = convertFromNgnMinor(subtotalNgn, currency, ngnPerUsd);
-
-  // 3) Snapshot each line's unit price in the order currency.
   const items: NewOrderItem[] = priced.map(({ item, priceNgn }) => ({
     ...item,
-    unitPrice: convertFromNgnMinor(priceNgn, currency, ngnPerUsd),
+    unitPrice: toOrder(priceNgn),
   }));
 
-  return deps.orders.create({
+  const orderId = await deps.orders.create({
     userId: input.userId,
     currency,
-    subtotal,
-    shippingCost: 0,
-    tax: 0,
-    discount: 0,
-    totalWeightGrams,
-    total: subtotal,
-    shippingMethod: null,
+    subtotal: toOrder(breakdown.subtotalKobo),
+    shippingCost: toOrder(breakdown.shippingKobo),
+    tax: toOrder(breakdown.taxKobo),
+    discount: toOrder(breakdown.discountKobo),
+    totalWeightGrams: weightGrams,
+    total: toOrder(breakdown.totalKobo),
+    shippingMethod: courier?.courierCode ?? null,
     shipping: input.shipping,
     items,
   });
+
+  // 5) Record the redemption so usage limits actually bind. Best-effort: the
+  //    order is already placed and must not fail over a counter.
+  if (applied) {
+    try {
+      await deps.recordRedemption({
+        codeId: applied.code.id,
+        orderId,
+        userId: input.userId,
+        amountKobo: applied.amountKobo,
+      });
+    } catch {
+      /* counter drift is preferable to a lost order */
+    }
+  }
+
+  return orderId;
 }

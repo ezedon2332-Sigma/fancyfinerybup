@@ -61,6 +61,7 @@ export function ProductDetail({
       slug: product.slug,
       name: product.name,
       price: product.price,
+      weightGrams: product.weightGrams,
       currency: product.currency,
       image: (media.find((m) => m.type === "image") ?? media[0]).url,
       size: selectedVariant?.size ?? null,

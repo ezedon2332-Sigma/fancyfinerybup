@@ -35,6 +35,10 @@ export const checkoutSchema = z.object({
   postal: z.string().trim().min(1, "ZIP/Postal code is required").max(32),
   address: z.string().trim().min(5, "Street address is required"),
   apartment: z.string().trim().max(120).nullable().optional(),
+  /** Chosen courier and coupon. Both are re-validated and re-priced on the
+   *  server — these are a request, not an instruction. */
+  courierId: z.string().uuid().nullable().optional(),
+  couponCode: z.string().trim().max(64).nullable().optional(),
   lat: z.number().finite().nullable().optional(),
   lng: z.number().finite().nullable().optional(),
   items: z

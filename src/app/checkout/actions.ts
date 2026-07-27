@@ -30,6 +30,8 @@ export async function placeOrderAction(
     const deps = await getCheckoutDeps();
     const orderId = await placeOrder(deps, {
       userId: user.id,
+      courierId: input.courierId ?? null,
+      couponCode: input.couponCode ?? null,
       shipping: {
         name: input.name,
         email: input.email,

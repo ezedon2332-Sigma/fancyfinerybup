@@ -1,16 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin, Truck } from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
-import { formatMoney } from "@/domain/shared/money";
 import { checkoutSchema } from "@/lib/validation";
 import { placeOrderAction } from "@/app/checkout/actions";
 import { startPaymentAction } from "@/app/checkout/payment-actions";
+import { quoteShipping, type Quote } from "@/app/shipping/quote-actions";
+import { OrderSummary } from "./OrderSummary";
 import { CountrySelect, type CountryOption } from "./CountrySelect";
 
 interface FormState {
@@ -41,7 +41,7 @@ export function CheckoutForm({
   paymentEnabled?: boolean;
 }) {
   const router = useRouter();
-  const { items, subtotal, clear } = useCart();
+  const { items, clear } = useCart();
 
   const [form, setForm] = useState<FormState>({
     name: initial?.name ?? "",
@@ -69,13 +69,46 @@ export function CheckoutForm({
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // No shipping module, so no quote to fetch: delivery is free and the total
-  // is the cart subtotal. The server re-prices independently when the order is
-  // placed, so these figures are a display of that, not the source of truth.
-  const displayCurrency = items[0]?.currency ?? "NGN";
-  const convFactor = 1;
-  const shownSubtotal = subtotal;
-  const shownTotal = subtotal;
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const requestId = useRef(0);
+
+  // A stable key over the lines, so the quote refreshes when quantities change
+  // but not on every unrelated re-render.
+  const itemsKey = useMemo(
+    () => items.map((i) => `${i.productId}:${i.variantId}:${i.qty}`).join(","),
+    [items],
+  );
+
+  // Requote whenever anything that can move the total moves: destination,
+  // contents, quantity, or the coupon. Nothing is computed on the client.
+  useEffect(() => {
+    if (!form.countryCode || items.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears a stale async quote when its inputs go away
+      setQuote(null);
+      return;
+    }
+    const id = ++requestId.current;
+    setQuoting(true);
+    quoteShipping({
+      countryCode: form.countryCode,
+      items: items.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId,
+        qty: i.qty,
+      })),
+      couponCode: appliedCoupon,
+    })
+      .then((res) => {
+        if (id !== requestId.current) return; // a newer quote has landed
+        setQuote(res.ok ? res : null);
+      })
+      .finally(() => {
+        if (id === requestId.current) setQuoting(false);
+      });
+  }, [form.countryCode, itemsKey, appliedCoupon, items]);
 
   async function useMyLocation() {
     setError(null);
@@ -144,6 +177,8 @@ export function CheckoutForm({
       postal: form.postal,
       address: form.address,
       apartment: form.apartment || null,
+      courierId: quote?.selected?.courierId ?? null,
+      couponCode: appliedCoupon,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
       items: items.map((i) => ({
@@ -273,9 +308,7 @@ export function CheckoutForm({
           <div className="mt-3 flex items-center gap-3 rounded-lg border border-yellow-600/40 bg-yellow-500/5 px-4 py-3">
             <Truck className="h-4 w-4 shrink-0 text-yellow-500" />
             <span>
-              <span className="block text-sm font-medium text-gray-100">
-                Complimentary worldwide delivery
-              </span>
+  
               <span className="block text-xs text-gray-400">
                 We will confirm your dispatch date by email after your order is
                 placed.
@@ -288,41 +321,20 @@ export function CheckoutForm({
       </div>
 
       {/* Summary */}
-      <div className="h-fit rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
-        <h2 className="text-lg font-semibold">Order summary</h2>
-        <div className="mt-4 space-y-3">
-          {items.map((i) => (
-            <div key={`${i.productId}-${i.variantId}`} className="flex items-center gap-3">
-              <div className="relative h-14 w-12 shrink-0 overflow-hidden rounded bg-neutral-900">
-                <Image src={i.image} alt={i.name} fill className="object-cover" />
-              </div>
-              <div className="flex-1 text-sm">
-                <p className="line-clamp-1">{i.name}</p>
-                <p className="text-gray-400">Qty {i.qty}</p>
-              </div>
-              <p className="text-sm text-yellow-400">
-                {formatMoney(Math.round(i.price * i.qty * convFactor), displayCurrency)}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
-          <div className="flex justify-between text-gray-300">
-            <span>Product subtotal</span>
-            <span>{formatMoney(shownSubtotal, displayCurrency)}</span>
-          </div>
-
-          <div className="flex justify-between text-gray-300">
-            <span>Shipping</span>
-            <span className="font-medium text-yellow-400">FREE</span>
-          </div>
-
-          <div className="flex justify-between border-t border-white/10 pt-2 text-base font-semibold">
-            <span>Grand total</span>
-            <span>{formatMoney(shownTotal, displayCurrency)}</span>
-          </div>
-        </div>
+      <div className="h-fit">
+        <OrderSummary
+          items={items}
+          quote={quote}
+          loading={quoting}
+          couponInput={couponInput}
+          onCouponChange={setCouponInput}
+          onApplyCoupon={() => setAppliedCoupon(couponInput.trim() || null)}
+          onClearCoupon={() => {
+            setAppliedCoupon(null);
+            setCouponInput("");
+          }}
+          couponPending={quoting}
+        />
 
         <button
           type="submit"

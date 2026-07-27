@@ -376,6 +376,252 @@ export interface Database {
           },
         ];
       };
+      shipping_zones: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          enabled: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          name: string;
+          enabled?: boolean;
+          sort_order?: number;
+        };
+        Update: {
+          code?: string;
+          name?: string;
+          enabled?: boolean;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      shipping_zone_countries: {
+        Row: { zone_id: string; country_code: string };
+        Insert: { zone_id: string; country_code: string };
+        Update: { zone_id?: string; country_code?: string };
+        Relationships: [];
+      };
+      shipping_methods: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          description: string | null;
+          rate_source: string;
+          carrier_code: string | null;
+          carrier_config: Json;
+          enabled: boolean;
+          sort_order: number;
+          min_days: number;
+          max_days: number;
+          display_name: string | null;
+          tracking_url_template: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          name: string;
+          description?: string | null;
+          rate_source?: string;
+          carrier_code?: string | null;
+          carrier_config?: Json;
+          enabled?: boolean;
+          sort_order?: number;
+          min_days?: number;
+          max_days?: number;
+          display_name?: string | null;
+          tracking_url_template?: string | null;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          rate_source?: string;
+          carrier_code?: string | null;
+          carrier_config?: Json;
+          enabled?: boolean;
+          sort_order?: number;
+          min_days?: number;
+          max_days?: number;
+          display_name?: string | null;
+          tracking_url_template?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shipping_weight_brackets: {
+        Row: {
+          id: string;
+          label: string;
+          min_grams: number;
+          max_grams: number | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          label: string;
+          min_grams: number;
+          max_grams?: number | null;
+          sort_order?: number;
+        };
+        Update: {
+          label?: string;
+          min_grams?: number;
+          max_grams?: number | null;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      shipping_rates: {
+        Row: {
+          id: string;
+          zone_id: string | null;
+          country_code: string | null;
+          method_id: string;
+          bracket_id: string;
+          price: number;
+          free_over: number | null;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          zone_id?: string | null;
+          country_code?: string | null;
+          method_id: string;
+          bracket_id: string;
+          price: number;
+          free_over?: number | null;
+          enabled?: boolean;
+        };
+        Update: {
+          price?: number;
+          free_over?: number | null;
+          enabled?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      tax_rules: {
+        Row: {
+          id: string;
+          scope: "global" | "zone" | "country";
+          country_code: string | null;
+          zone_id: string | null;
+          rate_bps: number;
+          label: string;
+          applies_to_shipping: boolean;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          scope: "global" | "zone" | "country";
+          country_code?: string | null;
+          zone_id?: string | null;
+          rate_bps?: number;
+          label?: string;
+          applies_to_shipping?: boolean;
+          enabled?: boolean;
+        };
+        Update: {
+          scope?: "global" | "zone" | "country";
+          country_code?: string | null;
+          zone_id?: string | null;
+          rate_bps?: number;
+          label?: string;
+          applies_to_shipping?: boolean;
+          enabled?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      discount_codes: {
+        Row: {
+          id: string;
+          code: string;
+          description: string | null;
+          campaign: string | null;
+          kind: "percent" | "fixed" | "free_shipping";
+          percent_bps: number | null;
+          amount_kobo: number | null;
+          min_subtotal_kobo: number;
+          max_discount_kobo: number | null;
+          first_time_only: boolean;
+          starts_at: string | null;
+          ends_at: string | null;
+          usage_limit: number | null;
+          used_count: number;
+          per_customer_limit: number | null;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          description?: string | null;
+          campaign?: string | null;
+          kind: "percent" | "fixed" | "free_shipping";
+          percent_bps?: number | null;
+          amount_kobo?: number | null;
+          min_subtotal_kobo?: number;
+          max_discount_kobo?: number | null;
+          first_time_only?: boolean;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          usage_limit?: number | null;
+          per_customer_limit?: number | null;
+          enabled?: boolean;
+        };
+        Update: {
+          code?: string;
+          description?: string | null;
+          campaign?: string | null;
+          kind?: "percent" | "fixed" | "free_shipping";
+          percent_bps?: number | null;
+          amount_kobo?: number | null;
+          min_subtotal_kobo?: number;
+          max_discount_kobo?: number | null;
+          first_time_only?: boolean;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          usage_limit?: number | null;
+          per_customer_limit?: number | null;
+          enabled?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      discount_redemptions: {
+        Row: {
+          id: string;
+          code_id: string;
+          order_id: string | null;
+          user_id: string | null;
+          amount_kobo: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          code_id: string;
+          order_id?: string | null;
+          user_id?: string | null;
+          amount_kobo?: number;
+          created_at?: string;
+        };
+        Update: { amount_kobo?: number };
+        Relationships: [];
+      };
       shipping_settings: {
         Row: {
           id: boolean;

@@ -17,6 +17,8 @@ export interface CartItem {
   slug: string;
   name: string;
   price: number; // minor units (kobo)
+  /** Optional: carts stored before weights were tracked simply omit it. */
+  weightGrams?: number;
   currency: string;
   image: string;
   size: string | null;
