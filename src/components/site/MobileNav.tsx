@@ -113,6 +113,7 @@ export function MobileNav({
         >
           <motion.div
             ref={panelRef}
+            id="mobile-nav"
             role="dialog"
             aria-modal="true"
             aria-label="Menu"

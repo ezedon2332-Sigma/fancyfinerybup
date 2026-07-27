@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
-  User,
   X,
 } from "lucide-react";
 
@@ -23,6 +22,11 @@ import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { LiveRateTicker } from "./LiveRateTicker";
 import { MobileNav } from "./MobileNav";
+import { AccountMenu } from "./AccountMenu";
+
+/** One definition of an icon button: 44x44 on touch, 40 from lg. */
+const ICON =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 active:scale-95 lg:h-10 lg:w-10";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -33,6 +37,14 @@ const LINKS = [
   { href: "/lookbook", label: "Lookbook" },
   { href: "/contact", label: "Contact" },
 ];
+
+function Count({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-black">
+      {children}
+    </span>
+  );
+}
 
 export function Navbar({ user }: { user: { email: string | null } | null }) {
   const [open, setOpen] = useState(false);
@@ -83,7 +95,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           what let them collide with the wordmark as the branding grew — a
           centre column has no way to yield. With space-between the two blocks
           can only move away from each other. */}
-      <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-6 px-4 sm:h-[132px] sm:px-6 lg:gap-10 lg:px-10 xl:h-[156px]">
+      <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-6 px-4 sm:h-[132px] sm:px-6 lg:gap-6 lg:px-10 xl:h-[156px]">
         {/* Branding: lockup, then the live rate directly beneath it. */}
         <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2">
           {/* Stacks on phones: side by side, the mark plus the name at its
@@ -128,7 +140,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         {/* Right-hand block: navigation, then the action icons. Grouping them
             means the whole thing is pushed right as one unit and the gap to
             the branding is whatever space is left over — never negative. */}
-        <div className="flex shrink-0 items-center gap-5 lg:gap-8 xl:gap-10">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-8">
         {/* Navigation — hard right, hamburger below lg */}
         <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] lg:flex xl:gap-5 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
           {LINKS.map((link) => {
@@ -153,60 +165,50 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           })}
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
-          {/* Always-visible currency selector */}
-          <CurrencySwitcher />
-          <Link
-            href="/collections"
-            aria-label="Search"
-            className="hidden flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10 sm:inline-flex"
-          >
+        {/* Actions.
+            Revealed progressively, because the full set does not fit on a
+            narrow phone: at 320px this row overflowed by 53px and at 360px by
+            13px. Anything withheld here is in the drawer, so nothing becomes
+            unreachable — only less prominent.
+
+              < sm   Bag, Account, Menu
+              sm     + Currency
+              lg     + Search, Wishlist  (Menu goes, links are inline)
+
+            Every control is a 44x44 target on touch, easing to 40 from lg
+            where there is a pointer rather than a fingertip. */}
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
+          <span className="hidden sm:inline-flex">
+            <CurrencySwitcher />
+          </span>
+
+          <Link href="/collections" aria-label="Search" className={`${ICON} hidden xl:flex`}>
             <Search className="h-5 w-5" />
           </Link>
-          <Link
-            href="/wishlist"
-            aria-label="Wishlist"
-            className="relative hidden flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10 sm:inline-flex"
-          >
+
+          <Link href="/wishlist" aria-label="Wishlist" className={`${ICON} relative hidden xl:flex`}>
             <Heart className="h-5 w-5" />
-            {wishCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-black">
-                {wishCount}
-              </span>
-            )}
+            {wishCount > 0 && <Count>{wishCount}</Count>}
           </Link>
-          <button
-            type="button"
-            aria-label="Bag"
-            onClick={openCart}
-            className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
-          >
+
+          <button type="button" aria-label="Bag" onClick={openCart} className={`${ICON} relative`}>
             <ShoppingBag className="h-5 w-5" />
-            {count > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-black">
-                {count}
-              </span>
-            )}
+            {count > 0 && <Count>{count}</Count>}
           </button>
-          <Link
-            href={user ? "/account" : "/login"}
-            aria-label={user ? "Account" : "Sign in"}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
-          >
-            <User className="h-5 w-5" />
-          </Link>
+
+          <AccountMenu user={user} wishCount={wishCount} />
 
           <button
             type="button"
-            aria-label="Menu"
+            aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
+            aria-controls="mobile-nav"
             onClick={() => setOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10 lg:hidden"
+            className={`${ICON} lg:hidden`}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
-          </div>
+        </div>
         </div>
       </nav>
 
