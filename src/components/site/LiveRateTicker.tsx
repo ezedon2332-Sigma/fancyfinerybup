@@ -69,14 +69,14 @@ export function LiveRateTicker({
               onClick={() => setCurrency(i.code)}
               title={`Browse prices in ${i.code}`}
               aria-pressed={currency === i.code}
-              className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] tabular-nums transition-colors hover:text-yellow-300 ${
+              className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors hover:text-yellow-300 ${
                 currency === i.code
                   ? "bg-yellow-500/15 text-yellow-300"
-                  : "text-gray-400"
+                  : "text-gray-300"
               }`}
             >
               {i.sym}1=
-              <span className="font-semibold text-yellow-400">
+              <span className="font-bold text-yellow-400">
                 ₦{i.ngn.toLocaleString()}
               </span>
             </button>
@@ -86,10 +86,10 @@ export function LiveRateTicker({
             onClick={() => setCurrency("NGN")}
             title="Browse prices in NGN"
             aria-pressed={currency === "NGN"}
-            className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] transition-colors hover:text-yellow-300 ${
+            className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-colors hover:text-yellow-300 ${
               currency === "NGN"
                 ? "bg-yellow-500/15 text-yellow-300"
-                : "text-gray-500"
+                : "text-gray-400"
             }`}
           >
             ₦NGN

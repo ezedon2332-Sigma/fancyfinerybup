@@ -76,12 +76,14 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
       {/* Main nav — permanent brand identity left, links optically centred
           (equal 1fr side tracks), actions right. */}
-      {/* Inline links appear at xl, not lg. At 1024px a mark this size plus
-          seven links plus the action icons needs ~1100px of a 944px row; the
-          menu button covers 1024–1280 so the branding can breathe. */}
-      <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-3 px-4 sm:h-[140px] sm:px-6 lg:h-[164px] lg:px-10 xl:grid xl:grid-cols-[auto_1fr_auto] xl:gap-6">
-        {/* Branding column: lockup, then the live rate directly beneath it. */}
-        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2 xl:col-start-1 xl:row-start-1">
+      {/* Two blocks, pushed apart: branding hard left, navigation and actions
+          hard right. The links used to sit in a centre grid column, which is
+          what let them collide with the wordmark as the branding grew — a
+          centre column has no way to yield. With space-between the two blocks
+          can only move away from each other. */}
+      <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-6 px-4 sm:h-[132px] sm:px-6 lg:gap-10 lg:px-10 xl:h-[156px]">
+        {/* Branding: lockup, then the live rate directly beneath it. */}
+        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2">
           {/* Stacks on phones: side by side, the mark plus the name at its
               desktop size needs ~463px of a 343px row. Vertical keeps the
               name visible and the lockup hard left. */}
@@ -96,10 +98,10 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
               width={256}
               height={256}
               priority
-              className="brand-mark h-16 w-16 object-contain sm:h-[88px] sm:w-[88px] lg:h-[100px] lg:w-[100px] xl:h-[108px] xl:w-[108px]"
+              className="brand-mark h-16 w-16 object-contain sm:h-[76px] sm:w-[76px] xl:h-[100px] xl:w-[100px]"
             />
             <span className="flex flex-col justify-center leading-none">
-              <span className="brand-wordmark whitespace-nowrap text-[19px] leading-none tracking-[0.14em] sm:text-[30px] sm:tracking-[0.17em] lg:text-[34px] xl:text-[40px]">
+              <span className="brand-wordmark whitespace-nowrap text-[19px] leading-none tracking-[0.14em] sm:text-[26px] sm:tracking-[0.17em] xl:text-[32px]">
                 FANCY FINERY
               </span>
               {/* Tagline stays off on phones — a third line would push the
@@ -121,8 +123,12 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           <LiveRateTicker variant="card" />
         </div>
 
-        {/* Desktop links — centre track */}
-        <div className="hidden items-center justify-center gap-4 text-[10px] font-medium uppercase tracking-[0.14em] xl:col-start-2 xl:row-start-1 xl:flex xl:gap-5 xl:tracking-[0.15em] 2xl:gap-7 2xl:text-[11px] 2xl:tracking-[0.16em]">
+        {/* Right-hand block: navigation, then the action icons. Grouping them
+            means the whole thing is pushed right as one unit and the gap to
+            the branding is whatever space is left over — never negative. */}
+        <div className="flex shrink-0 items-center gap-5 lg:gap-8 xl:gap-10">
+        {/* Navigation — hard right, hamburger below lg */}
+        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] lg:flex xl:gap-5 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -146,7 +152,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
 
         {/* Actions */}
-        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 xl:col-start-3 xl:row-start-1">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
           {/* Always-visible currency selector */}
           <CurrencySwitcher />
           <Link
@@ -194,10 +200,11 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             aria-label="Menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 xl:hidden"
+            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:hidden"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
+          </div>
         </div>
       </nav>
 
@@ -209,7 +216,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-yellow-600/20 xl:hidden"
+            className="overflow-hidden border-t border-yellow-600/20 lg:hidden"
           >
             <div className="flex flex-col gap-1 px-4 py-3 sm:px-6">
               {LINKS.map((link) => (

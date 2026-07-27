@@ -103,11 +103,11 @@ export default async function RootLayout({
               <WishlistProvider>
                 <RecentlyViewedProvider>
                   <SiteHeader />
-                  {/* Offset matches the fixed header exactly. Below lg the
-                      header is just the nav (148 on phones, where the lockup
-                      stacks; 140 from sm); from lg the utility bar adds 40 on
-                      top of a 164 nav. */}
-                  <main className="flex-1 pt-[148px] sm:pt-[140px] lg:pt-[204px]">
+                  {/* Offset matches the fixed header exactly. Below lg it is just the
+                      nav (148 on phones where the lockup stacks, 132 from sm);
+                      from lg the utility bar adds 40 on top of a 132 nav, and
+                      the nav grows to 156 at xl. */}
+                  <main className="flex-1 pt-[148px] sm:pt-[132px] lg:pt-[172px] xl:pt-[196px]">
                     {children}
                   </main>
                   <SiteFooter />
