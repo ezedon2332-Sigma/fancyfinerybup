@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Award,
   Globe,
@@ -22,6 +22,7 @@ import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { LiveRateTicker } from "./LiveRateTicker";
+import { MobileNav } from "./MobileNav";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -158,14 +159,14 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           <Link
             href="/collections"
             aria-label="Search"
-            className="hidden rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 sm:inline-flex"
+            className="hidden flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10 sm:inline-flex"
           >
             <Search className="h-5 w-5" />
           </Link>
           <Link
             href="/wishlist"
             aria-label="Wishlist"
-            className="relative hidden rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 sm:inline-flex"
+            className="relative hidden flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10 sm:inline-flex"
           >
             <Heart className="h-5 w-5" />
             {wishCount > 0 && (
@@ -178,7 +179,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             type="button"
             aria-label="Bag"
             onClick={openCart}
-            className="relative rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
           >
             <ShoppingBag className="h-5 w-5" />
             {count > 0 && (
@@ -190,7 +191,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           <Link
             href={user ? "/account" : "/login"}
             aria-label={user ? "Account" : "Sign in"}
-            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
           >
             <User className="h-5 w-5" />
           </Link>
@@ -200,7 +201,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             aria-label="Menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="rounded-full p-2 text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10 lg:hidden"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -208,41 +209,16 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
       </nav>
 
-      {/* Mobile menu */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-yellow-600/20 lg:hidden"
-          >
-            <div className="flex flex-col gap-1 px-4 py-3 sm:px-6">
-              {LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="rounded-md px-3 py-3 text-sm uppercase tracking-widest text-gray-200 transition-colors hover:bg-white/5"
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <Link
-                href={user ? "/account" : "/login"}
-                onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-3 text-sm uppercase tracking-widest text-gray-200 transition-colors hover:bg-white/5"
-              >
-                {user ? "My Account" : "Sign In"}
-              </Link>
-              <div className="mt-2 border-t border-white/5 px-3 pt-3">
-                <CurrencyLanguageMenu />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <MobileNav
+        open={open}
+        onClose={() => setOpen(false)}
+        links={LINKS}
+        isActive={isActive}
+        user={user}
+        cartCount={count}
+        wishCount={wishCount}
+        onOpenCart={openCart}
+      />
     </header>
   );
 }
