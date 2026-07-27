@@ -7,7 +7,6 @@ import {
   ShippingAdmin,
   type AdminBracket,
   type AdminCourier,
-  type AdminRate,
   type AdminZone,
 } from "@/components/admin/ShippingAdmin";
 
@@ -48,18 +47,15 @@ export default async function AdminShippingPage() {
       sortOrder: b.sortOrder,
     }));
 
-  const rates: AdminRate[] = table.rates.map((r) => ({
-    zoneId: r.zoneId,
-    countryCode: r.countryCode,
-    courierId: r.courierId,
-    bracketId: r.bracketId,
-    priceNaira: Math.round(r.priceKobo / 100),
-  }));
-
   const assigned = new Set(zones.flatMap((z) => z.countries));
-  const overrides = new Set(
-    table.rates.filter((r) => r.countryCode).map((r) => r.countryCode!.toUpperCase()),
-  );
+  // Only the codes, not the rates: the matrix fetches cells on demand.
+  const overriddenCodes = [
+    ...new Set(
+      table.rates
+        .filter((r) => r.countryCode)
+        .map((r) => r.countryCode!.toUpperCase()),
+    ),
+  ].sort();
 
   return (
     <div>
@@ -78,7 +74,7 @@ export default async function AdminShippingPage() {
         <Stat icon={<Truck className="h-4 w-4" />} label="Couriers" value={couriers.filter((c) => c.enabled).length} />
         <Stat icon={<Globe2 className="h-4 w-4" />} label="Countries covered" value={assigned.size} />
         <Stat icon={<Layers className="h-4 w-4" />} label="Weight bands" value={brackets.length} />
-        <Stat icon={<Truck className="h-4 w-4" />} label="Country overrides" value={overrides.size} />
+        <Stat icon={<Truck className="h-4 w-4" />} label="Country overrides" value={overriddenCodes.length} />
       </div>
 
       <div className="mt-10">
@@ -86,7 +82,7 @@ export default async function AdminShippingPage() {
           couriers={couriers}
           zones={zones}
           brackets={brackets}
-          rates={rates}
+          overriddenCodes={overriddenCodes}
           countries={COUNTRIES.map((c) => ({ code: c.code, name: c.name }))}
         />
       </div>
