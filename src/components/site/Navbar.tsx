@@ -47,7 +47,8 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
   };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
+    <>
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
       {/* The rate ticker used to sit here as a full-width strip. It now lives
           inside the brand column below, so the branding leads the header. */}
 
@@ -238,6 +239,15 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
       </div>
 
+      </header>
+
+      {/* Rendered OUTSIDE <header> on purpose, and this is load-bearing.
+          The header carries `backdrop-blur-md`, and a non-none backdrop-filter
+          makes an element a containing block for position:fixed descendants.
+          Nested inside, the drawer's `fixed inset-0` resolved against the
+          header's box — a ~192px sliver — instead of the viewport, so it
+          opened invisibly. That was the bug: the menu existed and worked, it
+          was just being clipped to the header. */}
       <MobileNav
         open={open}
         onClose={() => setOpen(false)}
@@ -248,6 +258,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         wishCount={wishCount}
         onOpenCart={openCart}
       />
-    </header>
+    </>
   );
 }
