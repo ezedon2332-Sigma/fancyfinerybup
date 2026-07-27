@@ -6,6 +6,7 @@ import {
   Mail,
   Package,
   Percent,
+  Truck,
   Palette,
   ShoppingCart,
   Tags,
@@ -49,6 +50,7 @@ export default async function AdminLayout({
       heading: "Sales",
       links: [
         { href: "/admin/orders", icon: <ShoppingCart className="h-4 w-4" />, label: "Orders" },
+        { href: "/admin/shipping", icon: <Truck className="h-4 w-4" />, label: "Shipping" },
         { href: "/admin/tax", icon: <Percent className="h-4 w-4" />, label: "Tax" },
       ],
     },
