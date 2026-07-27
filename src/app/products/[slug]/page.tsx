@@ -9,7 +9,9 @@ import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { RequestColorSection } from "@/components/catalog/RequestColorSection";
 import { TrackView } from "@/components/recent/TrackView";
 import { RecentlyViewedRow } from "@/components/recent/RecentlyViewedRow";
-import { getProductBySlug, listProducts } from "@/application/use-cases/catalog";
+import { getProductBySlug, listProducts,
+  listCategories,
+} from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
@@ -62,10 +64,11 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const deps = await getCatalogDeps();
-  const [product, user, allProducts] = await Promise.all([
+  const [product, user, allProducts, categories] = await Promise.all([
     getProductBySlug(deps, slug),
     getCurrentUser(),
     listProducts(deps),
+    listCategories(deps),
   ]);
   if (!product) notFound();
 
@@ -154,6 +157,9 @@ export default async function ProductPage({
 
       <ProductDetail
         product={product}
+        categorySlug={
+          categories.find((c) => c.id === product.categoryId)?.slug ?? null
+        }
         isAuthenticated={Boolean(user)}
         countries={COUNTRIES.map((c) => ({ code: c.code, name: c.name }))}
       />

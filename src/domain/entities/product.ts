@@ -57,6 +57,13 @@ export interface Product {
   readonly weightGrams: number;
   /** The unit the admin entered it in — display only, never arithmetic. */
   readonly weightUnit: "g" | "kg";
+  /** Cut of the garment: slim | regular | relaxed | oversized. */
+  readonly fitType: string;
+  /** The model in the photography. All three or none — a partial set is not
+   *  worth showing. */
+  readonly modelHeightCm: number | null;
+  readonly modelWeightKg: number | null;
+  readonly modelSize: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

@@ -126,6 +126,10 @@ export interface Database {
           featured: boolean;
           weight_grams: number;
           weight_unit: string;
+          fit_type: string;
+          model_height_cm: number | null;
+          model_weight_kg: number | null;
+          model_size: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -141,6 +145,10 @@ export interface Database {
           featured?: boolean;
           weight_grams?: number;
           weight_unit?: string;
+          fit_type?: string;
+          model_height_cm?: number | null;
+          model_weight_kg?: number | null;
+          model_size?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -156,6 +164,10 @@ export interface Database {
           featured?: boolean;
           weight_grams?: number;
           weight_unit?: string;
+          fit_type?: string;
+          model_height_cm?: number | null;
+          model_weight_kg?: number | null;
+          model_size?: string | null;
           created_at?: string;
           updated_at?: string;
         };

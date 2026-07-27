@@ -14,16 +14,23 @@ import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { ShippingCalculator } from "@/components/shipping/ShippingCalculator";
 import type { CountryOption } from "@/components/checkout/CountrySelect";
 import { ZoomableImage } from "./ZoomableImage";
+import { SizeAndFit } from "./SizeAndFit";
+import { chartForCategory } from "@/domain/sizing";
 
 export function ProductDetail({
   product,
   isAuthenticated,
   countries,
+  categorySlug,
 }: {
   product: ProductWithDetails;
   isAuthenticated: boolean;
   countries: CountryOption[];
+  /** Drives which size chart is shown. Resolved on the server, where the
+   *  category is already loaded. */
+  categorySlug?: string | null;
 }) {
+  const sizeChart = chartForCategory(categorySlug);
   const router = useRouter();
   const { addItem } = useCart();
   const { format } = useCurrency();
@@ -172,42 +179,35 @@ export function ProductDetail({
           </p>
         )}
 
-        {/* Variants */}
-        {product.variants.length > 0 && (
-          <div className="mt-8">
-            <p className="text-xs uppercase tracking-widest text-gray-400">
-              Select option
-            </p>
-            <div className="mt-3 flex flex-wrap gap-3">
-              {product.variants.map((v) => {
-                const label = [v.size, v.color].filter(Boolean).join(" · ") || "One size";
-                const disabled = v.stockQty <= 0;
-                const selected = v.id === variantId;
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setVariantId(v.id)}
-                    className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
-                      selected
-                        ? "border-yellow-500 bg-yellow-500/10 text-yellow-400"
-                        : "border-white/20 text-gray-200 hover:border-yellow-500"
-                    } ${disabled ? "cursor-not-allowed opacity-40 line-through" : ""}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-sm text-gray-400">
-              {inStock
-                ? `${selectedVariant?.stockQty} in stock`
-                : "Out of stock"}
-            </p>
-          </div>
-        )}
+        {/* Size & fit — owns size selection, so add-to-bag validation below
+            is unchanged: it still refuses a null variant. */}
+        <SizeAndFit
+          options={product.variants.map((v) => ({
+            id: v.id,
+            size: v.size ?? "One size",
+            colour: v.color,
+            stockQty: v.stockQty,
+          }))}
+          chart={sizeChart}
+          selectedId={variantId}
+          onSelect={setVariantId}
+          fitType={product.fitType}
+          model={
+            product.modelHeightCm && product.modelWeightKg && product.modelSize
+              ? {
+                  heightCm: product.modelHeightCm,
+                  weightKg: product.modelWeightKg,
+                  size: product.modelSize,
+                }
+              : null
+          }
+        />
 
+        {product.variants.length > 0 && (
+          <p className="mt-3 text-sm text-gray-400">
+            {inStock ? `${selectedVariant?.stockQty} in stock` : "Out of stock"}
+          </p>
+        )}
         {/* Add to bag — requires sign-in */}
         <motion.button
           whileTap={{ scale: 0.97 }}
