@@ -50,17 +50,38 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
       {/* The rate ticker used to sit here as a full-width strip. It now lives
           inside the brand column below, so the branding leads the header. */}
 
+      {/* Top utility bar */}
+      <div className="hidden border-b border-white/5 lg:block">
+        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-yellow-500" />
+              <strong className="font-semibold text-gray-200">WORLDWIDE SHIPPING</strong>
+              <span className="text-gray-500">Delivery to 200+ countries</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Award className="h-3.5 w-3.5 text-yellow-500" />
+              <strong className="font-semibold text-gray-200">PREMIUM QUALITY</strong>
+              <span className="text-gray-500">Finest fabrics &amp; craftsmanship</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5 text-yellow-500" />
+              <strong className="font-semibold text-gray-200">EASY RETURNS</strong>
+              <span className="text-gray-500">30-day return policy</span>
+            </span>
+          </div>
+          <CurrencyLanguageMenu />
+        </div>
+      </div>
+
       {/* Main nav — permanent brand identity left, links optically centred
           (equal 1fr side tracks), actions right. */}
       {/* Inline links appear at xl, not lg. At 1024px a mark this size plus
           seven links plus the action icons needs ~1100px of a 944px row; the
           menu button covers 1024–1280 so the branding can breathe. */}
       <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-3 px-4 sm:h-[140px] sm:px-6 lg:h-[164px] lg:px-10 xl:grid xl:grid-cols-[auto_1fr_auto] xl:gap-6">
-        {/* Branding column: lockup, then the live rate directly beneath it.
-            `self-start` pins it to the top of the row while the links and
-            action icons stay vertically centred, so the mark sits in the
-            corner rather than floating in the middle of a tall header. */}
-        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 self-start pt-2.5 xl:col-start-1 xl:row-start-1">
+        {/* Branding column: lockup, then the live rate directly beneath it. */}
+        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2 xl:col-start-1 xl:row-start-1">
           {/* Stacks on phones: side by side, the mark plus the name at its
               desktop size needs ~463px of a 343px row. Vertical keeps the
               name visible and the lockup hard left. */}
@@ -179,34 +200,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           </button>
         </div>
       </nav>
-
-      {/* Utility bar. Deliberately BELOW the nav: while it sat above, the
-          header's top-left corner was "WORLDWIDE SHIPPING" and the brand was
-          the fourth thing down. Content and styling are unchanged — only the
-          order, and the divider flips to a top border. Desktop only, as
-          before, so the mobile header is unaffected. */}
-      <div className="hidden border-t border-white/5 lg:block">
-        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5">
-              <Globe className="h-3.5 w-3.5 text-yellow-500" />
-              <strong className="font-semibold text-gray-200">WORLDWIDE SHIPPING</strong>
-              <span className="text-gray-500">Delivery to 200+ countries</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5 text-yellow-500" />
-              <strong className="font-semibold text-gray-200">PREMIUM QUALITY</strong>
-              <span className="text-gray-500">Finest fabrics &amp; craftsmanship</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5 text-yellow-500" />
-              <strong className="font-semibold text-gray-200">EASY RETURNS</strong>
-              <span className="text-gray-500">30-day return policy</span>
-            </span>
-          </div>
-          <CurrencyLanguageMenu />
-        </div>
-      </div>
 
       {/* Mobile menu */}
       <AnimatePresence>
