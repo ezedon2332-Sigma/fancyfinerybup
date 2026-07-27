@@ -209,6 +209,35 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
       </nav>
 
+      {/* Secondary nav row, below lg only.
+          Seven links cannot share a row with the branding and the action icons
+          at tablet width or under — that needs ~966px of a 720px row at 768px.
+          Given their own full-width row they all stay visible; on a narrow
+          phone the row scrolls sideways rather than any link being dropped.
+          The scroll is contained here, so the page itself never scrolls.
+          The hamburger remains for Search, Wishlist, Bag and Account. */}
+      <div className="border-t border-white/8 lg:hidden">
+        <div className="nav-strip mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-2 sm:px-4">
+          {LINKS.map((link) => {
+            const active = isActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-[44px] shrink-0 snap-start items-center whitespace-nowrap rounded-md px-3 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                  active
+                    ? "text-yellow-400"
+                    : "text-gray-300 hover:text-yellow-400"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
       <MobileNav
         open={open}
         onClose={() => setOpen(false)}

@@ -39,6 +39,26 @@ h2,
   transition: filter 450ms ease;
 }
 
+/* Secondary nav strip on tablet and phones. Scrolls sideways when the links
+   are wider than the screen, with the bar hidden and a fade at the right edge
+   so it is visibly scrollable rather than looking truncated. */
+.nav-strip {
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+}
+
+.nav-strip::-webkit-scrollbar {
+  display: none;
+}
+
 /* Live-rate card beneath the lockup. Reads as part of the branding block
    rather than a separate widget, so it stays quiet until pointed at. */
 .rate-card {
