@@ -39,6 +39,27 @@ h2,
   transition: filter 450ms ease;
 }
 
+/* Live-rate card beneath the lockup. Reads as part of the branding block
+   rather than a separate widget, so it stays quiet until pointed at. */
+.rate-card {
+  box-shadow:
+    0 8px 24px -16px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    border-color 400ms ease,
+    background-color 400ms ease;
+  scrollbar-width: none;
+}
+
+.rate-card::-webkit-scrollbar {
+  display: none;
+}
+
+.rate-card:hover {
+  border-color: rgba(234, 179, 8, 0.45);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
 /* Header brand lockup: mark + wordmark + subtitle. Hover lifts the whole
    lockup a hair and warms the gold — prestige, not sparkle. */
 .brand-lockup .brand-mark {
