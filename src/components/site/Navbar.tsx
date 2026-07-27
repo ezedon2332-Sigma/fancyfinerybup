@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
+  User,
   X,
 } from "lucide-react";
 
@@ -28,6 +29,9 @@ import { AccountMenu } from "./AccountMenu";
 const ICON =
   "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 active:scale-95 lg:h-10 lg:w-10";
 
+const STRIP_ITEM =
+  "flex min-h-[44px] shrink-0 snap-start items-center whitespace-nowrap rounded-md px-3 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors";
+
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/collections?category=men", label: "Men" },
@@ -37,6 +41,14 @@ const LINKS = [
   { href: "/lookbook", label: "Lookbook" },
   { href: "/contact", label: "Contact" },
 ];
+
+function StripCount({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-black">
+      {children}
+    </span>
+  );
+}
 
 function Count({ children }: { children: React.ReactNode }) {
   return (
@@ -142,7 +154,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             the branding is whatever space is left over — never negative. */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-8">
         {/* Navigation — hard right, hamburger below lg */}
-        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] lg:flex xl:gap-5 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
+        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-5 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -196,7 +208,9 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             {count > 0 && <Count>{count}</Count>}
           </button>
 
-          <AccountMenu user={user} wishCount={wishCount} />
+          <span className="hidden xl:inline-flex">
+            <AccountMenu user={user} wishCount={wishCount} />
+          </span>
 
           <button
             type="button"
@@ -204,7 +218,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             aria-expanded={open}
             aria-controls="mobile-nav"
             onClick={() => setOpen((v) => !v)}
-            className={`${ICON} lg:hidden`}
+            className={`${ICON} xl:hidden`}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -212,14 +226,14 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
       </nav>
 
-      {/* Secondary nav row, below lg only.
-          Seven links cannot share a row with the branding and the action icons
-          at tablet width or under — that needs ~966px of a 720px row at 768px.
-          Given their own full-width row they all stay visible; on a narrow
-          phone the row scrolls sideways rather than any link being dropped.
-          The scroll is contained here, so the page itself never scrolls.
-          The hamburger remains for Search, Wishlist, Bag and Account. */}
-      <div className="border-t border-white/8 lg:hidden">
+      {/* Secondary row, everything below xl.
+          Pages and actions travel together in one scrollable row, so the set
+          is identical at every width under xl — nothing appears or vanishes at
+          a breakpoint. Previously this hid at lg while Search and Wishlist only
+          appeared at xl, which left them reachable nowhere between 1024 and
+          1280. It fits without scrolling from roughly 700px up and scrolls
+          below that, contained here so the page itself never scrolls. */}
+      <div className="border-t border-white/8 xl:hidden">
         <div className="nav-strip mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-2 sm:px-4">
           {LINKS.map((link) => {
             const active = isActive(link.href);
@@ -228,16 +242,49 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[44px] shrink-0 snap-start items-center whitespace-nowrap rounded-md px-3 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
-                  active
-                    ? "text-yellow-400"
-                    : "text-gray-300 hover:text-yellow-400"
+                className={`${STRIP_ITEM} ${
+                  active ? "text-yellow-400" : "text-gray-300 hover:text-yellow-400"
                 }`}
               >
                 {link.label}
               </Link>
             );
           })}
+
+          <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/12" />
+
+          {/* Labelled rather than icon-only: in a scrolling row an unlabelled
+              glyph gives no clue what is further along. */}
+          <Link href="/collections" className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}>
+            <Search className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+            Search
+          </Link>
+
+          <Link href="/wishlist" className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}>
+            <Heart className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+            Wishlist
+            {wishCount > 0 && <StripCount>{wishCount}</StripCount>}
+          </Link>
+
+          <button
+            type="button"
+            onClick={openCart}
+            className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}
+          >
+            <ShoppingBag className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+            Bag
+            {count > 0 && <StripCount>{count}</StripCount>}
+          </button>
+
+          {/* A link, not the dropdown: a menu opening inside a horizontally
+              scrolling container would be clipped by its overflow. */}
+          <Link
+            href={user ? "/account" : "/login"}
+            className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}
+          >
+            <User className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+            {user ? "Account" : "Sign In"}
+          </Link>
         </div>
       </div>
 

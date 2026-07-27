@@ -107,7 +107,7 @@ export default async function RootLayout({
                       nav (148 on phones where the lockup stacks, 132 from sm);
                       from lg the utility bar adds 40 on top of a 132 nav, and
                       the nav grows to 156 at xl. */}
-                  <main className="flex-1 pt-[192px] sm:pt-[176px] lg:pt-[172px] xl:pt-[196px]">
+                  <main className="flex-1 pt-[192px] sm:pt-[176px] lg:pt-[216px] xl:pt-[196px]">
                     {children}
                   </main>
                   <SiteFooter />
