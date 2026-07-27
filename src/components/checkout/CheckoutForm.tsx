@@ -12,6 +12,10 @@ import { startPaymentAction } from "@/app/checkout/payment-actions";
 import { quoteShipping, type Quote } from "@/app/shipping/quote-actions";
 import { OrderSummary } from "./OrderSummary";
 import { CountrySelect, type CountryOption } from "./CountrySelect";
+import {
+  RatesBrowser,
+  type CountryRates,
+} from "@/components/shipping/RatesBrowser";
 
 interface FormState {
   name: string;
@@ -35,10 +39,13 @@ export function CheckoutForm({
   initial,
   countries,
   paymentEnabled = false,
+  rateCards = [],
 }: {
   initial?: CheckoutInitial;
   countries: CountryOption[];
   paymentEnabled?: boolean;
+  /** Published rate card per destination, for the browse section. */
+  rateCards?: CountryRates[];
 }) {
   const router = useRouter();
   const { items, clear } = useCart();
@@ -307,13 +314,42 @@ export function CheckoutForm({
           </h3>
           <div className="mt-3 flex items-center gap-3 rounded-lg border border-yellow-600/40 bg-yellow-500/5 px-4 py-3">
             <Truck className="h-4 w-4 shrink-0 text-yellow-500" />
-            <span>
-  
+            <span className="min-w-0">
+              <span className="block text-sm text-gray-100">
+                {quote?.selected
+                  ? `${quote?.selected.courierName} · ${
+                      quote?.selected.minDays === quote?.selected.maxDays
+                        ? `${quote?.selected.maxDays} days`
+                        : `${quote?.selected.minDays}–${quote?.selected.maxDays} days`
+                    }`
+                  : form.countryCode
+                    ? "Calculating your delivery option…"
+                    : "Choose a country to see delivery options"}
+              </span>
               <span className="block text-xs text-gray-400">
                 We will confirm your dispatch date by email after your order is
                 placed.
               </span>
             </span>
+          </div>
+        </div>
+
+        {/* Browse rates by destination */}
+        <div className="pt-2">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-300">
+            Browse Shipping Rates by Country
+          </h3>
+          <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+            Every published band, so you can see exactly how your parcel is
+            priced — and what it would cost elsewhere. Nothing is added after
+            this.
+          </p>
+          <div className="mt-4">
+            <RatesBrowser
+              rates={rateCards}
+              highlight={form.countryCode || null}
+              compact
+            />
           </div>
         </div>
 

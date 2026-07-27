@@ -5,6 +5,7 @@ import type { CountryOption } from "@/components/checkout/CountrySelect";
 import { getCurrentProfile, requireUser } from "@/infrastructure/supabase/auth";
 import { onlinePaymentEnabled } from "@/infrastructure/payments/providers";
 import { COUNTRIES } from "@/domain/shipping/countries";
+import { loadCountryRates } from "@/infrastructure/supabase/rate-card";
 
 export const metadata: Metadata = { title: "Checkout" };
 
@@ -19,6 +20,10 @@ export default async function CheckoutPage() {
     code: c.code,
     name: c.name,
   }));
+
+  // Published rate card per destination, for the browse-by-country section.
+  // Read on the server so the section is present on first paint.
+  const rateCards = await loadCountryRates();
 
   // Resolve the saved country name back to a code, if possible.
   const savedCode =
@@ -36,6 +41,7 @@ export default async function CheckoutPage() {
         <CheckoutForm
           countries={countries}
           paymentEnabled={onlinePaymentEnabled()}
+          rateCards={rateCards}
           initial={{
             name: profile?.fullName ?? "",
             email: user.email ?? "",
