@@ -228,7 +228,7 @@ export function LoginForm() {
                 setMessage(null);
                 setStatus("idle");
               }}
-              className="text-gray-400 transition-colors hover:text-yellow-400"
+              className="inline-flex min-h-[44px] items-center text-gray-400 transition-colors hover:text-yellow-400"
             >
               {mode === "password"
                 ? "Use a sign-in link instead"
@@ -238,7 +238,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={handleForgot}
-                className="text-gray-400 transition-colors hover:text-yellow-400"
+                className="inline-flex min-h-[44px] items-center text-gray-400 transition-colors hover:text-yellow-400"
               >
                 Forgot password?
               </button>

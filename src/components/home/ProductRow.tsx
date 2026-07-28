@@ -26,7 +26,7 @@ export function ProductRow({
         </div>
         <Link
           href={viewAllHref}
-          className="hidden text-sm font-semibold text-yellow-400 transition-colors hover:text-yellow-300 sm:block"
+          className="hidden min-h-[44px] items-center text-sm font-semibold text-yellow-400 transition-colors hover:text-yellow-300 sm:inline-flex"
         >
           View all →
         </Link>

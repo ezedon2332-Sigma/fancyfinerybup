@@ -97,14 +97,16 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
       </div>
 
-      {/* Main nav — permanent brand identity left, links optically centred
-          (equal 1fr side tracks), actions right. */}
-      {/* Two blocks, pushed apart: branding hard left, navigation and actions
-          hard right. The links used to sit in a centre grid column, which is
-          what let them collide with the wordmark as the branding grew — a
-          centre column has no way to yield. With space-between the two blocks
-          can only move away from each other. */}
-      <nav className="mx-auto flex h-[116px] max-w-7xl items-center justify-between gap-2 px-4 sm:h-[104px] sm:gap-4 sm:px-6 lg:gap-6 lg:px-10 xl:h-[124px]">
+      {/* Three tracks: brand, currency, actions.
+
+          The side tracks are auto rather than 1fr on purpose. Equal 1fr sides
+          would size both to the wider of the two, and at 320px that alone
+          overflowed the row. auto lets each side take only what it needs and
+          gives the middle everything left over, so the switcher sits centred
+          in the space that actually exists. The middle track is also the one
+          allowed to absorb slack, which is what keeps the brand and the
+          actions from ever meeting. */}
+      <nav className="mx-auto grid h-[116px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:h-[104px] sm:gap-4 sm:px-6 lg:gap-6 lg:px-10 xl:h-[124px] xl:gap-3">
         {/* Branding: the lockup, alone. */}
         <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2">
           {/* Stacks on phones: side by side, the mark plus the name at its
@@ -144,52 +146,66 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           </Link>
         </div>
 
-        {/* Right-hand block: navigation, then the action icons. Grouping them
-            means the whole thing is pushed right as one unit and the gap to
-            the branding is whatever space is left over — never negative. */}
-        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-4 2xl:gap-8">
+        {/* Currency, centred. It is the first control after the wordmark
+            because a price means nothing until you know what it is written
+            in.
+
+            Centred inside the middle track, which spans exactly the space
+            between the lockup and the actions — so the gap to its left always
+            equals the gap to its right and it reads as balanced.
+
+            It is deliberately NOT centred on the viewport. Absolute centring
+            was tried and measured: from 768 up it lands on top of the action
+            cluster, and at 1280 it sits 209px inside the inline nav links.
+            True viewport-centring is only reachable if the eight desktop links
+            move to a row of their own, since the right block is roughly twice
+            the width of the brand. */}
+        <div className="flex min-w-0 justify-self-center">
+          <CurrencySwitcher />
+        </div>
+
+        {/* Right-hand block: navigation, then the action icons. Grouped so the
+            whole thing sits in the last track as one unit. */}
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-4">
         {/* Navigation — hard right, hamburger below lg */}
-        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-3 xl:text-[11px] xl:tracking-[0.09em] 2xl:gap-6 2xl:tracking-[0.16em]">
+        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-3 xl:text-[11px] xl:tracking-[0.09em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative transition-colors hover:text-yellow-400 ${
+                className={`inline-flex min-h-[40px] items-center transition-colors hover:text-yellow-400 ${
                   active ? "text-yellow-400" : "text-gray-200"
                 }`}
               >
-                {link.label}
-                {active && (
-                  <motion.span
-                    layoutId="nav-underline"
-                    className="absolute -bottom-1.5 left-0 h-px w-full bg-yellow-400"
-                  />
-                )}
+                {/* The underline anchors to this span, not the link box. The
+                    box is 40px tall to stay tappable, and an underline offset
+                    from that would float well below the word. */}
+                <span className="relative">
+                  {link.label}
+                  {active && (
+                    <motion.span
+                      layoutId="nav-underline"
+                      className="absolute -bottom-1.5 left-0 h-px w-full bg-yellow-400"
+                    />
+                  )}
+                </span>
               </Link>
             );
           })}
         </div>
 
-        {/* Actions.
-            Currency is unconditional — it is a control a shopper needs before
-            they can read a price, so it is never the thing that gets dropped
-            to make room. The rest reveal progressively:
+        {/* Actions. Currency has moved to its own centre track, so this is
+            purely the right-hand cluster, revealed progressively:
 
-              all    Currency, Bag, Menu
-              xl     + Search, Wishlist, Account  (Menu goes, links inline)
+              all    Bag, Menu
+              xl     + Wishlist, Account  (Menu goes, links inline)
 
             Anything withheld here is in the drawer, so nothing is unreachable,
             only less prominent. Every control is a 44x44 target on touch,
             easing to 40 from lg where there is a pointer not a fingertip. */}
         <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
-          <CurrencySwitcher />
-
-          <Link href="/collections" aria-label="Search" className={`${ICON} hidden xl:flex`}>
-            <Search className="h-5 w-5" />
-          </Link>
-
           <Link href="/wishlist" aria-label="Wishlist" className={`${ICON} relative hidden xl:flex`}>
             <Heart className="h-5 w-5" />
             {wishCount > 0 && <Count>{wishCount}</Count>}

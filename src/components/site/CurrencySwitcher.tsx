@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
 
 import {
@@ -55,11 +56,19 @@ export function CurrencySwitcher() {
         />
       </button>
 
-      {open && (
-        <div
+      <AnimatePresence>
+        {open && (
+        <motion.div
           role="listbox"
           aria-label="Display currency"
-          className="absolute right-0 z-50 mt-2 w-[15rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-yellow-600/30 bg-neutral-950 shadow-2xl shadow-black/60"
+          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.97 }}
+          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+          /* Centred on the trigger, which now sits mid-header: anchoring to
+             right-0 put a 240px panel off the left edge of a 320px screen.
+             origin-top keeps the scale-in growing downward from the button. */
+          className="absolute left-1/2 z-50 mt-2 w-[15rem] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 origin-top overflow-hidden rounded-xl border border-yellow-600/30 bg-neutral-950 shadow-2xl shadow-black/60"
         >
           <p className="border-b border-white/8 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-yellow-500/80">
             Display currency
@@ -105,8 +114,9 @@ export function CurrencySwitcher() {
           <p className="border-t border-white/8 px-3 py-2 text-[10px] leading-relaxed text-gray-500">
             Prices show and are charged in your chosen currency.
           </p>
-        </div>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

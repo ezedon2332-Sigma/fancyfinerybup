@@ -135,7 +135,7 @@ export function PriveCircleForm({
                 type="button"
                 onClick={() => toggle(i.id)}
                 aria-pressed={on}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs transition-all duration-300 ${
+                className={`inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs transition-all duration-300 ${
                   on
                     ? "border-yellow-500 bg-yellow-500/15 text-yellow-200"
                     : "border-white/15 text-gray-300 hover:border-yellow-600/60 hover:text-yellow-100"
