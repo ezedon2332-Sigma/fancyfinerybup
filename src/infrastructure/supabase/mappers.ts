@@ -38,6 +38,8 @@ export function toProduct(row: Row<"products">): Product {
     status: row.status,
     featured: row.featured,
     weightGrams: row.weight_grams ?? 0,
+    ratingSum: row.rating_sum ?? 0,
+    ratingCount: row.rating_count ?? 0,
     fitType: row.fit_type ?? "regular",
     modelHeightCm: row.model_height_cm ?? null,
     modelWeightKg: row.model_weight_kg ?? null,

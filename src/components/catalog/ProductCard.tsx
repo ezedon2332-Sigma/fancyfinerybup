@@ -8,6 +8,8 @@ import { Heart } from "lucide-react";
 import type { ProductSummary } from "@/domain/entities/product";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
+import { averageFromTotals } from "@/domain/reviews";
+import { Stars } from "./Stars";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
 export function ProductCard({ product }: { product: ProductSummary }) {
@@ -82,6 +84,18 @@ export function ProductCard({ product }: { product: ProductSummary }) {
             {format(product.price)}
           </p>
         </div>
+
+        {/* Rating from the product's own denormalised aggregates, so a grid of
+            twenty cards costs no extra queries. Hidden entirely with no
+            reviews: an empty row of grey stars reads as a bad rating. */}
+        {product.ratingCount > 0 && (
+          <div className="mt-1.5">
+            <Stars
+              rating={averageFromTotals(product.ratingSum, product.ratingCount)}
+              count={product.ratingCount}
+            />
+          </div>
+        )}
       </Link>
     </motion.div>
   );

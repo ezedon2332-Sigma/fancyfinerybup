@@ -58,6 +58,11 @@ export interface Product {
   /** The unit the admin entered it in — display only, never arithmetic. */
   readonly weightUnit: "g" | "kg";
   /** Cut of the garment: slim | regular | relaxed | oversized. */
+  /** Denormalised rating aggregates, kept exact by a database trigger.
+   *  Stored as sum + count so the average can be recomputed without
+   *  accumulating rounding error. */
+  readonly ratingSum: number;
+  readonly ratingCount: number;
   readonly fitType: string;
   /** The model in the photography. All three or none — a partial set is not
    *  worth showing. */
