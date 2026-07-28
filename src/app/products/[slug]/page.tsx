@@ -14,6 +14,9 @@ import { getProductBySlug, listProducts,
 } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { safeJsonLd } from "@/lib/safe-json-ld";
+import { listApprovedReviews } from "@/infrastructure/supabase/review-service";
+import { ReviewsSection } from "@/components/catalog/ReviewsSection";
+import { summarise } from "@/domain/reviews";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
@@ -71,7 +74,15 @@ export default async function ProductPage({
     listProducts(deps),
     listCategories(deps),
   ]);
+
   if (!product) notFound();
+
+  // Approved reviews only — the service filters, so this cannot leak
+  // unmoderated text, and it swallows its own failures so a reviews outage
+  // cannot take a product page down. Loaded after the guard above, or this
+  // would dereference a missing product.
+  const reviews = await listApprovedReviews(product.id);
+  const ratings = summarise(reviews);
 
   // Recommendations — same category first, then fill with others.
   const sameCategory = allProducts.filter(
@@ -131,6 +142,15 @@ export default async function ProductPage({
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
     },
+    ...(ratings.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: ratings.average.toFixed(1),
+            reviewCount: ratings.count,
+          },
+        }
+      : {}),
   };
 
   return (
@@ -163,6 +183,13 @@ export default async function ProductPage({
         }
         isAuthenticated={Boolean(user)}
         countries={COUNTRIES.map((c) => ({ code: c.code, name: c.name }))}
+      />
+
+      <ReviewsSection
+        productId={product.id}
+        productSlug={product.slug}
+        reviews={reviews}
+        defaultName={user?.email?.split("@")[0] ?? null}
       />
 
       <div className="mt-8 lg:max-w-md lg:ml-auto">

@@ -126,6 +126,8 @@ export interface Database {
           featured: boolean;
           weight_grams: number;
           weight_unit: string;
+          rating_sum: number;
+          rating_count: number;
           fit_type: string;
           model_height_cm: number | null;
           model_weight_kg: number | null;
@@ -145,6 +147,8 @@ export interface Database {
           featured?: boolean;
           weight_grams?: number;
           weight_unit?: string;
+          rating_sum?: number;
+          rating_count?: number;
           fit_type?: string;
           model_height_cm?: number | null;
           model_weight_kg?: number | null;
@@ -164,6 +168,8 @@ export interface Database {
           featured?: boolean;
           weight_grams?: number;
           weight_unit?: string;
+          rating_sum?: number;
+          rating_count?: number;
           fit_type?: string;
           model_height_cm?: number | null;
           model_weight_kg?: number | null;
@@ -1022,6 +1028,56 @@ export interface Database {
           status?: string;
           error?: string | null;
           payload?: Json;
+        };
+        Relationships: [];
+      };
+      product_reviews: {
+        Row: {
+          id: string;
+          product_id: string;
+          profile_id: string | null;
+          author_name: string;
+          rating: number;
+          title: string | null;
+          body: string;
+          order_id: string | null;
+          verified: boolean;
+          status: string;
+          fit_feedback: string | null;
+          helpful_count: number;
+          admin_note: string | null;
+          ip_hash: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          profile_id?: string | null;
+          author_name: string;
+          rating: number;
+          title?: string | null;
+          body: string;
+          order_id?: string | null;
+          verified?: boolean;
+          status?: string;
+          fit_feedback?: string | null;
+          helpful_count?: number;
+          admin_note?: string | null;
+          ip_hash?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          rating?: number;
+          title?: string | null;
+          body?: string | null;
+          status?: string;
+          fit_feedback?: string | null;
+          helpful_count?: number;
+          admin_note?: string | null;
+          verified?: boolean;
+          updated_at?: string;
         };
         Relationships: [];
       };

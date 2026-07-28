@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Mail,
   Package,
+  MessageSquare,
   Percent,
   Truck,
   Palette,
@@ -59,6 +60,7 @@ export default async function AdminLayout({
       links: [
         { href: "/admin/customers", icon: <Users className="h-4 w-4" />, label: "Customers" },
         { href: "/admin/newsletter", icon: <Mail className="h-4 w-4" />, label: "Newsletter" },
+        { href: "/admin/reviews", icon: <MessageSquare className="h-4 w-4" />, label: "Reviews" },
       ],
     },
   ];

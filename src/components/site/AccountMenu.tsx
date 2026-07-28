@@ -115,7 +115,7 @@ export function AccountMenu({
                 <Link href="/login" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
                   <LogIn className="h-4 w-4 shrink-0 text-yellow-600" /> Sign In
                 </Link>
-                <Link href="/login" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
+                <Link href="/signup" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
                   <UserPlus className="h-4 w-4 shrink-0 text-yellow-600" /> Create Account
                 </Link>
                 <Link href="/wishlist" role="menuitem" onClick={() => setOpen(false)} className={`${row} border-t border-white/8 text-gray-200`}>
