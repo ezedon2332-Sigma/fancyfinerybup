@@ -12,10 +12,9 @@ import {
 /**
  * Header currency selector.
  *
- * Switching re-writes prices site-wide under the chosen symbol. It is a display
- * preference, not a conversion — naira remains the price the order is placed
- * in, which the panel says plainly rather than leaving a shopper to discover it
- * at checkout.
+ * Switching re-writes prices site-wide under the chosen symbol, and that same
+ * choice decides what the order is charged in — so the figure on a price tag
+ * is the figure at checkout. No conversion and no exchange rate are involved.
  */
 export function CurrencySwitcher() {
   const { currency, setCurrency } = useCurrency();
@@ -104,8 +103,7 @@ export function CurrencySwitcher() {
           </ul>
 
           <p className="border-t border-white/8 px-3 py-2 text-[10px] leading-relaxed text-gray-500">
-            Orders are placed in Naira (₦). Other currencies are shown for
-            reference only.
+            Prices show and are charged in your chosen currency.
           </p>
         </div>
       )}

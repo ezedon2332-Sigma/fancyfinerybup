@@ -29,10 +29,13 @@ export default async function AnalyticsPage() {
   const orders = ordersData ?? [];
   const items = itemsData ?? [];
 
-  const revenue = { NGN: 0, USD: 0 };
+  // Orders are charged in whichever currency the customer selected, so
+  // revenue is bucketed by currency. Summing across them would add euros to
+  // naira and produce a number that means nothing.
+  const revenue = new Map<string, number>();
+  const last30 = new Map<string, number>();
   const statusCounts: Record<string, number> = {};
   let unitsSold = 0;
-  let last30Ngn = 0;
   // Server component: rendered once per request, so reading the clock here is
   // deterministic for that render. The purity rule targets client re-renders.
   // eslint-disable-next-line react-hooks/purity -- server component, evaluated once per request
@@ -41,10 +44,10 @@ export default async function AnalyticsPage() {
   for (const o of orders) {
     statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1;
     if (o.status !== "cancelled") {
-      if (o.currency === "USD") revenue.USD += o.total;
-      else revenue.NGN += o.total;
-      if (o.currency !== "USD" && new Date(o.created_at).getTime() >= monthAgo) {
-        last30Ngn += o.total;
+      const cur = (o.currency || "NGN").toUpperCase();
+      revenue.set(cur, (revenue.get(cur) ?? 0) + o.total);
+      if (new Date(o.created_at).getTime() >= monthAgo) {
+        last30.set(cur, (last30.get(cur) ?? 0) + o.total);
       }
     }
   }
@@ -61,6 +64,7 @@ export default async function AnalyticsPage() {
   const topProducts = [...byProduct.values()].sort((a, b) => b.qty - a.qty).slice(0, 8);
   const recent = orders.slice(0, 8);
   const statuses = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
+  const revenueByCurrency = [...revenue.entries()].sort((a, b) => b[1] - a[1]);
 
   return (
     <div>
@@ -72,8 +76,17 @@ export default async function AnalyticsPage() {
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Total orders" value={String(orders.length)} />
         <Stat label="Units sold" value={String(unitsSold)} />
-        <Stat label="Revenue (NGN)" value={formatMoney(revenue.NGN, "NGN")} sub={`${formatMoney(last30Ngn, "NGN")} last 30 days`} />
-        <Stat label="Revenue (USD)" value={formatMoney(revenue.USD, "USD")} sub="international orders" />
+        {revenueByCurrency.length === 0 && (
+          <Stat label="Revenue" value={formatMoney(0, "NGN")} sub="no orders yet" />
+        )}
+        {revenueByCurrency.map(([cur, amount]) => (
+          <Stat
+            key={cur}
+            label={`Revenue (${cur})`}
+            value={formatMoney(amount, cur)}
+            sub={`${formatMoney(last30.get(cur) ?? 0, cur)} last 30 days`}
+          />
+        ))}
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">

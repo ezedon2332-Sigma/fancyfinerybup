@@ -11,6 +11,18 @@ import crypto from "node:crypto";
 const SECRET = process.env.PAYSTACK_SECRET_KEY;
 const BASE = "https://api.paystack.co";
 
+/**
+ * Currencies Paystack can actually settle. The storefront lets a shopper be
+ * charged in EUR, GBP or CNY, none of which Paystack accepts — an order in one
+ * of those has to stay pay-on-delivery rather than fail at the redirect with a
+ * provider error the customer cannot act on.
+ */
+const PAYSTACK_CURRENCIES = new Set(["NGN", "USD", "GHS", "ZAR", "KES"]);
+
+export function paystackSupportsCurrency(currency: string): boolean {
+  return PAYSTACK_CURRENCIES.has(currency.trim().toUpperCase());
+}
+
 export function isPaystackEnabled(): boolean {
   return Boolean(SECRET);
 }

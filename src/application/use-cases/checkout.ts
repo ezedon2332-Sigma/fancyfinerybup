@@ -4,7 +4,12 @@ import type {
   OrderRepository,
 } from "@/domain/repositories/order-repository";
 import type { ProductRepository } from "@/domain/repositories/product-repository";
-import { ORDER_CURRENCY } from "@/domain/shipping/currency";
+import {
+  DEFAULT_ORDER_CURRENCY,
+  discountCodeInCurrency,
+  type OrderCurrency,
+} from "@/domain/shipping/currency";
+import { priceInMinor } from "@/domain/shared/display-price";
 import {
   checkDiscount,
   discountAmount,
@@ -46,6 +51,8 @@ export interface PlaceOrderInput {
   /** Courier the customer picked; the cheapest is used if absent or stale. */
   courierId?: string | null;
   couponCode?: string | null;
+  /** Currency the customer chose, and is charged in. Naira if absent. */
+  currency?: OrderCurrency;
 }
 
 export class CheckoutError extends Error {}
@@ -54,8 +61,9 @@ export class CheckoutError extends Error {}
  * Place an order.
  *
  * Prices, names and stock are taken from the database — never trusted from the
- * client — so a tampered cart cannot change what is charged. Amounts are
- * converted into the order's currency (NGN for Nigeria, USD elsewhere) here.
+ * client — so a tampered cart cannot change what is charged. Amounts are then
+ * re-expressed in the currency the customer selected, by the same rule that
+ * produced the prices they were shown, so the total matches the price tag.
  *
  * Delivery is currently free: the shipping module has been removed and no rate
  * engine exists, so every order is placed with a zero shipping cost. The
@@ -142,9 +150,34 @@ export async function placeOrder(
     null;
   const shippingKobo = courier?.priceKobo ?? 0;
 
-  // 3) Coupon. Re-validated here — a code that expired between the quote and
+  // 3) Move into the currency this order is charged in.
+  //
+  //    Line items convert first and the subtotal is summed from them, rather
+  //    than converting the naira subtotal directly. The rule truncates, so the
+  //    two are not the same number — and it is the per-line figures a customer
+  //    can check against the total on their order, so those are the ones that
+  //    have to be authoritative.
+  const currency = input.currency ?? DEFAULT_ORDER_CURRENCY;
+  const toCharge = (kobo: number) => priceInMinor(kobo, currency);
+
+  const items: NewOrderItem[] = priced.map(({ item, priceNgn }) => ({
+    ...item,
+    unitPrice: toCharge(priceNgn),
+  }));
+  const subtotalCharged = items.reduce(
+    (sum, i) => sum + i.unitPrice * i.qty,
+    0,
+  );
+  const shippingCharged = toCharge(shippingKobo);
+
+  // 4) Coupon. Re-validated here — a code that expired between the quote and
   //    the submit must not be honoured.
+  //
+  //    Eligibility is judged in naira, against the thresholds the merchant
+  //    actually set. The cash effect is then computed in the charge currency,
+  //    from a code whose own naira ceilings have been converted with it.
   let applied: { code: DiscountCode; amountKobo: number } | null = null;
+  let redeemedNgn = 0;
   if (input.couponCode) {
     const code = await deps.findDiscountCode(input.couponCode);
     const verdict = checkDiscount(code, {
@@ -155,49 +188,47 @@ export async function placeOrder(
     if (verdict.valid && code) {
       applied = {
         code,
-        amountKobo: discountAmount(code, {
-          subtotalKobo: subtotalNgn,
-          shippingKobo,
+        amountKobo: discountAmount(discountCodeInCurrency(code, currency), {
+          subtotalKobo: subtotalCharged,
+          shippingKobo: shippingCharged,
         }),
       };
+      // The redemption ledger stays in naira whatever the order is charged in,
+      // so "how much has this code cost us" remains a single addable number.
+      redeemedNgn = discountAmount(code, {
+        subtotalKobo: subtotalNgn,
+        shippingKobo,
+      });
     }
     // An invalid code is silently dropped rather than failing the order: the
     // customer still wants the goods, and they are charged the correct,
     // undiscounted amount.
   }
 
+  // 5) Tax and totals are computed *in the charge currency*, so the percentage
+  //    applies to the amount actually being paid and the lines add up exactly.
   const breakdown = priceOrder({
-    subtotalKobo: subtotalNgn,
-    shippingKobo,
+    subtotalKobo: subtotalCharged,
+    shippingKobo: shippingCharged,
     taxRule: resolveTax(table, input.shipping.countryCode),
     discount: applied,
   });
 
-  // 4) No conversion: the order is placed in naira, in the kobo it was priced
-  //    in. Kept as a named step so the intent is explicit rather than implied.
-  const currency = ORDER_CURRENCY;
-  const toOrder = (kobo: number) => kobo;
-
-  const items: NewOrderItem[] = priced.map(({ item, priceNgn }) => ({
-    ...item,
-    unitPrice: toOrder(priceNgn),
-  }));
-
   const orderId = await deps.orders.create({
     userId: input.userId,
     currency,
-    subtotal: toOrder(breakdown.subtotalKobo),
-    shippingCost: toOrder(breakdown.shippingKobo),
-    tax: toOrder(breakdown.taxKobo),
-    discount: toOrder(breakdown.discountKobo),
+    subtotal: breakdown.subtotalKobo,
+    shippingCost: breakdown.shippingKobo,
+    tax: breakdown.taxKobo,
+    discount: breakdown.discountKobo,
     totalWeightGrams: weightGrams,
-    total: toOrder(breakdown.totalKobo),
+    total: breakdown.totalKobo,
     shippingMethod: courier?.courierCode ?? null,
     shipping: input.shipping,
     items,
   });
 
-  // 5) Record the redemption so usage limits actually bind. Best-effort: the
+  // 6) Record the redemption so usage limits actually bind. Best-effort: the
   //    order is already placed and must not fail over a counter.
   if (applied) {
     try {
@@ -205,7 +236,7 @@ export async function placeOrder(
         codeId: applied.code.id,
         orderId,
         userId: input.userId,
-        amountKobo: applied.amountKobo,
+        amountKobo: redeemedNgn,
       });
     } catch {
       /* counter drift is preferable to a lost order */

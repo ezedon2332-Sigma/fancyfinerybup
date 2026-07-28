@@ -6,6 +6,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin, Truck } from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
+import {
+  formatMinor,
+  isDisplayCurrency,
+} from "@/domain/shared/display-price";
 import { checkoutSchema } from "@/lib/validation";
 import { placeOrderAction } from "@/app/checkout/actions";
 import { startPaymentAction } from "@/app/checkout/payment-actions";
@@ -78,6 +83,7 @@ export function CheckoutForm({
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const { currency } = useCurrency();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [couponInput, setCouponInput] = useState("");
@@ -117,7 +123,10 @@ export function CheckoutForm({
       .finally(() => {
         if (id === requestId.current) setQuoting(false);
       });
-  }, [form.countryCode, itemsKey, appliedCoupon, items]);
+    // `currency` is in the deps because the server prices the quote in it.
+    // Without a re-quote, switching currency would leave the old figures on
+    // screen wearing the new symbol.
+  }, [form.countryCode, itemsKey, appliedCoupon, items, currency]);
 
   async function useMyLocation() {
     setError(null);
@@ -428,9 +437,10 @@ export function CheckoutForm({
               {quoting && !quote ? (
                 <span className="inline-block h-4 w-20 animate-pulse rounded bg-white/10" />
               ) : quote ? (
-                `${quote.currency === "NGN" ? "₦" : "$"}${(
-                  quote.breakdown.total / 100
-                ).toLocaleString()}`
+                formatMinor(
+                  quote.breakdown.total,
+                  isDisplayCurrency(quote.currency) ? quote.currency : "NGN",
+                )
               ) : (
                 "—"
               )}

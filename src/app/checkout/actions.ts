@@ -6,6 +6,12 @@ import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { notifyOrderPlaced } from "@/infrastructure/notifications/email";
 import { checkoutSchema } from "@/lib/validation";
+import { cookies } from "next/headers";
+import {
+  CURRENCY_COOKIE,
+  isDisplayCurrency,
+} from "@/domain/shared/display-price";
+import { DEFAULT_ORDER_CURRENCY } from "@/domain/shipping/currency";
 
 export interface PlaceOrderResult {
   ok: boolean;
@@ -26,12 +32,21 @@ export async function placeOrderAction(
   }
   const input = parsed.data;
 
+  // Read server-side rather than accepting it from the form: the currency
+  // decides what the customer is charged, so it comes from the same place the
+  // prices they browsed were rendered from.
+  const cookieCurrency = (await cookies()).get(CURRENCY_COOKIE)?.value;
+  const currency = isDisplayCurrency(cookieCurrency)
+    ? cookieCurrency
+    : DEFAULT_ORDER_CURRENCY;
+
   try {
     const deps = await getCheckoutDeps();
     const orderId = await placeOrder(deps, {
       userId: user.id,
       courierId: input.courierId ?? null,
       couponCode: input.couponCode ?? null,
+      currency,
       shipping: {
         name: input.name,
         email: input.email,

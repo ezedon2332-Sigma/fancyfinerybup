@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 
 import type { Quote } from "@/app/shipping/quote-actions";
+import {
+  CURRENCY_META,
+  formatMinor,
+  isDisplayCurrency,
+} from "@/domain/shared/display-price";
 
 /**
  * Add business days to today, skipping weekends.
@@ -65,11 +70,10 @@ export function ShippingSummary({
   if (!quote) return null;
 
   const option = quote.selected;
+  // Symbols come from the currency table rather than a naira-or-dollar
+  // ternary, which silently printed "$" for euro, sterling and yuan orders.
   const money = (v: number) =>
-    `${quote.currency === "NGN" ? "₦" : "$"}${(v / 100).toLocaleString(undefined, {
-      minimumFractionDigits: quote.currency === "NGN" ? 0 : 2,
-      maximumFractionDigits: quote.currency === "NGN" ? 0 : 2,
-    })}`;
+    formatMinor(v, isDisplayCurrency(quote.currency) ? quote.currency : "NGN");
 
   return (
     <motion.div
@@ -219,7 +223,8 @@ export function FreeShippingProgress({
 }) {
   const pct = Math.min(100, (subtotal / threshold) * 100);
   const remaining = Math.max(0, threshold - subtotal);
-  const sym = currency === "NGN" ? "₦" : "$";
+  const code = isDisplayCurrency(currency) ? currency : "NGN";
+  const sym = CURRENCY_META[code].symbol;
 
   return (
     <AnimatePresence mode="wait">

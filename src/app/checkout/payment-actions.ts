@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/infrastructure/supabase/server-cli
 import {
   isPaystackEnabled,
   paystackInitialize,
+  paystackSupportsCurrency,
 } from "@/infrastructure/payments/paystack";
 
 export interface StartPaymentResult {
@@ -43,6 +44,13 @@ export async function startPaymentAction(
   if (order.user_id !== user.id) return { ok: false, error: "Not your order." };
   if (order.payment_status === "paid") {
     return { ok: false, error: "This order is already paid." };
+  }
+
+  if (!paystackSupportsCurrency(order.currency)) {
+    return {
+      ok: false,
+      error: `Card payment isn't available for ${order.currency} orders. This order is payable on delivery.`,
+    };
   }
 
   const reference = `FF-${order.id}-${Date.now().toString(36)}`;

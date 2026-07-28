@@ -7,6 +7,10 @@ import { Loader2, PackageCheck, Truck } from "lucide-react";
 import { quoteShipping, type Quote } from "@/app/shipping/quote-actions";
 import { CountrySelect, type CountryOption } from "@/components/checkout/CountrySelect";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
+import {
+  formatMinor,
+  isDisplayCurrency,
+} from "@/domain/shared/display-price";
 import { formatWeight } from "@/domain/shipping/pricing";
 
 const STORAGE_KEY = "ff.ship.country";
@@ -30,6 +34,7 @@ export function ShippingCalculator({
   countries: CountryOption[];
   className?: string;
 }) {
+  const { currency: selected } = useCurrency();
   const [country, setCountry] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +65,11 @@ export function ShippingCalculator({
         }
       });
     },
-    [productId],
+    // `selected` matters even though it is not read here: the server takes the
+    // currency from the cookie, so a change to it must re-fetch the quote or
+    // the panel keeps showing figures priced in the previous currency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: an invisible input to the server call
+    [productId, selected],
   );
 
   // Restore the last destination after mount — localStorage does not exist on
@@ -89,9 +98,10 @@ export function ShippingCalculator({
     runQuote(code);
   }
 
-  // Published rates are NGN kobo; the header currency only restyles them.
-  const { format } = useCurrency();
-  const money = format;
+  // The server prices the quote in the shopper's currency, so these figures
+  // arrive already converted — format them where they are, not from naira.
+  const currency = isDisplayCurrency(quote?.currency) ? quote.currency : selected;
+  const money = (v: number) => formatMinor(v, currency);
 
   return (
     <section

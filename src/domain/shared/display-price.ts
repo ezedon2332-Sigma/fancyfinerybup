@@ -92,8 +92,39 @@ function group(value: number): string {
 }
 
 /**
- * Format an NGN minor-unit (kobo) amount in the shopper's chosen display
- * currency.
+ * What a stored naira price costs in `currency`, in that currency's minor
+ * units (kobo, cents, fen...).
+ *
+ * This is the single source of truth for the whole application: the price a
+ * shopper is shown and the amount their order is created for both come from
+ * here, so the two cannot drift apart. Naira is charged in full; every other
+ * currency is charged its leading value — ₦300,000 is $300, and $300 is what
+ * the customer pays.
+ *
+ * @param ngnMinor amount in kobo, as stored in the catalogue
+ */
+export function priceInMinor(
+  ngnMinor: number,
+  currency: DisplayCurrency,
+): number {
+  const safe = Number.isFinite(ngnMinor) ? Math.round(ngnMinor) : 0;
+  if (currency === "NGN") return safe;
+  return Math.round(leadingValue(safe / 100) * 100);
+}
+
+/** Render an amount that is *already* in `currency`'s minor units. */
+export function formatMinor(minor: number, currency: DisplayCurrency): string {
+  const value = (Number.isFinite(minor) ? minor : 0) / 100;
+  const { symbol } = CURRENCY_META[currency] ?? CURRENCY_META.NGN;
+  return value < 0 ? `-${symbol}${group(-value)}` : `${symbol}${group(value)}`;
+}
+
+/**
+ * Format a stored naira price in the shopper's chosen currency.
+ *
+ * Deliberately composed from `priceInMinor` rather than reimplementing the
+ * rule, so a change to pricing can never leave the price tag saying one thing
+ * and the order saying another.
  *
  * @param ngnMinor amount in kobo, as stored
  */
@@ -101,11 +132,5 @@ export function formatDisplayPrice(
   ngnMinor: number,
   currency: DisplayCurrency,
 ): string {
-  const major = (Number.isFinite(ngnMinor) ? ngnMinor : 0) / 100;
-  const { symbol } = CURRENCY_META[currency] ?? CURRENCY_META.NGN;
-
-  // Naira shows the real, full, stored price — it is the price.
-  const value = currency === "NGN" ? major : leadingValue(major);
-
-  return value < 0 ? `-${symbol}${group(-value)}` : `${symbol}${group(value)}`;
+  return formatMinor(priceInMinor(ngnMinor, currency), currency);
 }

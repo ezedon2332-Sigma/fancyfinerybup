@@ -33,8 +33,6 @@ interface CurrencyContextValue {
   setCurrency: (c: DisplayCurrency) => void;
   /** Format an NGN-minor-units (kobo) amount in the selected display currency. */
   format: (ngnMinor: number) => string;
-  /** True when the shopper is viewing an indicative, non-charging currency. */
-  isIndicative: boolean;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
@@ -55,9 +53,10 @@ function persist(c: DisplayCurrency) {
 /**
  * Browse-time display currency.
  *
- * Prices are stored and charged in NGN. Choosing another currency re-writes the
- * same price under a different symbol (see `formatDisplayPrice`) — it does not
- * convert, and there is no exchange rate involved anywhere in this provider.
+ * Prices are stored in NGN and re-expressed under the chosen symbol by
+ * `formatDisplayPrice` — no exchange rate is involved anywhere. The chosen
+ * currency is also the currency the order is charged in, so what this
+ * formatter prints is what the customer pays.
  *
  * `initialCurrency` comes from the cookie, read on the server, so a shopper who
  * chose USD last visit does not get a flash of naira on first paint.
@@ -102,7 +101,7 @@ export function CurrencyProvider({
 
   return (
     <CurrencyContext.Provider
-      value={{ currency, setCurrency, format, isIndicative: currency !== "NGN" }}
+      value={{ currency, setCurrency, format }}
     >
       {children}
     </CurrencyContext.Provider>

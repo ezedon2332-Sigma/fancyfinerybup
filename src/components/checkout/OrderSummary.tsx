@@ -5,8 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Loader2, Tag, Truck, X } from "lucide-react";
 import { useState } from "react";
 
-import { formatMoney } from "@/domain/shared/money";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
+import {
+  formatDisplayPrice,
+  formatMinor,
+  isDisplayCurrency,
+  priceInMinor,
+} from "@/domain/shared/display-price";
 import { formatWeight } from "@/domain/shipping/pricing";
 import type { Quote } from "@/app/shipping/quote-actions";
 import type { CartItem } from "@/components/cart/CartProvider";
@@ -40,18 +45,39 @@ export function OrderSummary({
 }) {
   const [showCoupon, setShowCoupon] = useState(false);
 
-  const { format, isIndicative } = useCurrency();
-  // Amounts arrive as NGN kobo and are charged as such. The formatter only decides
-  // how they are written, so the summary reads in whatever currency the
-  // shopper picked in the header — and the naira actually charged is spelled
-  // out below the total whenever those two differ.
-  const money = (v: number) => format(v);
+  const { currency: selected } = useCurrency();
+
+  // Format quote figures in the currency the *quote* was priced in, not the
+  // one currently selected. A shopper can switch mid-checkout; the re-quote is
+  // in flight for a moment, and relabelling ₦300,000 as "$300,000" for that
+  // moment would be worse than briefly showing the old currency.
+  const currency = isDisplayCurrency(quote?.currency) ? quote.currency : selected;
+
+  // Those figures are already in that currency's minor units — the server
+  // priced them there. Passing them through the provider's own formatter
+  // would apply the rule a second time and divide the total by another
+  // thousand.
+  const money = (v: number) => formatMinor(v, currency);
+
+  // Cart lines, unlike quote lines, are still naira kobo straight from the
+  // catalogue, so they need converting first.
+  const itemMoney = (ngnKobo: number) => formatDisplayPrice(ngnKobo, currency);
+
+  // Convert the unit price, then multiply — the order in which the server
+  // does it. Multiplying first and converting the product would truncate a
+  // different way and print a line total that disagrees with the subtotal.
+  const lineMoney = (ngnKobo: number, qty: number) =>
+    formatMinor(priceInMinor(ngnKobo, currency) * qty, currency);
 
   // Fall back to the raw cart subtotal until the first quote lands, so the
-  // panel is never blank.
+  // panel is never blank. Cart lines are stored in naira, so this one does
+  // need converting.
   const subtotal =
     quote?.breakdown.subtotal ??
-    items.reduce((s, i) => s + i.price * i.qty, 0);
+    priceInMinor(
+      items.reduce((s, i) => s + i.price * i.qty, 0),
+      selected,
+    );
 
   const taxApplies =
     quote != null &&
@@ -85,11 +111,11 @@ export function OrderSummary({
                   ` · ${formatWeight(i.weightGrams)} each`}
               </p>
               <p className="mt-0.5 text-xs text-gray-500">
-                {money(i.price)} each
+                {itemMoney(i.price)} each
               </p>
             </div>
             <p className="shrink-0 text-sm tabular-nums text-yellow-400">
-              {money(i.price * i.qty)}
+              {lineMoney(i.price, i.qty)}
             </p>
           </li>
         ))}
@@ -217,15 +243,13 @@ export function OrderSummary({
             Total package weight {quote.weightLabel}
             {quote.bracketLabel ? ` · ${quote.bracketLabel}` : ""}
           </p>
-          {isIndicative && (
-            <p className="text-gray-400">
-              Shown for reference. You will be charged{" "}
-              <strong className="font-semibold text-gray-200">
-                {formatMoney(quote.breakdown.total, "NGN")}
-              </strong>
-              .
-            </p>
-          )}
+          <p className="text-gray-400">
+            You will be charged{" "}
+            <strong className="font-semibold text-gray-200">
+              {money(quote.breakdown.total)}
+            </strong>{" "}
+            in {currency}.
+          </p>
         </div>
       )}
 

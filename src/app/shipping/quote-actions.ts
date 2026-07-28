@@ -22,7 +22,16 @@ import {
 } from "@/infrastructure/supabase/pricing-service";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
-import { ORDER_CURRENCY } from "@/domain/shipping/currency";
+import {
+  DEFAULT_ORDER_CURRENCY,
+  discountCodeInCurrency,
+} from "@/domain/shipping/currency";
+import {
+  isDisplayCurrency,
+  priceInMinor,
+  CURRENCY_COOKIE,
+} from "@/domain/shared/display-price";
+import { cookies } from "next/headers";
 
 /**
  * The one quote endpoint.
@@ -100,11 +109,13 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
 
     // Recompute both from the catalogue — never trust the client.
     let subtotalKobo = 0;
+    const unitPricesNgn: { price: number; qty: number }[] = [];
     const weightLines: CartWeightLine[] = [];
     for (const line of input.items) {
       const product = await products.findPublishedById(line.productId);
       if (!product) continue;
       subtotalKobo += product.price * line.qty;
+      unitPricesNgn.push({ price: product.price, qty: line.qty });
       weightLines.push({ weightGrams: product.weightGrams, qty: line.qty });
     }
     if (subtotalKobo === 0) {
@@ -123,9 +134,22 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       subtotalKobo,
     });
 
-    // Quoted in the currency the order is placed in — kobo, unconverted.
-    const currency = ORDER_CURRENCY;
-    const toDisplay = (kobo: number) => kobo;
+    // The currency the shopper picked in the header is the currency they pay
+    // in, so the quote is produced in it — and the checkout screen therefore
+    // shows exactly the figures the order will be created with.
+    const cookieCurrency = (await cookies()).get(CURRENCY_COOKIE)?.value;
+    const currency = isDisplayCurrency(cookieCurrency)
+      ? cookieCurrency
+      : DEFAULT_ORDER_CURRENCY;
+    const toDisplay = (kobo: number) => priceInMinor(kobo, currency);
+
+    // Summed from converted unit prices rather than converting the naira
+    // subtotal, because the rule truncates and the per-line figures are the
+    // ones a customer can add up themselves.
+    const subtotalCharged = unitPricesNgn.reduce(
+      (sum, l) => sum + priceInMinor(l.price, currency) * l.qty,
+      0,
+    );
 
     const options: QuoteOption[] = lookup.options.map((o) => ({
       ...o,
@@ -135,6 +159,7 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
     const selected =
       options.find((o) => o.courierId === input.courierId) ?? options[0] ?? null;
     const shippingKobo = selected?.priceKobo ?? 0;
+    const shippingCharged = toDisplay(shippingKobo);
 
     // Coupon, if one was supplied. An invalid code never blocks the quote —
     // the rest of the figures are still correct and the message explains why.
@@ -152,7 +177,10 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       if (verdict.valid && code) {
         applied = {
           code,
-          amountKobo: discountAmount(code, { subtotalKobo, shippingKobo }),
+          amountKobo: discountAmount(discountCodeInCurrency(code, currency), {
+            subtotalKobo: subtotalCharged,
+            shippingKobo: shippingCharged,
+          }),
         };
       } else {
         couponMessage = verdict.message ?? "That code can't be applied.";
@@ -161,8 +189,8 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
 
     const taxRule = resolveTax(table, input.countryCode);
     const priced: PriceBreakdown = priceOrder({
-      subtotalKobo,
-      shippingKobo,
+      subtotalKobo: subtotalCharged,
+      shippingKobo: shippingCharged,
       taxRule,
       discount: applied,
     });
@@ -178,11 +206,11 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       options,
       selected,
       breakdown: {
-        subtotal: toDisplay(priced.subtotalKobo),
-        shipping: toDisplay(priced.shippingKobo),
-        tax: toDisplay(priced.taxKobo),
-        discount: toDisplay(priced.discountKobo),
-        total: toDisplay(priced.totalKobo),
+        subtotal: priced.subtotalKobo,
+        shipping: priced.shippingKobo,
+        tax: priced.taxKobo,
+        discount: priced.discountKobo,
+        total: priced.totalKobo,
         taxLabel: priced.taxLabel,
         taxRateBps: priced.taxRateBps,
         discountCode: priced.discountCode,

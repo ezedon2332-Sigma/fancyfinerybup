@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, PackageSearch, Search, Truck } from "lucide-react";
 
 import { flagEmoji } from "@/domain/shipping/countries";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 
 export interface RateRow {
   bracketLabel: string;
@@ -44,6 +45,13 @@ export function RatesBrowser({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<string | null>(highlight);
+
+  // Published rates follow the same rule as everything else, so the figure in
+  // this table is the shipping fee the shopper is actually quoted rather than
+  // a naira number they then have to reconcile at checkout. Rows carry major
+  // units, hence the ×100 into the kobo the formatter expects.
+  const { format } = useCurrency();
+  const rate = (priceNaira: number) => format(priceNaira * 100);
 
   const ordered = useMemo(() => {
     const list = [...rates].sort((a, b) => a.name.localeCompare(b.name));
@@ -138,7 +146,7 @@ export function RatesBrowser({
                         from
                       </span>
                       <span className="block text-sm font-semibold tabular-nums text-yellow-400">
-                        ₦{Math.min(...c.rows.map((r) => r.priceNaira)).toLocaleString()}
+                        {rate(Math.min(...c.rows.map((r) => r.priceNaira)))}
                       </span>
                     </span>
 
@@ -194,7 +202,7 @@ export function RatesBrowser({
                                 {r.bracketLabel}
                               </th>
                               <td className="px-4 py-2 text-right text-[13px] font-semibold tabular-nums text-yellow-400 sm:px-5">
-                                ₦{r.priceNaira.toLocaleString()}
+                                {rate(r.priceNaira)}
                               </td>
                             </tr>
                           ))}
