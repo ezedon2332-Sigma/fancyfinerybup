@@ -39,6 +39,7 @@ const LINKS = [
   { href: "/collections?category=children", label: "Children" },
   { href: "/collections", label: "Collections" },
   { href: "/lookbook", label: "Lookbook" },
+  { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -154,7 +155,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             the branding is whatever space is left over — never negative. */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-8">
         {/* Navigation — hard right, hamburger below lg */}
-        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-5 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
+        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-4 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (

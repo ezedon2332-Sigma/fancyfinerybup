@@ -6,6 +6,9 @@ import { HeroSection } from "@/components/HeroSection";
 import { PromoCards, type PromoItem } from "@/components/home/PromoCards";
 import { ProductRow } from "@/components/home/ProductRow";
 import { PriveCircleSection } from "@/components/newsletter/PriveCircleSection";
+import { BrandStory } from "@/components/home/BrandStory";
+import { ReviewsShowcase } from "@/components/home/ReviewsShowcase";
+import { listRecentApprovedReviews } from "@/infrastructure/supabase/review-service";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
@@ -44,6 +47,13 @@ export default async function Home() {
     rethrowFrameworkErrors(e);
     console.error("[home] catalogue unavailable", e);
   }
+
+  // Swallows its own failures, so no extra guard needed here.
+  const showcase = await listRecentApprovedReviews(6);
+  const ratingTotals = products.reduce(
+    (acc, p) => ({ sum: acc.sum + p.ratingSum, count: acc.count + p.ratingCount }),
+    { sum: 0, count: 0 },
+  );
 
   // Category image lookup — first product with an actual IMAGE (skip
   // video-only products; a video URL can't render as a static promo image).
@@ -88,6 +98,12 @@ export default async function Home() {
       <ProductRow eyebrow="Handpicked" title="Featured Collection" viewAllHref="/collections" products={featuredRow} />
       <ProductRow eyebrow="Most Loved" title="Best Sellers" viewAllHref="/collections" products={bestSellers} />
       <ProductRow eyebrow="What's Hot" title="Trending Now" viewAllHref="/collections" products={trending} />
+      <BrandStory />
+      <ReviewsShowcase
+        reviews={showcase}
+        totalSum={ratingTotals.sum}
+        totalCount={ratingTotals.count}
+      />
       <PriveCircleSection />
     </div>
   );

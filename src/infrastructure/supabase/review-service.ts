@@ -211,3 +211,42 @@ export async function reviewCounts(): Promise<ReviewCounts> {
   ]);
   return { pending, approved, rejected, spam };
 }
+
+/**
+ * Most recent approved reviews across the whole catalogue, for the homepage
+ * testimonial strip.
+ *
+ * Filtered to reviews with a body long enough to be worth reading — a
+ * three-word review is honest but makes a poor pull quote, and the homepage is
+ * showcasing, not reporting. Joins the product name so each quote can link back
+ * to what it is about.
+ */
+export async function listRecentApprovedReviews(
+  limit = 6,
+): Promise<(Review & { productName: string; productSlug: string })[]> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data } = await admin
+      .from("product_reviews")
+      .select("*, products!inner(name, slug)")
+      .eq("status", "approved")
+      .gte("rating", 4)
+      .order("created_at", { ascending: false })
+      .limit(limit * 3);
+
+    const rows = (data ?? []) as (Row & {
+      products: { name: string; slug: string } | null;
+    })[];
+
+    return rows
+      .filter((r) => r.body.trim().length >= 60)
+      .slice(0, limit)
+      .map((r) => ({
+        ...toReview(r),
+        productName: r.products?.name ?? "",
+        productSlug: r.products?.slug ?? "",
+      }));
+  } catch {
+    return [];
+  }
+}
