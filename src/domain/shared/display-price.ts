@@ -1,27 +1,31 @@
 /**
- * Display-currency formatting.
+ * Currency pricing.
  *
- * This is a PRESENTATION rule, not a currency conversion. Catalogue prices are
- * stored — and charged — in NGN minor units (kobo). Selecting another currency
- * only changes how that same stored price is *written*:
+ * Catalogue prices are stored in NGN minor units (kobo). The currency a shopper
+ * selects decides how that price is written *and* what they are charged:
  *
  *   NGN  → the full stored price          ₦300,000
- *   else → the leading value + symbol     $300  €300  £300  ¥300
+ *   else → the leading value + symbol     $300  €300  £300
  *
  * "Leading value" means the naira amount with its thousands portion removed,
  * i.e. ₦300,000 reads as 300. There is deliberately no exchange rate anywhere
- * in this file: the number a shopper sees in USD is not claimed to be a dollar
- * conversion of the naira price, and nothing here talks to a rates API.
+ * in this file and nothing here talks to a rates API — $300 is not a conversion
+ * of ₦300,000, it is the dollar price of the same garment.
+ *
+ * Because these are real prices rather than previews, the currencies on offer
+ * have to be ones whose leading value is a sane amount to ask for. Yuan was
+ * removed for exactly that reason: ¥300 is worth roughly a fifth of ₦300,000,
+ * so it would have let any shopper discount themselves by switching a dropdown.
+ * Apply the same test before adding a currency here.
  */
 
-export type DisplayCurrency = "NGN" | "USD" | "EUR" | "GBP" | "CNY";
+export type DisplayCurrency = "NGN" | "USD" | "EUR" | "GBP";
 
 export const DISPLAY_CURRENCIES = [
   "NGN",
   "USD",
   "EUR",
   "GBP",
-  "CNY",
 ] as const satisfies readonly DisplayCurrency[];
 
 export interface CurrencyMeta {
@@ -36,7 +40,6 @@ export const CURRENCY_META: Record<DisplayCurrency, CurrencyMeta> = {
   USD: { symbol: "$", name: "US Dollar", flag: "🇺🇸" },
   EUR: { symbol: "€", name: "Euro", flag: "🇪🇺" },
   GBP: { symbol: "£", name: "British Pound", flag: "🇬🇧" },
-  CNY: { symbol: "¥", name: "Chinese Yuan", flag: "🇨🇳" },
 };
 
 /**

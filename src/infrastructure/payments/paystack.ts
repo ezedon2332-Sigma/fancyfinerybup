@@ -13,7 +13,7 @@ const BASE = "https://api.paystack.co";
 
 /**
  * Currencies Paystack can actually settle. The storefront lets a shopper be
- * charged in EUR, GBP or CNY, none of which Paystack accepts — an order in one
+ * charged in EUR or GBP, neither of which Paystack accepts — an order in one
  * of those has to stay pay-on-delivery rather than fail at the redirect with a
  * provider error the customer cannot act on.
  */
