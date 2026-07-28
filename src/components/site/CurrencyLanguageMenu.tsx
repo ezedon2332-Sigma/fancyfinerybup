@@ -39,7 +39,7 @@ export function CurrencyLanguageMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-200 transition-colors hover:text-yellow-400"
+        className="flex min-h-[44px] items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-200 transition-colors hover:text-yellow-400 lg:min-h-[32px]"
       >
         <Globe className="h-3.5 w-3.5" />
         {langLabel}

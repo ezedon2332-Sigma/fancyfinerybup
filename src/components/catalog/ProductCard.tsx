@@ -45,11 +45,16 @@ export function ProductCard({ product }: { product: ProductSummary }) {
                 image: src,
               });
             }}
-            className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-2 backdrop-blur transition-colors hover:bg-black/70"
+            /* 44x44 hit area with the visible pill left at its original size:
+               the chrome lives on the inner span, so the card looks identical
+               while the target is finger-sized. */
+            className="group/wish absolute right-1 top-1 z-10 flex h-11 w-11 items-center justify-center lg:right-1.5 lg:top-1.5"
           >
-            <Heart
-              className={`h-4 w-4 transition-colors ${wished ? "fill-yellow-500 text-yellow-500" : "text-white"}`}
-            />
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/50 backdrop-blur transition-colors group-hover/wish:bg-black/70">
+              <Heart
+                className={`h-4 w-4 transition-colors ${wished ? "fill-yellow-500 text-yellow-500" : "text-white"}`}
+              />
+            </span>
           </button>
           {isVideo ? (
             <video

@@ -25,41 +25,51 @@ export function buildCountryRates(
   const couriers = table.couriers.filter((c) => c.enabled);
   if (couriers.length === 0) return [];
 
+  // Everything below used to be looked up by scanning an array from inside the
+  // innermost loop, which made this O(couriers x brackets x rates x countries
+  // x rates) — tens of millions of comparisons per request against a real rate
+  // table, and about twenty seconds of CPU before the page could even start
+  // streaming. Three indexes turn each of those scans into a hash lookup.
+
+  /** Enabled rates keyed by courier+bracket, in their original array order. */
+  const ratesByCourierBracket = new Map<string, typeof table.rates>();
+  /** country+courier+bracket combinations that have an explicit override. */
+  const overrides = new Set<string>();
+  for (const rate of table.rates) {
+    if (!rate.enabled) continue;
+    const key = `${rate.courierId}|${rate.bracketId}`;
+    const bucket = ratesByCourierBracket.get(key);
+    if (bucket) bucket.push(rate);
+    else ratesByCourierBracket.set(key, [rate]);
+    if (rate.countryCode) {
+      overrides.add(`${rate.countryCode.toUpperCase()}|${key}`);
+    }
+  }
+
+  const zoneCountries = new Map(table.zones.map((z) => [z.id, z.countries]));
+  const countryNames = new Map(COUNTRIES.map((c) => [c.code, c.name]));
+
   const cards = new Map<string, CountryRates>();
 
   for (const courier of couriers) {
     for (const bracket of brackets) {
-      for (const rate of table.rates) {
-        if (
-          !rate.enabled ||
-          rate.courierId !== courier.id ||
-          rate.bracketId !== bracket.id
-        ) {
-          continue;
-        }
-
+      const key = `${courier.id}|${bracket.id}`;
+      for (const rate of ratesByCourierBracket.get(key) ?? []) {
         // A rate is either a country override or a zone rate; expand a zone
         // rate across its member countries so every destination gets a card.
         const codes = rate.countryCode
           ? [rate.countryCode.toUpperCase()]
-          : (table.zones.find((z) => z.id === rate.zoneId)?.countries ?? []);
+          : (zoneCountries.get(rate.zoneId ?? "") ?? []);
 
         for (const code of codes) {
           // An override always wins, so a zone rate must never overwrite one.
-          const hasOverride = table.rates.some(
-            (r) =>
-              r.enabled &&
-              r.countryCode?.toUpperCase() === code &&
-              r.courierId === courier.id &&
-              r.bracketId === bracket.id,
-          );
-          if (!rate.countryCode && hasOverride) continue;
+          if (!rate.countryCode && overrides.has(`${code}|${key}`)) continue;
 
           const card =
             cards.get(code) ??
             ({
               code,
-              name: COUNTRIES.find((c) => c.code === code)?.name ?? code,
+              name: countryNames.get(code) ?? code,
               courier: courier.displayName || courier.name,
               minDays: courier.minDays,
               maxDays: courier.maxDays,

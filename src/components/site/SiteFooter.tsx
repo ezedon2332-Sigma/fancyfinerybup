@@ -61,19 +61,19 @@ export function SiteFooter() {
           <h4 className="text-xs font-semibold uppercase tracking-widest text-white">
             Shop
           </h4>
-          <ul className="mt-4 space-y-2 text-sm">
+          <ul className="mt-2 text-sm lg:mt-4 lg:space-y-1">
             <li>
-              <Link href="/collections" className="hover:text-yellow-400">
+              <Link href="/collections" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
                 Collections
               </Link>
             </li>
             <li>
-              <Link href="/collections?category=dresses" className="hover:text-yellow-400">
+              <Link href="/collections?category=dresses" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
                 Dresses
               </Link>
             </li>
             <li>
-              <Link href="/collections?category=outerwear" className="hover:text-yellow-400">
+              <Link href="/collections?category=outerwear" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
                 Outerwear
               </Link>
             </li>
@@ -84,14 +84,14 @@ export function SiteFooter() {
           <h4 className="text-xs font-semibold uppercase tracking-widest text-white">
             Company
           </h4>
-          <ul className="mt-4 space-y-2 text-sm">
+          <ul className="mt-2 text-sm lg:mt-4 lg:space-y-1">
             <li>
-              <Link href="/contact" className="hover:text-yellow-400">
+              <Link href="/contact" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
                 Contact
               </Link>
             </li>
             <li>
-              <Link href="/account" className="hover:text-yellow-400">
+              <Link href="/account" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
                 My Account
               </Link>
             </li>
@@ -102,13 +102,13 @@ export function SiteFooter() {
           <h4 className="text-xs font-semibold uppercase tracking-widest text-white">
             Follow
           </h4>
-          <div className="mt-4 flex gap-4">
+          <div className="mt-3 flex gap-1 lg:gap-2">
             <a
               href="https://www.instagram.com/fancyfinery_?igsh=azRhYW5uMHZoOHBs"
               aria-label="Instagram"
               target="_blank"
               rel="noopener noreferrer"
-              className="transition-colors hover:text-yellow-400"
+              className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
             >
               <InstagramIcon className="h-5 w-5" />
             </a>
@@ -117,7 +117,7 @@ export function SiteFooter() {
               aria-label="TikTok"
               target="_blank"
               rel="noopener noreferrer"
-              className="transition-colors hover:text-yellow-400"
+              className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
             >
               <TikTokIcon className="h-5 w-5" />
             </a>
@@ -126,7 +126,7 @@ export function SiteFooter() {
               aria-label="WhatsApp"
               target="_blank"
               rel="noopener noreferrer"
-              className="transition-colors hover:text-yellow-400"
+              className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/5 hover:text-yellow-400 lg:h-10 lg:w-10"
             >
               <WhatsAppIcon className="h-5 w-5" />
             </a>

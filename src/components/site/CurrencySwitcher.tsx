@@ -45,7 +45,7 @@ export function CurrencySwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Currency: ${currency}. Change display currency`}
-        className="flex min-h-[36px] items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-gray-100 transition-colors hover:border-yellow-500/60 hover:text-yellow-400"
+        className="flex min-h-[44px] items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-gray-100 transition-colors hover:border-yellow-500/60 hover:text-yellow-400 lg:min-h-[36px] lg:px-2.5"
       >
         <span aria-hidden>{CURRENCY_META[currency].symbol}</span>
         <span className="hidden sm:inline">{currency}</span>
@@ -79,7 +79,7 @@ export function CurrencySwitcher() {
                       setCurrency(c);
                       setOpen(false);
                     }}
-                    className={`flex min-h-[40px] w-full items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/5 ${
+                    className={`flex min-h-[44px] w-full items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/5 ${
                       selected ? "bg-white/5 text-yellow-400" : "text-gray-200"
                     }`}
                   >
