@@ -6,6 +6,7 @@ import { Check, Loader2, Tag, Truck, X } from "lucide-react";
 import { useState } from "react";
 
 import { formatMoney } from "@/domain/shared/money";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { formatWeight } from "@/domain/shipping/pricing";
 import type { Quote } from "@/app/shipping/quote-actions";
 import type { CartItem } from "@/components/cart/CartProvider";
@@ -39,8 +40,12 @@ export function OrderSummary({
 }) {
   const [showCoupon, setShowCoupon] = useState(false);
 
-  const currency = quote?.currency ?? items[0]?.currency ?? "NGN";
-  const money = (v: number) => formatMoney(v, currency);
+  const { format, isIndicative } = useCurrency();
+  // Amounts arrive as NGN kobo and are charged as such. The formatter only decides
+  // how they are written, so the summary reads in whatever currency the
+  // shopper picked in the header — and the naira actually charged is spelled
+  // out below the total whenever those two differ.
+  const money = (v: number) => format(v);
 
   // Fall back to the raw cart subtotal until the first quote lands, so the
   // panel is never blank.
@@ -212,8 +217,14 @@ export function OrderSummary({
             Total package weight {quote.weightLabel}
             {quote.bracketLabel ? ` · ${quote.bracketLabel}` : ""}
           </p>
-          {quote.currency !== "NGN" && (
-            <p>Charged in {quote.currency} for international delivery.</p>
+          {isIndicative && (
+            <p className="text-gray-400">
+              Shown for reference. You will be charged{" "}
+              <strong className="font-semibold text-gray-200">
+                {formatMoney(quote.breakdown.total, "NGN")}
+              </strong>
+              .
+            </p>
           )}
         </div>
       )}

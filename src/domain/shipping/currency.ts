@@ -1,42 +1,21 @@
 /**
- * Multi-currency policy for worldwide shipping.
+ * Order currency policy.
  *
- * All catalogue prices are stored in NGN minor units (kobo) — that never
- * changes. An *order's* currency is decided by its destination:
- *   - Nigeria (NG)  → NGN (charged/displayed in Naira)
- *   - everywhere else → USD (converted from NGN at a configurable rate)
+ * Every order is placed in NGN, worldwide. Catalogue prices are stored in NGN
+ * minor units (kobo) and charged exactly as stored: there is no conversion
+ * step, no exchange rate, and nothing to go stale.
  *
- * Conversion is integer-safe: NGN kobo ÷ (NGN per USD) = USD cents, because
- * both sides are ×100 minor units. e.g. ₦450,000 (45_000_000 kobo) ÷ 1600 =
- * 28_125 cents = $281.25.
+ * This used to convert non-Nigerian orders into USD at a live rate. That was
+ * removed deliberately. A shopper may now *view* prices under another symbol
+ * (see `domain/shared/display-price`), but that is presentation only — it never
+ * reaches an order row, a payment, or a total. Keeping one authoritative
+ * currency is what stops the price a customer sees from ever disagreeing with
+ * the price they are charged.
  */
 
-export type OrderCurrency = "NGN" | "USD";
+export type OrderCurrency = "NGN";
 
-/** Fallback exchange rate (NGN per 1 USD) if the DB setting is unavailable. */
-export const DEFAULT_NGN_PER_USD = 1600;
+/** The one currency orders are ever placed in. */
+export const ORDER_CURRENCY: OrderCurrency = "NGN";
 
 export const DOMESTIC_COUNTRY = "NG";
-
-/** The currency an order to `countryCode` is charged/displayed in. */
-export function orderCurrencyForCountry(
-  countryCode: string | null | undefined,
-): OrderCurrency {
-  return (countryCode ?? "").trim().toUpperCase() === DOMESTIC_COUNTRY
-    ? "NGN"
-    : "USD";
-}
-
-/**
- * Convert an amount in NGN minor units (kobo) into `currency` minor units.
- * Returns kobo unchanged for NGN; rounds to whole USD cents otherwise.
- */
-export function convertFromNgnMinor(
-  ngnMinor: number,
-  currency: OrderCurrency,
-  ngnPerUsd: number = DEFAULT_NGN_PER_USD,
-): number {
-  if (currency === "NGN") return ngnMinor;
-  const rate = ngnPerUsd > 0 ? ngnPerUsd : DEFAULT_NGN_PER_USD;
-  return Math.round(ngnMinor / rate);
-}

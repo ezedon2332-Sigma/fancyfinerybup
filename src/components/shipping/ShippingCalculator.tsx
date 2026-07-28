@@ -6,7 +6,7 @@ import { Loader2, PackageCheck, Truck } from "lucide-react";
 
 import { quoteShipping, type Quote } from "@/app/shipping/quote-actions";
 import { CountrySelect, type CountryOption } from "@/components/checkout/CountrySelect";
-import { formatMoney } from "@/domain/shared/money";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { formatWeight } from "@/domain/shipping/pricing";
 
 const STORAGE_KEY = "ff.ship.country";
@@ -89,7 +89,9 @@ export function ShippingCalculator({
     runQuote(code);
   }
 
-  const money = (v: number) => formatMoney(v, quote?.currency ?? "NGN");
+  // Published rates are NGN kobo; the header currency only restyles them.
+  const { format } = useCurrency();
+  const money = format;
 
   return (
     <section

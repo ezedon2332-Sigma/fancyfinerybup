@@ -4,10 +4,7 @@ import type {
   OrderRepository,
 } from "@/domain/repositories/order-repository";
 import type { ProductRepository } from "@/domain/repositories/product-repository";
-import {
-  convertFromNgnMinor,
-  orderCurrencyForCountry,
-} from "@/domain/shipping/currency";
+import { ORDER_CURRENCY } from "@/domain/shipping/currency";
 import {
   checkDiscount,
   discountAmount,
@@ -19,7 +16,6 @@ import {
   type DiscountCode,
   type PricingTable,
 } from "@/domain/shipping/pricing";
-import { getExchangeRate } from "@/infrastructure/exchange-rate/service";
 
 export interface CheckoutDeps {
   products: ProductRepository;
@@ -122,10 +118,9 @@ export async function placeOrder(
   // 2) Price the order server-side. Everything is re-derived here: the client
   //     told us the destination and the coupon, nothing more. Whatever the
   //     checkout screen displayed is irrelevant to what is charged.
-  const [table, defaultWeight, { ngnPerUsd }] = await Promise.all([
+  const [table, defaultWeight] = await Promise.all([
     deps.pricing(),
     deps.defaultItemWeightGrams(),
-    getExchangeRate(),
   ]);
 
   const weightGrams = totalCartWeight(weightLines, defaultWeight);
@@ -178,9 +173,10 @@ export async function placeOrder(
     discount: applied,
   });
 
-  // 4) Convert once, into the order's currency.
-  const currency = orderCurrencyForCountry(input.shipping.countryCode);
-  const toOrder = (kobo: number) => convertFromNgnMinor(kobo, currency, ngnPerUsd);
+  // 4) No conversion: the order is placed in naira, in the kobo it was priced
+  //    in. Kept as a named step so the intent is explicit rather than implied.
+  const currency = ORDER_CURRENCY;
+  const toOrder = (kobo: number) => kobo;
 
   const items: NewOrderItem[] = priced.map(({ item, priceNgn }) => ({
     ...item,

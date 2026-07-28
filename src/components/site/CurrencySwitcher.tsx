@@ -1,42 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 
 import {
   useCurrency,
+  CURRENCY_META,
   DISPLAY_CURRENCIES,
-  type DisplayCurrency,
 } from "@/components/providers/CurrencyProvider";
 
-const LABEL: Record<DisplayCurrency, string> = {
-  NGN: "₦ NGN — Nigerian Naira",
-  USD: "$ USD — US Dollar",
-  EUR: "€ EUR — Euro",
-  GBP: "£ GBP — British Pound",
-};
-const SYMBOL: Record<DisplayCurrency, string> = {
-  NGN: "₦",
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-};
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(diff) || diff < 60000) return "just now";
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-/** Prominent, always-visible currency selector for the header. Robust
- *  outside-click/Escape close; switching converts prices site-wide. */
+/**
+ * Header currency selector.
+ *
+ * Switching re-writes prices site-wide under the chosen symbol. It is a display
+ * preference, not a conversion — naira remains the price the order is placed
+ * in, which the panel says plainly rather than leaving a shopper to discover it
+ * at checkout.
+ */
 export function CurrencySwitcher() {
-  const { currency, setCurrency, rates, updatedAt } = useCurrency();
+  const { currency, setCurrency } = useCurrency();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -63,12 +45,13 @@ export function CurrencySwitcher() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Select currency"
-        className="flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-gray-100 transition-colors hover:border-yellow-500/60 hover:text-yellow-400"
+        aria-label={`Currency: ${currency}. Change display currency`}
+        className="flex min-h-[36px] items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-gray-100 transition-colors hover:border-yellow-500/60 hover:text-yellow-400"
       >
-        <span>{SYMBOL[currency]}</span>
+        <span aria-hidden>{CURRENCY_META[currency].symbol}</span>
         <span className="hidden sm:inline">{currency}</span>
         <ChevronDown
+          aria-hidden
           className={`h-3 w-3 opacity-70 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
@@ -76,37 +59,54 @@ export function CurrencySwitcher() {
       {open && (
         <div
           role="listbox"
-          className="absolute right-0 z-50 mt-2 min-w-[13rem] overflow-hidden rounded-lg border border-yellow-600/30 bg-neutral-950 shadow-xl"
+          aria-label="Display currency"
+          className="absolute right-0 z-50 mt-2 w-[15rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-yellow-600/30 bg-neutral-950 shadow-2xl shadow-black/60"
         >
-          <div className="border-b border-white/5 px-3 py-2 text-[10px] leading-tight text-gray-400">
-            <span className="flex items-center gap-1.5 font-semibold uppercase tracking-widest text-green-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Live rates
-            </span>
-            <div className="mt-1 text-gray-400">
-              $1 = ₦{rates.usd.toLocaleString()} · €1 = ₦
-              {rates.eur.toLocaleString()} · £1 = ₦{rates.gbp.toLocaleString()}
-            </div>
-            <span className="mt-0.5 block text-gray-500">
-              Updated {timeAgo(updatedAt)}
-            </span>
-          </div>
-          {DISPLAY_CURRENCIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              role="option"
-              aria-selected={c === currency}
-              onClick={() => {
-                setCurrency(c);
-                setOpen(false);
-              }}
-              className={`block w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/5 ${
-                c === currency ? "bg-white/5 text-yellow-400" : "text-gray-200"
-              }`}
-            >
-              {LABEL[c]}
-            </button>
-          ))}
+          <p className="border-b border-white/8 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-yellow-500/80">
+            Display currency
+          </p>
+
+          <ul className="py-1">
+            {DISPLAY_CURRENCIES.map((c) => {
+              const meta = CURRENCY_META[c];
+              const selected = c === currency;
+              return (
+                <li key={c}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => {
+                      setCurrency(c);
+                      setOpen(false);
+                    }}
+                    className={`flex min-h-[40px] w-full items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/5 ${
+                      selected ? "bg-white/5 text-yellow-400" : "text-gray-200"
+                    }`}
+                  >
+                    <span aria-hidden className="text-sm leading-none">
+                      {meta.flag}
+                    </span>
+                    <span aria-hidden className="w-3 text-center font-semibold">
+                      {meta.symbol}
+                    </span>
+                    <span className="font-semibold tracking-wide">{c}</span>
+                    <span className="truncate text-[11px] text-gray-500">
+                      {meta.name}
+                    </span>
+                    {selected && (
+                      <Check aria-hidden className="ml-auto h-3.5 w-3.5 shrink-0" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="border-t border-white/8 px-3 py-2 text-[10px] leading-relaxed text-gray-500">
+            Orders are placed in Naira (₦). Other currencies are shown for
+            reference only.
+          </p>
         </div>
       )}
     </div>

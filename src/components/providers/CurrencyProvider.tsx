@@ -5,98 +5,105 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
-import { formatMoney } from "@/domain/shared/money";
+import {
+  CURRENCY_COOKIE,
+  CURRENCY_META,
+  DISPLAY_CURRENCIES,
+  formatDisplayPrice,
+  isDisplayCurrency,
+  type DisplayCurrency,
+} from "@/domain/shared/display-price";
 
-export type DisplayCurrency = "NGN" | "USD" | "EUR" | "GBP";
+export {
+  CURRENCY_COOKIE,
+  CURRENCY_META,
+  DISPLAY_CURRENCIES,
+  isDisplayCurrency,
+  type DisplayCurrency,
+};
 
-export const DISPLAY_CURRENCIES: DisplayCurrency[] = ["NGN", "USD", "EUR", "GBP"];
-
-export interface DisplayRates {
-  usd: number;
-  eur: number;
-  gbp: number;
-}
+const STORAGE_KEY = "ff.currency";
+const ONE_YEAR = 60 * 60 * 24 * 365;
 
 interface CurrencyContextValue {
   currency: DisplayCurrency;
   setCurrency: (c: DisplayCurrency) => void;
-  /** NGN per 1 USD. */
-  rate: number;
-  /** NGN per 1 USD / EUR / GBP — for the informational live-rate ticker. */
-  rates: DisplayRates;
-  /** ISO timestamp the rate was last refreshed (for the selector). */
-  updatedAt: string | null;
   /** Format an NGN-minor-units (kobo) amount in the selected display currency. */
   format: (ngnMinor: number) => string;
+  /** True when the shopper is viewing an indicative, non-charging currency. */
+  isIndicative: boolean;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
-const STORAGE_KEY = "ff.currency";
+
+function persist(c: DisplayCurrency) {
+  try {
+    localStorage.setItem(STORAGE_KEY, c);
+  } catch {
+    /* private mode — the cookie below still carries the choice */
+  }
+  try {
+    document.cookie = `${CURRENCY_COOKIE}=${c};path=/;max-age=${ONE_YEAR};samesite=lax`;
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
- * Browse-time display currency. Product prices are stored in NGN; this lets a
- * shopper preview them in USD. It is display-only — the authoritative charge
- * currency at checkout is still decided by the shipping destination.
+ * Browse-time display currency.
+ *
+ * Prices are stored and charged in NGN. Choosing another currency re-writes the
+ * same price under a different symbol (see `formatDisplayPrice`) — it does not
+ * convert, and there is no exchange rate involved anywhere in this provider.
+ *
+ * `initialCurrency` comes from the cookie, read on the server, so a shopper who
+ * chose USD last visit does not get a flash of naira on first paint.
  */
 export function CurrencyProvider({
-  rate,
-  rates,
-  updatedAt = null,
+  initialCurrency = "NGN",
   children,
 }: {
-  rate: number;
-  rates?: DisplayRates;
-  updatedAt?: string | null;
+  initialCurrency?: DisplayCurrency;
   children: React.ReactNode;
 }) {
-  // Memoised so the fallback object is not rebuilt each render, which would
-  // change the identity of every callback that depends on it.
-  const displayRates: DisplayRates = useMemo(
-    () => rates ?? { usd: rate, eur: rate, gbp: rate },
-    [rates, rate],
-  );
-  const [currency, setCurrencyState] = useState<DisplayCurrency>("NGN");
+  const [currency, setCurrencyState] =
+    useState<DisplayCurrency>(initialCurrency);
 
-  // Restore the saved currency after mount — localStorage is unavailable on
-  // the server, so reading it during render would desync SSR markup.
+  // Reconcile with localStorage after mount. The cookie normally already got us
+  // here; this covers the case where it was dropped (cleared cookies, a
+  // different subdomain) but the local preference survived.
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && (DISPLAY_CURRENCIES as string[]).includes(saved)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
-      setCurrencyState(saved as DisplayCurrency);
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return;
     }
-  }, []);
+    if (isDisplayCurrency(saved) && saved !== initialCurrency) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from an external store
+      setCurrencyState(saved);
+      persist(saved);
+    }
+  }, [initialCurrency]);
 
   const setCurrency = useCallback((c: DisplayCurrency) => {
+    if (!isDisplayCurrency(c)) return;
     setCurrencyState(c);
-    try {
-      localStorage.setItem(STORAGE_KEY, c);
-    } catch {
-      /* ignore */
-    }
+    persist(c);
   }, []);
 
   const format = useCallback(
-    (ngnMinor: number) => {
-      if (currency === "NGN") return formatMoney(ngnMinor, "NGN");
-      const perUnit =
-        currency === "EUR"
-          ? displayRates.eur
-          : currency === "GBP"
-            ? displayRates.gbp
-            : displayRates.usd;
-      const r = perUnit > 0 ? perUnit : rate > 0 ? rate : 1600;
-      return formatMoney(Math.round(ngnMinor / r), currency);
-    },
-    [currency, rate, displayRates],
+    (ngnMinor: number) => formatDisplayPrice(ngnMinor, currency),
+    [currency],
   );
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, rate, rates: displayRates, updatedAt, format }}>
+    <CurrencyContext.Provider
+      value={{ currency, setCurrency, format, isIndicative: currency !== "NGN" }}
+    >
       {children}
     </CurrencyContext.Provider>
   );

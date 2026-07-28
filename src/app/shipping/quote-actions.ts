@@ -22,8 +22,7 @@ import {
 } from "@/infrastructure/supabase/pricing-service";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
-import { convertFromNgnMinor, orderCurrencyForCountry } from "@/domain/shipping/currency";
-import { getExchangeRate } from "@/infrastructure/exchange-rate/service";
+import { ORDER_CURRENCY } from "@/domain/shipping/currency";
 
 /**
  * The one quote endpoint.
@@ -112,10 +111,9 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       return { ok: false, error: "Nothing in this bag is available." };
     }
 
-    const [table, defaultWeight, { ngnPerUsd }] = await Promise.all([
+    const [table, defaultWeight] = await Promise.all([
       loadPricingTable(),
       defaultItemWeightGrams(),
-      getExchangeRate(),
     ]);
 
     const weightGrams = totalCartWeight(weightLines, defaultWeight);
@@ -125,9 +123,9 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       subtotalKobo,
     });
 
-    const currency = orderCurrencyForCountry(input.countryCode);
-    const toDisplay = (kobo: number) =>
-      convertFromNgnMinor(kobo, currency, ngnPerUsd);
+    // Quoted in the currency the order is placed in — kobo, unconverted.
+    const currency = ORDER_CURRENCY;
+    const toDisplay = (kobo: number) => kobo;
 
     const options: QuoteOption[] = lookup.options.map((o) => ({
       ...o,

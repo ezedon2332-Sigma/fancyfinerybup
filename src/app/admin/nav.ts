@@ -8,7 +8,6 @@ import {
   CreditCard,
   FileText,
   Gift,
-  Globe2,
   LayoutDashboard,
   Layers,
   Mail,
@@ -17,7 +16,6 @@ import {
   Package,
   Palette,
   Plug,
-  RefreshCcw,
   Settings,
   ShoppingCart,
   Tags,
@@ -130,13 +128,6 @@ export const NAV: NavGroup[] = [
       { label: "Newsletter", href: "/admin/newsletter", icon: Mail, status: "ready" },
       { label: "Marketing", href: "#", icon: Megaphone, status: "planned" },
       { label: "Notifications", href: "#", icon: Bell, status: "planned" },
-    ],
-  },
-  {
-    heading: "Money",
-    items: [
-      { label: "Exchange Rate", href: "/admin/exchange-rate", icon: RefreshCcw, status: "ready" },
-      { label: "Currency Manager", href: "/admin/exchange-rate", icon: Globe2, status: "ready" },
     ],
   },
   {

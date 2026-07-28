@@ -21,7 +21,6 @@ import { useCart } from "@/components/cart/CartProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
 import { CurrencySwitcher } from "./CurrencySwitcher";
-import { LiveRateTicker } from "./LiveRateTicker";
 import { MobileNav } from "./MobileNav";
 import { AccountMenu } from "./AccountMenu";
 
@@ -74,9 +73,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
   return (
     <>
       <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
-      {/* The rate ticker used to sit here as a full-width strip. It now lives
-          inside the brand column below, so the branding leads the header. */}
-
       {/* Top utility bar */}
       <div className="hidden border-b border-white/5 lg:block">
         <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">
@@ -108,8 +104,8 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           what let them collide with the wordmark as the branding grew — a
           centre column has no way to yield. With space-between the two blocks
           can only move away from each other. */}
-      <nav className="mx-auto flex h-[148px] max-w-7xl items-center justify-between gap-6 px-4 sm:h-[132px] sm:px-6 lg:gap-6 lg:px-10 xl:h-[156px]">
-        {/* Branding: lockup, then the live rate directly beneath it. */}
+      <nav className="mx-auto flex h-[116px] max-w-7xl items-center justify-between gap-6 px-4 sm:h-[104px] sm:px-6 lg:gap-6 lg:px-10 xl:h-[124px]">
+        {/* Branding: the lockup, alone. */}
         <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2">
           {/* Stacks on phones: side by side, the mark plus the name at its
               desktop size needs ~463px of a 343px row. Vertical keeps the
@@ -146,8 +142,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
               </span>
             </span>
           </Link>
-
-          <LiveRateTicker variant="card" />
         </div>
 
         {/* Right-hand block: navigation, then the action icons. Grouping them
