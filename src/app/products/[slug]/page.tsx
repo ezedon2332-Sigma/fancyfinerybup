@@ -13,6 +13,7 @@ import { getProductBySlug, listProducts,
   listCategories,
 } from "@/application/use-cases/catalog";
 import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { safeJsonLd } from "@/lib/safe-json-ld";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
@@ -136,7 +137,7 @@ export default async function ProductPage({
     <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <TrackView
         item={{

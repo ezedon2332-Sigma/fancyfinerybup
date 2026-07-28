@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { rethrowFrameworkErrors } from "@/lib/rethrow-framework-errors";
 import type { Metadata } from "next";
 
 import { ProductSearch } from "@/components/catalog/ProductSearch";
@@ -16,11 +17,20 @@ export default async function CollectionsPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const { category } = await searchParams;
-  const deps = await getCatalogDeps();
-  const [products, categories] = await Promise.all([
-    listProducts(deps, category ? { categorySlug: category } : undefined),
-    listCategories(deps),
-  ]);
+  // Degrade to an empty grid on a catalogue outage rather than failing the
+  // route — the filters and shell stay usable.
+  let products: Awaited<ReturnType<typeof listProducts>> = [];
+  let categories: Awaited<ReturnType<typeof listCategories>> = [];
+  try {
+    const deps = await getCatalogDeps();
+    [products, categories] = await Promise.all([
+      listProducts(deps, category ? { categorySlug: category } : undefined),
+      listCategories(deps),
+    ]);
+  } catch (e) {
+    rethrowFrameworkErrors(e);
+    console.error("[collections] catalogue unavailable", e);
+  }
 
   const active = category ?? "all";
 

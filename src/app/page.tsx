@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { rethrowFrameworkErrors } from "@/lib/rethrow-framework-errors";
 import path from "node:path";
 
 import { HeroSection } from "@/components/HeroSection";
@@ -28,11 +29,21 @@ const PROMO_META: Record<string, { name: string; tagline: string }> = {
 const PROMO_ORDER = ["women", "men", "children"];
 
 export default async function Home() {
-  const deps = await getCatalogDeps();
-  const [products, categories] = await Promise.all([
-    listProducts(deps),
-    listCategories(deps),
-  ]);
+  // A catalogue outage degrades the page rather than failing the route: the
+  // hero, the newsletter and the whole shell still render. Previously any
+  // Supabase blip took the homepage to the error boundary.
+  let products: Awaited<ReturnType<typeof listProducts>> = [];
+  let categories: Awaited<ReturnType<typeof listCategories>> = [];
+  try {
+    const deps = await getCatalogDeps();
+    [products, categories] = await Promise.all([
+      listProducts(deps),
+      listCategories(deps),
+    ]);
+  } catch (e) {
+    rethrowFrameworkErrors(e);
+    console.error("[home] catalogue unavailable", e);
+  }
 
   // Category image lookup — first product with an actual IMAGE (skip
   // video-only products; a video URL can't render as a static promo image).

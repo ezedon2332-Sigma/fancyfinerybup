@@ -559,10 +559,19 @@ export async function listSubscribers(
 
   if (q.status) query = query.eq("status", q.status as SubscriberStatus);
   if (q.search) {
-    const term = `%${q.search.trim()}%`;
-    query = query.or(
-      `email.ilike.${term},first_name.ilike.${term},last_name.ilike.${term},country.ilike.${term}`,
-    );
+    // `.or()` takes a raw PostgREST filter string, so the term is interpolated
+    // into query syntax rather than bound as a parameter. Left unsanitised, a
+    // search for `x,status.eq.subscribed` would append a condition, and a comma
+    // or parenthesis could break the expression outright. Strip the characters
+    // that carry meaning there, and the wildcards, so the term can only ever be
+    // a literal.
+    const term = q.search.replace(/[,().:*"\\%]/g, "").trim();
+    if (term) {
+      const like = `%${term}%`;
+      query = query.or(
+        `email.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},country.ilike.${like}`,
+      );
+    }
   }
 
   const { data } = await query;

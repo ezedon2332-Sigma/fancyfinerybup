@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { rethrowFrameworkErrors } from "@/lib/rethrow-framework-errors";
 
 import {
   LookbookGallery,
@@ -15,8 +16,14 @@ export const metadata: Metadata = {
 };
 
 export default async function LookbookPage() {
-  const deps = await getCatalogDeps();
-  const products = await listProducts(deps);
+  let products: Awaited<ReturnType<typeof listProducts>> = [];
+  try {
+    const deps = await getCatalogDeps();
+    products = await listProducts(deps);
+  } catch (e) {
+    rethrowFrameworkErrors(e);
+    console.error("[lookbook] catalogue unavailable", e);
+  }
   // Lookbook panels are full-bleed photography — only products with an actual
   // IMAGE (never video-only, whose URL can't render in <Image>).
   const items: LookItem[] = products

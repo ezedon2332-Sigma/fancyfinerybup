@@ -1,9 +1,48 @@
 import type { NextConfig } from "next";
 
-// Security headers applied to every route. Deliberately NO Content-Security-
-// Policy here — the app talks to Supabase, an exchange-rate API and redirects
-// to payment providers, so a CSP needs careful per-source tuning first.
+/**
+ * Content-Security-Policy, in REPORT-ONLY mode.
+ *
+ * Report-Only deliberately: a CSP that blocks something the checkout needs
+ * takes payments down, and that is not a failure worth risking to gain a
+ * header. In this mode the browser reports what *would* have been blocked
+ * without blocking it, so the policy can be proven against real traffic first.
+ * Promote it by renaming the header to `Content-Security-Policy` once the
+ * console is quiet.
+ *
+ * Sources were enumerated from the codebase, not guessed. Only origins the
+ * BROWSER reaches are listed — the email providers and the Paystack API are
+ * called server-side and never appear in a page request.
+ *
+ *   script/style 'unsafe-inline'  Next.js inlines its hydration bootstrap, and
+ *                                the app uses inline style attributes. Removing
+ *                                these needs per-request nonces.
+ *   img  *.supabase.co            product photography in Storage
+ *   connect  *.supabase.co        PostgREST and Storage from the client
+ *            nominatim…           reverse geocoding for checkout's "use my
+ *                                 location", which runs in the browser
+ *   form-action  paystack         checkout redirects to the hosted payment page
+ *   frame-ancestors 'none'        no embedding; stricter than X-Frame-Options
+ */
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://*.supabase.co",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co https://nominatim.openstreetmap.org",
+  "media-src 'self' https://*.supabase.co",
+  "form-action 'self' https://checkout.paystack.com",
+  "frame-src 'self' https://checkout.paystack.com",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
+// Security headers applied to every route.
 const securityHeaders = [
+  { key: "Content-Security-Policy-Report-Only", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
