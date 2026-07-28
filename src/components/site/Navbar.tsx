@@ -72,7 +72,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
   return (
     <>
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
       {/* Top utility bar */}
       <div className="hidden border-b border-white/5 lg:block">
         <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">
@@ -104,7 +104,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           what let them collide with the wordmark as the branding grew — a
           centre column has no way to yield. With space-between the two blocks
           can only move away from each other. */}
-      <nav className="mx-auto flex h-[116px] max-w-7xl items-center justify-between gap-6 px-4 sm:h-[104px] sm:px-6 lg:gap-6 lg:px-10 xl:h-[124px]">
+      <nav className="mx-auto flex h-[116px] max-w-7xl items-center justify-between gap-2 px-4 sm:h-[104px] sm:gap-4 sm:px-6 lg:gap-6 lg:px-10 xl:h-[124px]">
         {/* Branding: the lockup, alone. */}
         <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2">
           {/* Stacks on phones: side by side, the mark plus the name at its
@@ -124,7 +124,7 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
               className="brand-mark h-16 w-16 object-contain sm:h-[76px] sm:w-[76px] xl:h-[100px] xl:w-[100px]"
             />
             <span className="flex flex-col justify-center leading-none">
-              <span className="brand-wordmark whitespace-nowrap text-[19px] leading-none tracking-[0.14em] sm:text-[26px] sm:tracking-[0.17em] xl:text-[32px]">
+              <span className="brand-wordmark whitespace-nowrap text-[clamp(13px,3.9vw,19px)] leading-none tracking-[0.14em] sm:text-[26px] sm:tracking-[0.17em] xl:text-[32px]">
                 FANCY FINERY
               </span>
               {/* Tagline stays off on phones — a third line would push the
@@ -147,9 +147,9 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         {/* Right-hand block: navigation, then the action icons. Grouping them
             means the whole thing is pushed right as one unit and the gap to
             the branding is whatever space is left over — never negative. */}
-        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-8">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-4 2xl:gap-8">
         {/* Navigation — hard right, hamburger below lg */}
-        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-4 xl:text-[11px] xl:tracking-[0.15em] 2xl:gap-7 2xl:tracking-[0.16em]">
+        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-3 xl:text-[11px] xl:tracking-[0.09em] 2xl:gap-6 2xl:tracking-[0.16em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -173,21 +173,18 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
         </div>
 
         {/* Actions.
-            Revealed progressively, because the full set does not fit on a
-            narrow phone: at 320px this row overflowed by 53px and at 360px by
-            13px. Anything withheld here is in the drawer, so nothing becomes
-            unreachable — only less prominent.
+            Currency is unconditional — it is a control a shopper needs before
+            they can read a price, so it is never the thing that gets dropped
+            to make room. The rest reveal progressively:
 
-              < sm   Bag, Account, Menu
-              sm     + Currency
-              lg     + Search, Wishlist  (Menu goes, links are inline)
+              all    Currency, Bag, Menu
+              xl     + Search, Wishlist, Account  (Menu goes, links inline)
 
-            Every control is a 44x44 target on touch, easing to 40 from lg
-            where there is a pointer rather than a fingertip. */}
+            Anything withheld here is in the drawer, so nothing is unreachable,
+            only less prominent. Every control is a 44x44 target on touch,
+            easing to 40 from lg where there is a pointer not a fingertip. */}
         <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
-          <span className="hidden sm:inline-flex">
-            <CurrencySwitcher />
-          </span>
+          <CurrencySwitcher />
 
           <Link href="/collections" aria-label="Search" className={`${ICON} hidden xl:flex`}>
             <Search className="h-5 w-5" />

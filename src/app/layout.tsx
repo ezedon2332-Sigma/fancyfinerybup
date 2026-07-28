@@ -102,11 +102,10 @@ export default async function RootLayout({
               <WishlistProvider>
                 <RecentlyViewedProvider>
                   <SiteHeader />
-                  {/* Offset matches the fixed header exactly. Below lg it is just the
-                      nav (116 on phones where the lockup stacks, 104 from sm);
-                      from lg the utility bar adds 40 on top of a 132 nav, and
-                      the nav grows to 124 at xl. */}
-                  <main className="flex-1 pt-[160px] sm:pt-[148px] lg:pt-[188px] xl:pt-[164px]">
+                  {/* No top padding: the header is sticky rather than fixed, so
+                      it occupies its own height and there is no magic number to
+                      keep in sync as the header reflows. */}
+                  <main className="flex-1">
                     {children}
                   </main>
                   <SiteFooter />
