@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { INTEREST_IDS, SUBSCRIBER_SOURCES } from "@/domain/newsletter";
+import { checkPassword } from "@/domain/password-policy";
 
 /** Shared zod schemas. Reused by client forms and server actions. */
 
@@ -140,6 +141,50 @@ export type ColorRequestInput = z.infer<typeof colorRequestSchema>;
 
 /** Privé Circle — VIP newsletter signup. `website` is a honeypot: it is
  *  hidden from humans, so anything in it means a bot filled the form. */
+/**
+ * Account creation.
+ *
+ * The same schema runs in the browser for instant feedback and again inside the
+ * server action, which is the copy that actually decides. Password rules come
+ * from `domain/password-policy` rather than being restated here, so there is a
+ * single definition of what the house considers a strong password.
+ */
+export const signUpSchema = z
+  .object({
+    firstName: z.string().trim().min(2, "Your first name is required").max(80),
+    lastName: z.string().trim().min(2, "Your last name is required").max(80),
+    email: emailSchema,
+    // Optional — but if it is given, it has to look like something dialable.
+    phone: z
+      .string()
+      .trim()
+      .max(40, "That phone number is too long")
+      .refine((v) => v === "" || /^[+\d][\d\s()-]{5,}$/.test(v), {
+        message: "Enter a valid phone number, or leave it blank",
+      })
+      .optional()
+      .default(""),
+    password: z
+      .string()
+      .max(200, "That password is too long")
+      .refine((v) => checkPassword(v).valid, {
+        message: "Your password does not meet all of the requirements below",
+      }),
+    confirmPassword: z.string(),
+    // Deliberately permissive: the action inspects this itself and returns a
+    // fake success. Rejecting it here would parse-fail instead, telling the bot
+    // exactly which field gave it away.
+    website: z.string().max(200).optional(),
+  })
+  // Reported against confirmPassword so the message lands on the field that is
+  // actually wrong, not at the top of the form.
+  .refine((d) => d.password === d.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Those passwords do not match",
+  });
+
+export type SignUpInput = z.infer<typeof signUpSchema>;
+
 export const newsletterSignupSchema = z.object({
   firstName: z.string().trim().min(2, "Your first name is required").max(80),
   lastName: z.string().trim().max(80).nullable().optional(),

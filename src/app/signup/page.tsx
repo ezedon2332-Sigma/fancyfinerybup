@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { SignUpForm } from "@/components/auth/SignUpForm";
@@ -26,10 +25,12 @@ export default function SignUpPage() {
           </p>
         </header>
 
+        {/* No Suspense boundary. The form reads no search params and fetches
+            nothing, so wrapping it bought nothing except a blank card while
+            React held the markup in a hidden staging div and swapped it in
+            afterwards. Rendered inline it is in the first HTML response. */}
         <Card className="mt-8 p-6 sm:p-7">
-          <Suspense fallback={null}>
-            <SignUpForm />
-          </Suspense>
+          <SignUpForm />
         </Card>
       </div>
     </div>

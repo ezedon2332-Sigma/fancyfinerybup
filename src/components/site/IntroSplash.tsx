@@ -2,17 +2,27 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
  * Gold light-sweep intro: black screen → gold logo appears → a shimmering gold
  * light sweeps across it → "FANCY FINERY" fades in → the overlay fades away.
  * Plays once per browser session and is skipped for reduced-motion users.
+ *
+ * Homepage only, deliberately. This is an opaque overlay at z-9999 with no
+ * pointer-events escape, so for as long as it plays nothing on the page can be
+ * clicked or typed into. That is a fair trade for an arrival on the front door,
+ * and a bad one anywhere else: someone following a "create your account" link
+ * from an email, or landing on checkout, would sit through a brand animation
+ * before the form would accept a keystroke.
  */
 export function IntroSplash() {
   const [show, setShow] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
+    if (pathname !== "/") return;
     try {
       if (sessionStorage.getItem("ff.introSeen")) return;
       sessionStorage.setItem("ff.introSeen", "1");
@@ -24,7 +34,7 @@ export function IntroSplash() {
     setShow(true);
     const t = setTimeout(() => setShow(false), 2600);
     return () => clearTimeout(t);
-  }, []);
+  }, [pathname]);
 
   return (
     <AnimatePresence>
