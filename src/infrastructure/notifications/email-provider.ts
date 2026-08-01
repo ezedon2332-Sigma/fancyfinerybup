@@ -1,4 +1,5 @@
 import "server-only";
+import { BRAND_FROM } from "@/lib/site";
 
 /**
  * Pluggable marketing-email transport.
@@ -43,7 +44,11 @@ export interface SendResult {
 }
 
 function fromAddress(): string {
-  return process.env.EMAIL_FROM ?? "Fancy Finery <no-reply@fancyfinery.com>";
+  // Defaults to the house mailbox rather than no-reply@fancyfinery.com, which
+  // was a domain the business does not own — mail from an unowned domain fails
+  // SPF and DKIM and is dropped or filed as spam. EMAIL_FROM overrides this the
+  // day a real sending domain exists.
+  return process.env.EMAIL_FROM ?? BRAND_FROM;
 }
 
 function configured(): { provider: EmailProvider; key: string } | null {

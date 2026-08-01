@@ -1,3 +1,5 @@
+import { BRAND_EMAIL } from "@/lib/site";
+
 export default function ContactPage() {
   return (
     <div className="min-h-screen bg-black text-white">
@@ -17,10 +19,10 @@ export default function ContactPage() {
               Email
             </h2>
             <a
-              href="mailto:fancyxquisite@gmail.com"
+              href={`mailto:${BRAND_EMAIL}`}
               className="mt-1 inline-block text-lg text-gray-200 transition-colors hover:text-yellow-400"
             >
-              fancyxquisite@gmail.com
+              {BRAND_EMAIL}
             </a>
           </div>
 

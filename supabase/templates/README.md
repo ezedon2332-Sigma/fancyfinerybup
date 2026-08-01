@@ -27,23 +27,62 @@ project's SMTP configuration. Until that is changed, the inbox line still reads
 looks once opened — which is the first thing a customer sees and the last piece
 of generic branding.
 
-Fixing it means pointing Supabase at your own SMTP:
+The house address is `fancyxquisite@gmail.com` — the mailbox that owns the admin
+dashboard, defined once as `BRAND_EMAIL` in `src/lib/site.ts`.
 
-- Dashboard → **Project Settings** → **Authentication** → **SMTP Settings**
-- Enable custom SMTP, set **Sender name** to `Fancy Finery` and **Sender email**
-  to an address on a domain you control
+### Sending as that address
 
-There is a second reason to do this regardless of branding: Supabase's built-in
-email sender is intended for development and is rate limited, so a busy signup
-day can silently stop delivering confirmations.
+Only one route actually works, and it is worth understanding why before trying
+the other.
 
-This codebase already speaks Resend (`src/infrastructure/notifications/email-provider.ts`,
-keyed on `RESEND_API_KEY`), and Resend publishes SMTP credentials alongside its
-API — so the same account can serve both the newsletter and Supabase auth. No
-mail provider is configured in `.env` yet, so that key needs setting either way.
+A mail service will only let you send **from** an address whose domain you can
+prove you own, by adding DKIM and SPF records to its DNS. Nobody can add DNS
+records to `gmail.com`. So Resend, SendGrid, Postmark and the rest will all
+reject `fancyxquisite@gmail.com` as a sender no matter what is typed into the
+box. The one server entitled to send as that address is Google's own.
 
-Whichever provider you use, authenticate the sending domain (SPF, DKIM and
-ideally DMARC) or a well-branded confirmation email will still land in spam.
+**Supabase → Project Settings → Authentication → SMTP Settings**
+
+| Field | Value |
+| --- | --- |
+| Host | `smtp.gmail.com` |
+| Port | `465` (SSL) — or `587` for STARTTLS |
+| Username | `fancyxquisite@gmail.com` |
+| Password | a Google **App Password**, not the account password |
+| Sender name | `Fancy Finery` |
+| Sender email | `fancyxquisite@gmail.com` |
+
+An App Password is generated at Google Account → Security → 2-Step Verification
+→ App passwords, and 2-Step Verification has to be switched on first. A normal
+password will be refused.
+
+Two limits to know about rather than discover:
+
+- A free Gmail account allows roughly **500 recipients a day** and throttles
+  bursts. Fine for early signups; it will not survive a launch.
+- The inbox will read **Fancy Finery**, which is the goal, but the address
+  underneath still says `@gmail.com`. Every luxury house a customer compares you
+  to writes from its own domain, so this is worth revisiting when there is one.
+
+### The better long-term answer
+
+Buy the domain, then send from `no-reply@` or `hello@` on it through Resend —
+which this codebase already speaks (`src/infrastructure/notifications/email-provider.ts`,
+keyed on `RESEND_API_KEY`). Set `EMAIL_FROM` to override the default, point
+Supabase's SMTP at Resend, and authenticate the domain with SPF, DKIM and
+ideally DMARC. No daily cap, better deliverability, and it reads as a real
+company.
+
+Whichever route you take, note that Supabase's built-in sender is intended for
+development and is rate limited, so leaving it in place risks confirmations
+silently failing to arrive.
+
+### What the code already does
+
+`EMAIL_FROM` overrides the sender for the app's own mail (newsletter, order
+notifications). Its default was `no-reply@fancyfinery.com` — a domain the
+business does not own, which would have failed SPF and DKIM and been dropped or
+filed as spam. It now falls back to `BRAND_FROM`, the house address.
 
 ## Other auth emails
 
