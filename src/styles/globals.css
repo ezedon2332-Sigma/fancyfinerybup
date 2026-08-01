@@ -313,3 +313,32 @@ body {
     transform: none;
   }
 }
+
+/*
+ * Native dropdown options.
+ *
+ * The shell is dark and inputs carry `text-white`, which options inherit — but
+ * the open popup is painted by the operating system on a light background, so
+ * every option was white on white and only became readable when the hover
+ * highlight passed over it. Naming both colours fixes it, and `color-scheme`
+ * tells Chromium to paint the popup itself dark rather than leaving us to
+ * fight it.
+ *
+ * This is the floor for every native <select> still in the app, admin
+ * included. Where the dropdown needs more than legibility — brand highlight,
+ * keyboard-driven active state, opening upward — use <SelectMenu> instead; a
+ * native popup cannot be styled that far.
+ */
+select {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #101010;
+  color: #f4f4f5;
+}
+
+select option:disabled {
+  color: #6b7280;
+}

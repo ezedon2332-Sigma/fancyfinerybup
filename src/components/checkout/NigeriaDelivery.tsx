@@ -16,7 +16,8 @@ import {
   type NgState,
 } from "@/domain/shipping/nigeria";
 import { formatMinor } from "@/domain/shared/display-price";
-import { FIELD, Field } from "@/components/ui";
+import { Field } from "@/components/ui";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -134,19 +135,14 @@ export function NigeriaDelivery({
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="State" htmlFor="ng-state">
-          <select
+          <SelectMenu
             id="ng-state"
             value={stateId}
-            onChange={(e) => setStateId(e.target.value)}
-            className={FIELD}
-          >
-            <option value="">Select your state…</option>
-            {states.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            onChange={setStateId}
+            ariaLabel="Delivery state"
+            placeholder="Select your state…"
+            options={states.map((s) => ({ value: s.id, label: s.name }))}
+          />
         </Field>
 
         {/* The area selector only exists once a state is chosen — an empty
@@ -162,24 +158,24 @@ export function NigeriaDelivery({
             >
               <Field label="Delivery area" htmlFor="ng-destination">
                 <div className="relative">
-                  <select
+                  <SelectMenu
                     id="ng-destination"
                     value={destinationId ?? ""}
-                    onChange={(e) => onChange(e.target.value || null)}
+                    onChange={(v) => onChange(v || null)}
                     disabled={!loaded || destinations.length === 0}
-                    className={`${FIELD} disabled:opacity-50`}
-                  >
-                    <option value="">
-                      {!loaded ? "Loading areas…" : "Select your area…"}
-                    </option>
-                    {destinations.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} — {formatMinor(d.priceKobo, "NGN")}
-                      </option>
-                    ))}
-                  </select>
+                    ariaLabel="Delivery area"
+                    placeholder={loaded ? "Select your area…" : "Loading areas…"}
+                    /* The fee rides alongside the name rather than being glued
+                       into the label, so it stays right-aligned and legible
+                       even at 320px. */
+                    options={destinations.map((d) => ({
+                      value: d.id,
+                      label: d.name,
+                      hint: formatMinor(d.priceKobo, "NGN"),
+                    }))}
+                  />
                   {pending && (
-                    <Loader2 className="pointer-events-none absolute right-9 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-500" />
+                    <Loader2 className="pointer-events-none absolute right-10 top-[26px] h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-500" />
                   )}
                 </div>
               </Field>
