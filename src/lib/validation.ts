@@ -149,7 +149,7 @@ export type ColorRequestInput = z.infer<typeof colorRequestSchema>;
  * from `domain/password-policy` rather than being restated here, so there is a
  * single definition of what the house considers a strong password.
  */
-export const signUpSchema = z
+const signUpShape = z
   .object({
     firstName: z.string().trim().min(2, "Your first name is required").max(80),
     lastName: z.string().trim().min(2, "Your last name is required").max(80),
@@ -171,19 +171,73 @@ export const signUpSchema = z
         message: "Your password does not meet all of the requirements below",
       }),
     confirmPassword: z.string(),
+    // Optional. Two-letter code when given, so it matches the shipping data.
+    country: z
+      .string()
+      .trim()
+      .max(2)
+      .optional()
+      .default(""),
+    // Required, and validated on the server too — a consent flag that only the
+    // browser checks is not a record of consent.
+    acceptTerms: z.literal(true, {
+      message: "Please accept the terms to create an account",
+    }),
     // Deliberately permissive: the action inspects this itself and returns a
     // fake success. Rejecting it here would parse-fail instead, telling the bot
     // exactly which field gave it away.
     website: z.string().max(200).optional(),
-  })
-  // Reported against confirmPassword so the message lands on the field that is
-  // actually wrong, not at the top of the form.
-  .refine((d) => d.password === d.confirmPassword, {
-    path: ["confirmPassword"],
-    message: "Those passwords do not match",
   });
 
+const PASSWORD_MISMATCH = "Those passwords do not match";
+
+/**
+ * The authoritative gate. Shape plus the cross-field check, so nothing can be
+ * submitted with mismatched passwords even if the UI is bypassed.
+ */
+export const signUpSchema = signUpShape.refine(
+  (d) => d.password === d.confirmPassword,
+  { path: ["confirmPassword"], message: PASSWORD_MISMATCH },
+);
+
 export type SignUpInput = z.infer<typeof signUpSchema>;
+
+/**
+ * Every problem with a signup attempt, at once.
+ *
+ * Needed because a zod `.refine()` on an object only runs when the shape itself
+ * parses. Left to `signUpSchema` alone, an unticked terms box would suppress the
+ * password-mismatch message entirely: the customer fixes the checkbox, submits
+ * again, and only then discovers the passwords never matched. Reporting one
+ * fault per submit is precisely what the live checklist exists to avoid, so the
+ * cross-field check runs here independently of shape validity.
+ *
+ * Used for the messages; `signUpSchema` still decides whether to proceed.
+ */
+export function signUpFieldErrors(input: unknown): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  const parsed = signUpShape.safeParse(input);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? "form");
+      if (!errors[key]) errors[key] = issue.message;
+    }
+  }
+
+  const v = input as { password?: unknown; confirmPassword?: unknown } | null;
+  if (
+    typeof v?.password === "string" &&
+    typeof v?.confirmPassword === "string" &&
+    v.confirmPassword.length > 0 &&
+    v.password !== v.confirmPassword &&
+    !errors.confirmPassword
+  ) {
+    errors.confirmPassword = PASSWORD_MISMATCH;
+  }
+
+  return errors;
+}
 
 export const newsletterSignupSchema = z.object({
   firstName: z.string().trim().min(2, "Your first name is required").max(80),

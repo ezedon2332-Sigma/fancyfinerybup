@@ -8,7 +8,8 @@ import { Check, Eye, EyeOff, Globe, MailCheck, X } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
 import { signUpAction } from "@/app/signup/actions";
-import { signUpSchema } from "@/lib/validation";
+import { signUpSchema, signUpFieldErrors } from "@/lib/validation";
+import { COUNTRIES } from "@/domain/shipping/countries";
 import {
   PASSWORD_RULES,
   checkPassword,
@@ -45,6 +46,8 @@ export function SignUpForm({ next = "/account" }: { next?: string }) {
     lastName: "",
     email: "",
     phone: "",
+    country: "",
+    acceptTerms: false,
     password: "",
     confirmPassword: "",
     website: "", // honeypot
@@ -72,14 +75,11 @@ export function SignUpForm({ next = "/account" }: { next?: string }) {
     e.preventDefault();
     setFormError(null);
 
+    // Every fault at once, not one per submit.
+    const found = signUpFieldErrors(form);
     const parsed = signUpSchema.safeParse(form);
-    if (!parsed.success) {
-      const next: Errors = {};
-      for (const issue of parsed.error.issues) {
-        const key = String(issue.path[0] ?? "form");
-        if (!next[key]) next[key] = issue.message;
-      }
-      setErrors(next);
+    if (!parsed.success || Object.keys(found).length > 0) {
+      setErrors(found);
       setTouchedPassword(true);
       setFormError("Please check the highlighted fields.");
       return;
@@ -206,24 +206,48 @@ export function SignUpForm({ next = "/account" }: { next?: string }) {
           />
         </Field>
 
-        <Field
-          label="Phone number"
-          htmlFor="su-phone"
-          optional
-          error={errors.phone}
-          hint="For delivery updates only."
-        >
-          <input
-            id="su-phone"
-            type="tel"
-            value={form.phone}
-            onChange={(e) => set("phone")(e.target.value)}
-            autoComplete="tel"
-            className={FIELD}
-            placeholder="+234 800 000 0000"
-            aria-invalid={Boolean(errors.phone)}
-          />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Country"
+            htmlFor="su-country"
+            optional
+            error={errors.country}
+          >
+            <select
+              id="su-country"
+              value={form.country}
+              onChange={(e) => set("country")(e.target.value)}
+              autoComplete="country"
+              className={`${FIELD} appearance-none bg-[position:right_0.75rem_center] bg-no-repeat pr-10`}
+              aria-invalid={Boolean(errors.country)}
+            >
+              <option value="">Select…</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field
+            label="Phone number"
+            htmlFor="su-phone"
+            optional
+            error={errors.phone}
+          >
+            <input
+              id="su-phone"
+              type="tel"
+              value={form.phone}
+              onChange={(e) => set("phone")(e.target.value)}
+              autoComplete="tel"
+              className={FIELD}
+              placeholder="+234 800 000 0000"
+              aria-invalid={Boolean(errors.phone)}
+            />
+          </Field>
+        </div>
 
         <Field label="Password" htmlFor="su-password" error={errors.password}>
           <div className="relative">
@@ -329,6 +353,39 @@ export function SignUpForm({ next = "/account" }: { next?: string }) {
             />
           </div>
         </Field>
+
+        {/* Consent. The label wraps the whole sentence, so the tap target is
+            the text rather than a 16px box. Wording is not hyperlinked yet:
+            /terms and /privacy do not exist, and pointing a required consent
+            control at two 404s is worse than pointing it nowhere. */}
+        <div>
+          <label
+            htmlFor="su-terms"
+            className="flex min-h-[44px] cursor-pointer items-center gap-3 py-2 text-xs leading-relaxed text-gray-400"
+          >
+            <input
+              id="su-terms"
+              type="checkbox"
+              checked={form.acceptTerms}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, acceptTerms: e.target.checked }));
+                if (errors.acceptTerms) {
+                  setErrors((prev) => ({ ...prev, acceptTerms: "" }));
+                }
+              }}
+              className="h-4 w-4 shrink-0 accent-yellow-500"
+              aria-invalid={Boolean(errors.acceptTerms)}
+            />
+            <span>
+              I agree to the Terms &amp; Conditions and Privacy Policy
+            </span>
+          </label>
+          {errors.acceptTerms && (
+            <p className="mt-1.5 text-[11px] text-red-400">
+              {errors.acceptTerms}
+            </p>
+          )}
+        </div>
 
         <AnimatePresence initial={false}>
           {confirmMatches && (

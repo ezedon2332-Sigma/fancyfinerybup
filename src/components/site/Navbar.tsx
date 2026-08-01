@@ -20,6 +20,7 @@ import {
 import { useCart } from "@/components/cart/CartProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { AuthButtons } from "./AuthButtons";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { MobileNav } from "./MobileNav";
 import { AccountMenu } from "./AccountMenu";
@@ -75,25 +76,30 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
       <header className="sticky top-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
       {/* Top utility bar */}
       <div className="hidden border-b border-white/5 lg:block">
-        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-6 text-[11px] text-gray-300 lg:px-10">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between gap-4 px-6 text-[11px] text-gray-300 lg:px-10">
+          <div className="flex min-w-0 items-center gap-4 xl:gap-6">
             <span className="flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5 text-yellow-500" />
               <strong className="font-semibold text-gray-200">WORLDWIDE SHIPPING</strong>
-              <span className="text-gray-500">Delivery to 200+ countries</span>
+              <span className="hidden text-gray-500 xl:inline">Delivery to 200+ countries</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-yellow-500" />
               <strong className="font-semibold text-gray-200">PREMIUM QUALITY</strong>
-              <span className="text-gray-500">Finest fabrics &amp; craftsmanship</span>
+              <span className="hidden text-gray-500 xl:inline">Finest fabrics &amp; craftsmanship</span>
             </span>
             <span className="flex items-center gap-1.5">
               <RefreshCw className="h-3.5 w-3.5 text-yellow-500" />
               <strong className="font-semibold text-gray-200">EASY RETURNS</strong>
-              <span className="text-gray-500">30-day return policy</span>
+              <span className="hidden text-gray-500 xl:inline">30-day return policy</span>
             </span>
           </div>
-          <CurrencyLanguageMenu />
+          <div className="flex items-center gap-3">
+            {/* Guests get the pair here; a signed-in visitor gets nothing,
+                because their profile menu is in the row below. */}
+            {!user && <AuthButtons />}
+            <CurrencyLanguageMenu />
+          </div>
         </div>
       </div>
 
@@ -216,9 +222,17 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             {count > 0 && <Count>{count}</Count>}
           </button>
 
-          <span className="hidden xl:inline-flex">
-            <AccountMenu user={user} wishCount={wishCount} />
-          </span>
+          {/* Signed in only, and from sm up.
+              Guests do not get this: the Create Account / Sign In pair in the
+              utility bar replaces it, and everything the guest version of this
+              menu held is reachable from there or the strip. Held back below sm
+              because at 320px the row has 17px spare and this control is 44 —
+              on that width the drawer carries the account links instead. */}
+          {user && (
+            <span className="hidden sm:inline-flex">
+              <AccountMenu user={user} wishCount={wishCount} />
+            </span>
+          )}
 
           <button
             type="button"
@@ -243,6 +257,16 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           below that, contained here so the page itself never scrolls. */}
       <div className="border-t border-white/8 xl:hidden">
         <div className="nav-strip mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-2 sm:px-4">
+          {/* Auth first in the scroll order, not buried after eight page links.
+              There is no utility bar below lg, so this is where the pair lives
+              on phones and tablets. */}
+          {!user && (
+            <>
+              <AuthButtons compact />
+              <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/12" />
+            </>
+          )}
+
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -286,13 +310,15 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
 
           {/* A link, not the dropdown: a menu opening inside a horizontally
               scrolling container would be clipped by its overflow. */}
-          <Link
-            href={user ? "/account" : "/login"}
-            className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}
-          >
-            <User className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
-            {user ? "Account" : "Sign In"}
-          </Link>
+          {user && (
+            <Link
+              href="/account"
+              className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}
+            >
+              <User className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+              Account
+            </Link>
+          )}
         </div>
       </div>
 

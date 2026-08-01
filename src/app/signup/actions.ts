@@ -2,8 +2,9 @@
 
 import { headers } from "next/headers";
 
-import { signUpSchema } from "@/lib/validation";
+import { signUpSchema, signUpFieldErrors } from "@/lib/validation";
 import { composeFullName } from "@/domain/password-policy";
+import { countryByCode } from "@/domain/shipping/countries";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
 import { SITE_URL } from "@/lib/site";
@@ -33,15 +34,10 @@ export interface SignUpResult {
 export async function signUpAction(input: unknown): Promise<SignUpResult> {
   const parsed = signUpSchema.safeParse(input);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const key = String(issue.path[0] ?? "form");
-      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
-    }
     return {
       ok: false,
       error: "Please check the highlighted fields.",
-      fieldErrors,
+      fieldErrors: signUpFieldErrors(input),
     };
   }
 
@@ -65,6 +61,10 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
         first_name: data.firstName,
         last_name: data.lastName,
         phone: data.phone || null,
+        country: data.country || null,
+        // Recorded against the account, because "they ticked a box" is only
+        // worth anything if there is something showing when.
+        terms_accepted_at: new Date().toISOString(),
       },
       emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/account")}`,
     },
@@ -114,15 +114,17 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
   // trigger, so this needs no migration and works whether or not the address
   // has been confirmed yet. Best-effort: a failure here must not lose an
   // account that already exists.
-  if (created.user && data.phone) {
+  if (created.user && (data.phone || data.country)) {
     try {
       const admin = createSupabaseAdminClient();
-      await admin
-        .from("profiles")
-        .update({ phone: data.phone })
-        .eq("id", created.user.id);
+      const patch: { phone?: string; country?: string } = {};
+      if (data.phone) patch.phone = data.phone;
+      if (data.country) {
+        patch.country = countryByCode(data.country)?.name ?? data.country;
+      }
+      await admin.from("profiles").update(patch).eq("id", created.user.id);
     } catch {
-      /* the customer can add it at checkout */
+      /* the customer can add these at checkout */
     }
   }
 
