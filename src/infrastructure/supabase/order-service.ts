@@ -2,6 +2,7 @@ import "server-only";
 
 import type { CheckoutDeps } from "@/application/use-cases/checkout";
 import type { OrderRepository } from "@/domain/repositories/order-repository";
+import { findDestination as findNgDestination } from "@/infrastructure/supabase/nigeria-shipping-service";
 import { createSupabaseServerClient } from "./server-client";
 import { createOrderRepository } from "./repositories/order-repository";
 import { createProductRepository } from "./repositories/product-repository";
@@ -31,6 +32,7 @@ export async function getCheckoutDeps(): Promise<CheckoutDeps> {
     defaultItemWeightGrams,
     findDiscountCode,
     isFirstOrder,
+    findNgDestination,
     recordRedemption: async ({ codeId, orderId, userId, amountKobo }) => {
       const admin = createSupabaseAdminClient();
       await admin.from("discount_redemptions").insert({

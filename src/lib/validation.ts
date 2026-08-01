@@ -39,6 +39,8 @@ export const checkoutSchema = z.object({
   /** Chosen courier and coupon. Both are re-validated and re-priced on the
    *  server — these are a request, not an instruction. */
   courierId: z.string().uuid().nullable().optional(),
+  /** Nigeria local delivery area. Id only; the fee is read server-side. */
+  ngDestinationId: z.string().uuid().nullable().optional(),
   couponCode: z.string().trim().max(64).nullable().optional(),
   lat: z.number().finite().nullable().optional(),
   lng: z.number().finite().nullable().optional(),

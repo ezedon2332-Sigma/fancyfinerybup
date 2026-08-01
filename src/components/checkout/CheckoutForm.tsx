@@ -16,6 +16,8 @@ import { placeOrderAction } from "@/app/checkout/actions";
 import { startPaymentAction } from "@/app/checkout/payment-actions";
 import { quoteShipping, type Quote } from "@/app/shipping/quote-actions";
 import { OrderSummary } from "./OrderSummary";
+import { NigeriaDelivery } from "./NigeriaDelivery";
+import { LOCAL_DELIVERY_ID } from "@/domain/shipping/nigeria";
 import { CheckoutProgress } from "./CheckoutProgress";
 import { ShippingSummary, TrustBadges } from "./ShippingSummary";
 import { CountrySelect, type CountryOption } from "./CountrySelect";
@@ -84,6 +86,13 @@ export function CheckoutForm({
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const { currency } = useCurrency();
+  // Nigeria local delivery. Only the id is held: the fee is resolved on the
+  // server, by both the quote and the order.
+  const [ngDestinationId, setNgDestinationId] = useState<string | null>(null);
+  // False until the Nigeria picker confirms it has states to offer. Keeps the
+  // plain State field in place if that data is not there, so checkout cannot
+  // end up with no state field and an unsatisfiable validation rule.
+  const [ngPickerReady, setNgPickerReady] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [couponInput, setCouponInput] = useState("");
@@ -115,6 +124,7 @@ export function CheckoutForm({
         qty: i.qty,
       })),
       couponCode: appliedCoupon,
+      ngDestinationId,
     })
       .then((res) => {
         if (id !== requestId.current) return; // a newer quote has landed
@@ -126,7 +136,7 @@ export function CheckoutForm({
     // `currency` is in the deps because the server prices the quote in it.
     // Without a re-quote, switching currency would leave the old figures on
     // screen wearing the new symbol.
-  }, [form.countryCode, itemsKey, appliedCoupon, items, currency]);
+  }, [form.countryCode, itemsKey, appliedCoupon, items, currency, ngDestinationId]);
 
   async function useMyLocation() {
     setError(null);
@@ -195,8 +205,15 @@ export function CheckoutForm({
       postal: form.postal,
       address: form.address,
       apartment: form.apartment || null,
-      courierId: quote?.selected?.courierId ?? null,
+      // The local-delivery option is synthetic and its id is not a uuid, so it
+      // must not travel in the courier field — the schema would reject the
+      // whole submission. ngDestinationId carries that choice instead.
+      courierId:
+        quote?.selected?.courierId && quote.selected.courierId !== LOCAL_DELIVERY_ID
+          ? quote.selected.courierId
+          : null,
       couponCode: appliedCoupon,
+      ngDestinationId,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
       items: items.map((i) => ({
@@ -301,10 +318,26 @@ export function CheckoutForm({
               }
             />
           </div>
-          <div>
-            <label className={label} htmlFor="ck-state">State / Province</label>
-            <input id="ck-state" className={field} value={form.state} onChange={set("state")} autoComplete="address-level1" />
+          {/* Nigeria gets the state/area picker; everywhere else keeps the
+              free-text field, because no other country is priced by area here.
+              The picker writes the state name back into `form.state` so the
+              address stored on the order is the same shape either way. */}
+          <div className="sm:col-span-2">
+            <NigeriaDelivery
+              countryCode={form.countryCode}
+              destinationId={ngDestinationId}
+              onChange={setNgDestinationId}
+              onStateName={(name) => setForm((f) => ({ ...f, state: name }))}
+              onAvailable={setNgPickerReady}
+            />
           </div>
+
+          {(form.countryCode.trim().toUpperCase() !== "NG" || !ngPickerReady) && (
+            <div>
+              <label className={label} htmlFor="ck-state">State / Province</label>
+              <input id="ck-state" className={field} value={form.state} onChange={set("state")} autoComplete="address-level1" />
+            </div>
+          )}
           <div>
             <label className={label} htmlFor="ck-city">City</label>
             <input id="ck-city" className={field} value={form.city} onChange={set("city")} autoComplete="address-level2" />

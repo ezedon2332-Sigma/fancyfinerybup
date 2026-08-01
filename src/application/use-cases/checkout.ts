@@ -11,6 +11,11 @@ import {
 } from "@/domain/shipping/currency";
 import { priceInMinor } from "@/domain/shared/display-price";
 import {
+  isNigeria,
+  localFeeKobo,
+  type NgDestination,
+} from "@/domain/shipping/nigeria";
+import {
   checkDiscount,
   discountAmount,
   priceOrder,
@@ -30,6 +35,8 @@ export interface CheckoutDeps {
   defaultItemWeightGrams: () => Promise<number>;
   findDiscountCode: (code: string) => Promise<DiscountCode | null>;
   isFirstOrder: (userId: string) => Promise<boolean>;
+  /** Nigeria local delivery lookup. Null for every other destination. */
+  findNgDestination: (id: string) => Promise<NgDestination | null>;
   recordRedemption: (input: {
     codeId: string;
     orderId: string;
@@ -51,6 +58,8 @@ export interface PlaceOrderInput {
   /** Courier the customer picked; the cheapest is used if absent or stale. */
   courierId?: string | null;
   couponCode?: string | null;
+  /** Chosen Nigerian delivery area, when shipping locally. */
+  ngDestinationId?: string | null;
   /** Currency the customer chose, and is charged in. Naira if absent. */
   currency?: OrderCurrency;
 }
@@ -65,11 +74,10 @@ export class CheckoutError extends Error {}
  * re-expressed in the currency the customer selected, by the same rule that
  * produced the prices they were shown, so the total matches the price tag.
  *
- * Delivery is currently free: the shipping module has been removed and no rate
- * engine exists, so every order is placed with a zero shipping cost. The
- * address is still captured in full, and orders carry `shipping_cost` and
- * `shipping_method` columns, so reinstating a charge later is a change in this
- * function rather than a schema migration.
+ * Delivery is priced one of two ways. A Nigerian address with a chosen area
+ * takes that area's flat fee; everything else goes through the weight-bracket
+ * engine. Both are resolved server-side from the database, so neither can be
+ * set by the browser.
  */
 export async function placeOrder(
   deps: CheckoutDeps,
@@ -148,7 +156,28 @@ export async function placeOrder(
     lookup.options.find((o) => o.courierId === input.courierId) ??
     lookup.options[0] ??
     null;
-  const shippingKobo = courier?.priceKobo ?? 0;
+
+  // Nigeria local delivery overrides the weight bracket — but the fee is read
+  // back from the database here, exactly as the quote did. The browser sends an
+  // id and nothing else, so a tampered price cannot reach an order row. When no
+  // area is chosen, or the destination has since been withdrawn, this falls
+  // through to the international engine rather than failing the order.
+  const ngDestination =
+    isNigeria(input.shipping.countryCode) && input.ngDestinationId
+      ? await deps.findNgDestination(input.ngDestinationId)
+      : null;
+
+  const ngFeeKobo = localFeeKobo({
+    countryCode: input.shipping.countryCode,
+    destinationId: input.ngDestinationId,
+    destinations: ngDestination ? [ngDestination] : [],
+  });
+
+  const shippingKobo = ngFeeKobo ?? courier?.priceKobo ?? 0;
+  const shippingMethod =
+    ngFeeKobo !== null && ngDestination
+      ? `NG-LOCAL:${ngDestination.name}`
+      : (courier?.courierCode ?? null);
 
   // 3) Move into the currency this order is charged in.
   //
@@ -223,7 +252,7 @@ export async function placeOrder(
     discount: breakdown.discountKobo,
     totalWeightGrams: weightGrams,
     total: breakdown.totalKobo,
-    shippingMethod: courier?.courierCode ?? null,
+    shippingMethod,
     shipping: input.shipping,
     items,
   });

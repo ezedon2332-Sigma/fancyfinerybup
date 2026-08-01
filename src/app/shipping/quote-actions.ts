@@ -32,6 +32,12 @@ import {
   CURRENCY_COOKIE,
 } from "@/domain/shared/display-price";
 import { cookies } from "next/headers";
+import {
+  LOCAL_DELIVERY_ID,
+  isNigeria,
+  localFeeKobo,
+} from "@/domain/shipping/nigeria";
+import { findDestination } from "@/infrastructure/supabase/nigeria-shipping-service";
 
 /**
  * The one quote endpoint.
@@ -56,6 +62,9 @@ const quoteSchema = z.object({
     .refine((c) => /^[A-Z]{2}$/.test(c), "Select a destination"),
   items: z.array(lineSchema).min(1, "Nothing to price"),
   courierId: z.string().uuid().nullable().optional(),
+  // Nigeria local delivery. Only the id travels: the price is read from the
+  // database here, never taken from the browser.
+  ngDestinationId: z.string().uuid().nullable().optional(),
   couponCode: z.string().trim().max(64).nullable().optional(),
 });
 
@@ -156,8 +165,45 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       priceDisplay: toDisplay(o.priceKobo),
     }));
 
+    // Nigeria local delivery.
+    //
+    // A flat fee for a named area replaces the weight bracket entirely — but
+    // only once the customer has actually picked one, and only after the price
+    // has been read back from the database. Everything else, Nigeria included
+    // while no area is chosen, falls through to the international engine
+    // untouched. That fallback is deliberate: it means a state nobody has
+    // priced yet still quotes rather than blocking the order.
+    const ngDestination =
+      isNigeria(input.countryCode) && input.ngDestinationId
+        ? await findDestination(input.ngDestinationId)
+        : null;
+
+    const ngFeeKobo = localFeeKobo({
+      countryCode: input.countryCode,
+      destinationId: input.ngDestinationId,
+      destinations: ngDestination ? [ngDestination] : [],
+    });
+
+    const localOption: QuoteOption | null =
+      ngFeeKobo !== null && ngDestination
+        ? {
+            courierId: LOCAL_DELIVERY_ID,
+            courierCode: "NG-LOCAL",
+            courierName: `Delivery to ${ngDestination.name}`,
+            priceKobo: ngFeeKobo,
+            free: ngFeeKobo === 0,
+            minDays: 1,
+            maxDays: 3,
+            source: "country-override",
+            priceDisplay: toDisplay(ngFeeKobo),
+          }
+        : null;
+
     const selected =
-      options.find((o) => o.courierId === input.courierId) ?? options[0] ?? null;
+      localOption ??
+      options.find((o) => o.courierId === input.courierId) ??
+      options[0] ??
+      null;
     const shippingKobo = selected?.priceKobo ?? 0;
     const shippingCharged = toDisplay(shippingKobo);
 
@@ -203,7 +249,7 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
       weightLabel: formatWeight(weightGrams),
       bracketLabel: lookup.bracket?.label ?? null,
       zoneName: lookup.zone?.name ?? null,
-      options,
+      options: localOption ? [localOption, ...options] : options,
       selected,
       breakdown: {
         subtotal: priced.subtotalKobo,
@@ -220,7 +266,13 @@ export async function quoteShipping(payload: unknown): Promise<QuoteResult> {
         code: applied?.code.code ?? null,
         message: couponMessage,
       },
-      unavailable: lookup.reason === "ok" ? null : lookup.reason,
+      // A resolved local delivery is quotable even when the weight engine has
+      // nothing to say about Nigeria — the flat fee IS the rate.
+      unavailable: localOption
+        ? null
+        : lookup.reason === "ok"
+          ? null
+          : lookup.reason,
     };
   } catch (e) {
     return {

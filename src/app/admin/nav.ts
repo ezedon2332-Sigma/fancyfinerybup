@@ -64,6 +64,7 @@ export interface NavGroup {
  */
 const SHIPPING_CHILDREN: NonNullable<NavItem["children"]> = [
   { label: "Overview", href: "/admin/shipping", status: "ready" },
+  { label: "Nigeria Shipping", href: "/admin/shipping/nigeria", status: "ready" },
   { label: "Rates", href: "/admin/shipping?tab=rates", status: "ready" },
   { label: "Zones & Countries", href: "/admin/shipping?tab=zones", status: "ready" },
   { label: "Weight Bands", href: "/admin/shipping?tab=bands", status: "ready" },
@@ -73,7 +74,6 @@ const SHIPPING_CHILDREN: NonNullable<NavItem["children"]> = [
   // Everything below needs schema or a carrier account that does not exist yet.
   { label: "Shipping Orders", href: "#", status: "planned" },
   { label: "Dimension Rules", href: "#", status: "planned" },
-  { label: "Local Delivery", href: "#", status: "planned" },
   { label: "Pickup Locations", href: "#", status: "planned" },
   { label: "Packaging & Handling", href: "#", status: "planned" },
   { label: "Free Shipping Rules", href: "#", status: "planned" },

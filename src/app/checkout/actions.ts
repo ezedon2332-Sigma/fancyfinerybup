@@ -46,6 +46,7 @@ export async function placeOrderAction(
       userId: user.id,
       courierId: input.courierId ?? null,
       couponCode: input.couponCode ?? null,
+      ngDestinationId: input.ngDestinationId ?? null,
       currency,
       shipping: {
         name: input.name,
