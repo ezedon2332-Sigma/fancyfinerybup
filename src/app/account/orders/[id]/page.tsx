@@ -5,8 +5,15 @@ import { CheckCircle2, MapPin } from "lucide-react";
 
 import { requireUser } from "@/infrastructure/supabase/auth";
 import { getOrderRepository } from "@/infrastructure/supabase/order-service";
+import { isCurrencyPayable } from "@/infrastructure/payments/providers";
+import { PayNowButton } from "@/components/checkout/PayNowButton";
 import { formatMoney } from "@/domain/shared/money";
-import { orderStatusBadge, orderStatusLabel } from "@/lib/order-status";
+import {
+  orderStatusBadge,
+  orderStatusLabel,
+  paymentStatusBadge,
+  paymentStatusLabel,
+} from "@/lib/order-status";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -15,15 +22,20 @@ export default async function OrderDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ placed?: string; paid?: string }>;
+  searchParams: Promise<{ placed?: string; paid?: string; canceled?: string }>;
 }) {
   await requireUser();
   const { id } = await params;
-  const { placed, paid } = await searchParams;
+  const { placed, paid, canceled } = await searchParams;
 
   const orders = await getOrderRepository();
   const order = await orders.findById(id); // RLS: only the owner (or admin) sees it
   if (!order) notFound();
+
+  // Whether an online charge can be (re)started for this order right now.
+  const canPayNow =
+    (order.paymentStatus === "unpaid" || order.paymentStatus === "failed") &&
+    isCurrencyPayable(order.currency);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 lg:px-10">
@@ -97,6 +109,41 @@ export default async function OrderDetailPage({
             <span>{formatMoney(order.total, order.currency)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Payment */}
+      <div className="mt-6 rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-300">
+          Payment
+        </h2>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest ${paymentStatusBadge(order.paymentStatus)}`}
+            >
+              {paymentStatusLabel(order.paymentStatus)}
+            </span>
+            <span className="text-sm text-gray-400">
+              {formatMoney(order.total, order.currency)}
+            </span>
+          </div>
+          {canPayNow && (
+            <PayNowButton
+              orderId={order.id}
+              label={order.paymentStatus === "failed" ? "Retry payment" : "Pay now"}
+            />
+          )}
+        </div>
+        {order.paymentStatus === "unpaid" && !canPayNow && (
+          <p className="mt-3 text-sm text-gray-500">
+            This order is payable on delivery.
+          </p>
+        )}
+        {canceled && order.paymentStatus !== "paid" && (
+          <p className="mt-3 text-sm text-gray-400">
+            Payment was canceled — you can try again above.
+          </p>
+        )}
       </div>
 
       {order.trackingNumber && (

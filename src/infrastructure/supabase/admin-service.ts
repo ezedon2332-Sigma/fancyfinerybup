@@ -139,6 +139,7 @@ export async function listAdminCategories(): Promise<AdminCategoryRow[]> {
 export interface AdminOrderRow {
   id: string;
   status: OrderStatus;
+  paymentStatus: string;
   total: number;
   currency: string;
   customerName: string | null;
@@ -157,6 +158,7 @@ export async function listAdminOrders(): Promise<AdminOrderRow[]> {
   return (data ?? []).map((o) => ({
     id: o.id,
     status: o.status,
+    paymentStatus: o.payment_status ?? "unpaid",
     total: o.total,
     currency: o.currency,
     customerName: o.shipping_name,

@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 
 import { listAdminOrders } from "@/infrastructure/supabase/admin-service";
 import { formatMoney } from "@/domain/shared/money";
-import { orderStatusBadge, orderStatusLabel } from "@/lib/order-status";
+import {
+  orderStatusBadge,
+  orderStatusLabel,
+  paymentStatusBadge,
+  paymentStatusLabel,
+} from "@/lib/order-status";
 
 export const metadata: Metadata = { title: "Admin · Orders" };
 
@@ -24,6 +29,7 @@ export default async function AdminOrdersPage() {
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Items</th>
                 <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Date</th>
               </tr>
@@ -42,6 +48,11 @@ export default async function AdminOrdersPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-300">{o.itemCount}</td>
                   <td className="px-4 py-3 text-yellow-400">{formatMoney(o.total, o.currency)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${paymentStatusBadge(o.paymentStatus)}`}>
+                      {paymentStatusLabel(o.paymentStatus)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${orderStatusBadge(o.status)}`}>
                       {orderStatusLabel(o.status)}

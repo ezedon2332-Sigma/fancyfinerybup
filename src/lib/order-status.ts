@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/domain/entities/order";
+import type { OrderStatus, PaymentStatus } from "@/domain/entities/order";
 
 /** Human labels for the fulfilment lifecycle. */
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -26,6 +26,32 @@ export function orderStatusLabel(status: string): string {
 
 export function orderStatusBadge(status: string): string {
   return ORDER_STATUS_BADGE[status as OrderStatus] ?? "bg-white/10 text-gray-300";
+}
+
+/** Human labels for the payment lifecycle. */
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  unpaid: "Unpaid",
+  paid: "Paid",
+  failed: "Payment failed",
+  refunded: "Refunded",
+};
+
+/** Tailwind badge classes per payment status. */
+export const PAYMENT_STATUS_BADGE: Record<PaymentStatus, string> = {
+  unpaid: "bg-white/10 text-gray-300",
+  paid: "bg-green-500/15 text-green-400",
+  failed: "bg-red-500/15 text-red-400",
+  refunded: "bg-orange-500/15 text-orange-400",
+};
+
+export function paymentStatusLabel(status: string): string {
+  return PAYMENT_STATUS_LABELS[status as PaymentStatus] ?? status;
+}
+
+export function paymentStatusBadge(status: string): string {
+  return (
+    PAYMENT_STATUS_BADGE[status as PaymentStatus] ?? "bg-white/10 text-gray-300"
+  );
 }
 
 /** Statuses at/after which an order has a tracking number and is in transit. */

@@ -2,11 +2,13 @@
 
 import { getCurrentUser } from "@/infrastructure/supabase/auth";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { paystackInitialize } from "@/infrastructure/payments/paystack";
+import { stripeCreateCheckoutSession } from "@/infrastructure/payments/stripe";
 import {
-  isPaystackEnabled,
-  paystackInitialize,
-  paystackSupportsCurrency,
-} from "@/infrastructure/payments/paystack";
+  onlinePaymentEnabled,
+  providerForCurrency,
+} from "@/infrastructure/payments/providers";
 
 export interface StartPaymentResult {
   ok: boolean;
@@ -22,14 +24,14 @@ function siteUrl(): string {
 }
 
 /** Begin online payment for an order and return the provider's redirect URL.
- *  Only runs when a provider is configured; otherwise the order stays
- *  pay-on-delivery. */
+ *  Routes NGN/USD to Paystack and EUR/GBP to Stripe; if no live provider can
+ *  settle the order's currency, it stays pay-on-delivery. */
 export async function startPaymentAction(
   orderId: string,
 ): Promise<StartPaymentResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Please sign in to pay." };
-  if (!isPaystackEnabled()) {
+  if (!onlinePaymentEnabled()) {
     return { ok: false, error: "Online payment isn't enabled yet." };
   }
 
@@ -45,32 +47,71 @@ export async function startPaymentAction(
   if (order.payment_status === "paid") {
     return { ok: false, error: "This order is already paid." };
   }
+  if (order.payment_status === "refunded") {
+    return { ok: false, error: "This order has been refunded." };
+  }
 
-  if (!paystackSupportsCurrency(order.currency)) {
+  const provider = providerForCurrency(order.currency);
+  if (!provider) {
     return {
       ok: false,
       error: `Card payment isn't available for ${order.currency} orders. This order is payable on delivery.`,
     };
   }
 
-  const reference = `FF-${order.id}-${Date.now().toString(36)}`;
+  const email = order.shipping_email || user.email || "";
+
   try {
-    const { authorizationUrl } = await paystackInitialize({
-      email: order.shipping_email || user.email || "",
-      amountMinor: order.total,
-      currency: order.currency,
-      reference,
-      callbackUrl: `${siteUrl()}/payment/callback`,
-      metadata: { orderId: order.id },
-    });
+    let reference: string;
+    let url: string;
 
-    // Store the reference so the callback/webhook can match this charge.
-    await supabase
+    if (provider === "paystack") {
+      reference = `FF-${order.id}-${Date.now().toString(36)}`;
+      const init = await paystackInitialize({
+        email,
+        amountMinor: order.total,
+        currency: order.currency,
+        reference,
+        callbackUrl: `${siteUrl()}/payment/callback`,
+        metadata: { orderId: order.id },
+      });
+      url = init.authorizationUrl;
+    } else {
+      const session = await stripeCreateCheckoutSession({
+        email,
+        amountMinor: order.total,
+        currency: order.currency,
+        orderId: order.id,
+        successUrl: `${siteUrl()}/payment/stripe/callback?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${siteUrl()}/account/orders/${order.id}?canceled=1`,
+      });
+      reference = session.id;
+      url = session.url;
+    }
+
+    // Store the reference so the callback + webhook can match this charge.
+    // Uses the service-role client because orders are admin-only for UPDATE
+    // under RLS — a customer-context write would be silently filtered to zero
+    // rows, leaving the charge unlinkable. Ownership was already checked above.
+    // paystack_reference is mirrored for the paystack path (legacy + its unique
+    // index); the generic payment_reference is the canonical lookup key.
+    const admin = createSupabaseAdminClient();
+    const { error: refError } = await admin
       .from("orders")
-      .update({ paystack_reference: reference, payment_provider: "paystack" })
+      .update({
+        payment_reference: reference,
+        payment_provider: provider,
+        ...(provider === "paystack" ? { paystack_reference: reference } : {}),
+      })
       .eq("id", order.id);
+    if (refError) {
+      return {
+        ok: false,
+        error: "Could not start payment. Please try again.",
+      };
+    }
 
-    return { ok: true, url: authorizationUrl };
+    return { ok: true, url };
   } catch (e) {
     return {
       ok: false,

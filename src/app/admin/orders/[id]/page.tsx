@@ -5,7 +5,9 @@ import { MapPin } from "lucide-react";
 
 import { getOrderRepository } from "@/infrastructure/supabase/order-service";
 import { formatMoney } from "@/domain/shared/money";
+import { paymentStatusBadge, paymentStatusLabel } from "@/lib/order-status";
 import { OrderStatusForm } from "@/components/admin/OrderStatusForm";
+import { RefundButton } from "@/components/admin/RefundButton";
 
 export const metadata: Metadata = { title: "Admin · Order" };
 
@@ -68,6 +70,27 @@ export default async function AdminOrderDetail({
             <span>Total</span>
             <span>{formatMoney(order.total, order.currency)}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Payment */}
+      <div className="mt-6 rounded-2xl border border-white/10 bg-neutral-950/60 p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-300">
+          Payment
+        </h2>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest ${paymentStatusBadge(order.paymentStatus)}`}
+            >
+              {paymentStatusLabel(order.paymentStatus)}
+            </span>
+            <span className="text-sm text-gray-400">
+              {formatMoney(order.total, order.currency)}
+              {order.paymentProvider ? ` · ${order.paymentProvider}` : ""}
+            </span>
+          </div>
+          {order.paymentStatus === "paid" && <RefundButton orderId={order.id} />}
         </div>
       </div>
 

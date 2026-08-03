@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { formatMoney } from "@/domain/shared/money";
 import { orderStatusLabel } from "@/lib/order-status";
 import { sendViaProvider } from "@/infrastructure/notifications/email-provider";
 import { buildTransactionalEmail } from "@/infrastructure/notifications/newsletter-emails";
@@ -79,6 +80,31 @@ export async function notifyOrderPlaced(orderId: string): Promise<void> {
       `Thanks for your order (#${orderId.slice(0, 8)}). We're preparing it for ` +
       `shipment and will email tracking details as soon as it ships.\n\n— Fancy Finery`,
   });
+}
+
+/** Payment receipt once a charge is confirmed (webhook or callback). */
+export async function notifyPaymentReceived(orderId: string): Promise<void> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data } = await supabase
+      .from("orders")
+      .select("shipping_email, shipping_name, total, currency")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!data?.shipping_email) return;
+    const amount = formatMoney(data.total, data.currency);
+    await sendEmail({
+      to: data.shipping_email,
+      subject: "Payment received — Fancy Finery",
+      text:
+        `Hi ${data.shipping_name ?? "there"},\n\n` +
+        `We've received your payment of ${amount} for order ` +
+        `#${orderId.slice(0, 8)}. Your order is confirmed and being prepared ` +
+        `for shipment.\n\nThank you for shopping with Fancy Finery.`,
+    });
+  } catch {
+    /* best-effort — a receipt failing must never unwind a confirmed payment */
+  }
 }
 
 /** Tracking / status update when an order's status changes. */

@@ -283,6 +283,7 @@ export interface Database {
           tracking_number: string | null;
           payment_status: string;
           payment_provider: string | null;
+          payment_reference: string | null;
           paid_at: string | null;
           created_at: string;
           updated_at: string;
@@ -315,6 +316,7 @@ export interface Database {
           tracking_number?: string | null;
           payment_status?: string;
           payment_provider?: string | null;
+          payment_reference?: string | null;
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -344,6 +346,7 @@ export interface Database {
           tracking_number?: string | null;
           payment_status?: string;
           payment_provider?: string | null;
+          payment_reference?: string | null;
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -353,6 +356,46 @@ export interface Database {
             foreignKeyName: "orders_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payment_events: {
+        Row: {
+          id: string;
+          provider: string;
+          event_id: string | null;
+          event_type: string | null;
+          reference: string | null;
+          order_id: string | null;
+          raw: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider: string;
+          event_id?: string | null;
+          event_type?: string | null;
+          reference?: string | null;
+          order_id?: string | null;
+          raw?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider?: string;
+          event_id?: string | null;
+          event_type?: string | null;
+          reference?: string | null;
+          order_id?: string | null;
+          raw?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_order_id_fkey";
+            columns: ["order_id"];
+            referencedRelation: "orders";
             referencedColumns: ["id"];
           },
         ];

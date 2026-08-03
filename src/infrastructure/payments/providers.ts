@@ -1,6 +1,7 @@
 import "server-only";
 
-import { isPaystackEnabled } from "./paystack";
+import { isPaystackEnabled, paystackSupportsCurrency } from "./paystack";
+import { isStripeEnabled, stripeSupportsCurrency } from "./stripe";
 
 /**
  * Pluggable payment-provider registry. A provider becomes selectable at
@@ -36,8 +37,8 @@ export function paymentProviders(): PaymentProviderInfo[] {
     {
       id: "stripe",
       label: "Card · Apple Pay · Google Pay (Stripe)",
-      configured: Boolean(process.env.STRIPE_SECRET_KEY),
-      implemented: false,
+      configured: isStripeEnabled(),
+      implemented: true,
     },
     {
       id: "flutterwave",
@@ -61,4 +62,33 @@ export function activePaymentProviders(): PaymentProviderInfo[] {
 
 export function onlinePaymentEnabled(): boolean {
   return activePaymentProviders().length > 0;
+}
+
+/**
+ * Which active provider should settle a charge in `currency`.
+ *
+ * The storefront charges in the currency the shopper chose. Paystack settles
+ * NGN and USD; Stripe covers EUR and GBP (the two Paystack cannot take). The
+ * preferred routing encodes that split, then falls back to whichever single
+ * provider is live and supports the currency — so the store still takes payment
+ * if only one of the two is configured. Returns null when no live provider can
+ * settle the currency, in which case the order stays pay-on-delivery.
+ */
+export function providerForCurrency(currency: string): PaymentProviderId | null {
+  const cur = currency.trim().toUpperCase();
+  const paystackOk = isPaystackEnabled() && paystackSupportsCurrency(cur);
+  const stripeOk = isStripeEnabled() && stripeSupportsCurrency(cur);
+
+  if ((cur === "NGN" || cur === "USD") && paystackOk) return "paystack";
+  if ((cur === "EUR" || cur === "GBP") && stripeOk) return "stripe";
+
+  // Fallbacks: only one provider live, or an unusual currency one of them takes.
+  if (paystackOk) return "paystack";
+  if (stripeOk) return "stripe";
+  return null;
+}
+
+/** Whether an online charge can be started for `currency` right now. */
+export function isCurrencyPayable(currency: string): boolean {
+  return providerForCurrency(currency) !== null;
 }

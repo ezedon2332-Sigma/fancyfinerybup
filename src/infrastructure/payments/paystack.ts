@@ -92,6 +92,24 @@ export async function paystackVerify(reference: string): Promise<VerifyResult> {
   };
 }
 
+/** Refund a Paystack transaction in full, by its reference. */
+export async function paystackRefund(reference: string): Promise<void> {
+  if (!SECRET) throw new Error("Paystack is not configured.");
+  const res = await fetch(`${BASE}/refund`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${SECRET}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ transaction: reference }),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || !json.status) {
+    throw new Error(json.message || "Could not refund payment.");
+  }
+}
+
 /** Verify a Paystack webhook signature (HMAC-SHA512 of the raw body). */
 export function paystackValidWebhook(
   rawBody: string,

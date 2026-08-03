@@ -62,10 +62,19 @@ export interface Order {
   readonly shippingMethod: string | null;
   readonly trackingNumber: string | null;
   readonly paystackReference: string | null;
+  /** Provider-agnostic charge reference (Paystack ref or Stripe session id). */
+  readonly paymentReference: string | null;
+  /** 'unpaid' | 'paid' | 'failed' | 'refunded'. */
+  readonly paymentStatus: PaymentStatus;
+  /** 'paystack' | 'stripe' | null. */
+  readonly paymentProvider: string | null;
+  readonly paidAt: string | null;
   readonly shipping: ShippingDetails;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+export type PaymentStatus = "unpaid" | "paid" | "failed" | "refunded";
 
 export interface OrderWithItems extends Order {
   readonly items: OrderItem[];

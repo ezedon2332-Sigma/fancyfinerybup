@@ -3,6 +3,7 @@ import type {
   Order,
   OrderItem,
   OrderWithItems,
+  PaymentStatus,
 } from "@/domain/entities/order";
 import type {
   Product,
@@ -84,6 +85,20 @@ export function toProductSummary(
   return { ...toProduct(row), primaryImage };
 }
 
+const PAYMENT_STATUSES: readonly PaymentStatus[] = [
+  "unpaid",
+  "paid",
+  "failed",
+  "refunded",
+];
+
+/** Coerce the free-text DB column to the known set; unknown → 'unpaid'. */
+function normalizePaymentStatus(value: string | null | undefined): PaymentStatus {
+  return (PAYMENT_STATUSES as readonly string[]).includes(value ?? "")
+    ? (value as PaymentStatus)
+    : "unpaid";
+}
+
 export function toOrder(row: Row<"orders">): Order {
   return {
     id: row.id,
@@ -96,6 +111,10 @@ export function toOrder(row: Row<"orders">): Order {
     shippingMethod: row.shipping_method ?? null,
     trackingNumber: row.tracking_number,
     paystackReference: row.paystack_reference,
+    paymentReference: row.payment_reference ?? null,
+    paymentStatus: normalizePaymentStatus(row.payment_status),
+    paymentProvider: row.payment_provider ?? null,
+    paidAt: row.paid_at ?? null,
     shipping: {
       name: row.shipping_name,
       email: row.shipping_email,
