@@ -35,6 +35,13 @@ export interface InitParams {
   reference: string;
   callbackUrl: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Payment channels to offer on the checkout, e.g. "card", "bank_transfer",
+   * "ussd". Paystack intersects this with the channels enabled on the account,
+   * so listing the full set = "offer everything this account allows". Omit for
+   * Paystack's default (all enabled channels).
+   */
+  channels?: string[];
 }
 
 export async function paystackInitialize(
@@ -54,6 +61,7 @@ export async function paystackInitialize(
       reference: params.reference,
       callback_url: params.callbackUrl,
       metadata: params.metadata ?? {},
+      ...(params.channels ? { channels: params.channels } : {}),
     }),
     cache: "no-store",
   });

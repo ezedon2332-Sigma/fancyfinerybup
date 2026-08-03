@@ -74,6 +74,17 @@ export async function startPaymentAction(
         reference,
         callbackUrl: `${siteUrl()}/payment/callback`,
         metadata: { orderId: order.id },
+        // Offer every channel the account allows — card, bank transfer, USSD,
+        // QR, mobile money. The customer picks on Paystack's hosted page.
+        channels: [
+          "card",
+          "bank",
+          "bank_transfer",
+          "ussd",
+          "qr",
+          "mobile_money",
+          "eft",
+        ],
       });
       url = init.authorizationUrl;
     } else {
