@@ -195,9 +195,9 @@ export function ShippingCalculator({
             </div>
 
             <dl className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
-              <Row label="Product" value={money(quote.breakdown.subtotal)} />
+              <Row label="Product Price" value={money(quote.breakdown.subtotal)} />
               <Row
-                label={`Shipping${quote.bracketLabel ? ` · ${quote.bracketLabel}` : ""}`}
+                label={`Shipping Cost${quote.bracketLabel ? ` · ${quote.bracketLabel}` : ""}`}
                 value={
                   quote.selected.free ? "FREE" : money(quote.breakdown.shipping)
                 }
@@ -225,7 +225,7 @@ export function ShippingCalculator({
               )}
               <div className="flex items-baseline justify-between border-t border-white/10 pt-3">
                 <dt className="text-sm font-semibold text-white">
-                  Total to pay
+                  Final Total
                 </dt>
                 <dd className="text-base font-semibold tabular-nums text-yellow-400">
                   {money(quote.breakdown.total)}

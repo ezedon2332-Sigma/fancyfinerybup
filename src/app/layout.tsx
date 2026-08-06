@@ -66,6 +66,8 @@ import { RecentlyViewedProvider } from "@/components/recent/RecentlyViewedProvid
 import { CurrencyProvider } from "@/components/providers/CurrencyProvider";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
 import { VipInvitationModal } from "@/components/newsletter/VipInvitationModal";
+import { ConciergeMount } from "@/components/ai/ConciergeMount";
+import { loadAiPublicConfig } from "@/infrastructure/ai/settings";
 import {
   CURRENCY_COOKIE,
   isDisplayCurrency,
@@ -89,6 +91,9 @@ export default async function RootLayout({
     ? cookieCurrency
     : "NGN";
 
+  // The concierge only mounts when an admin has enabled it and a key is set.
+  const aiConfig = await loadAiPublicConfig();
+
   return (
     <html
       lang="en"
@@ -110,6 +115,7 @@ export default async function RootLayout({
                   </main>
                   <SiteFooter />
                   <VipInvitationModal />
+                  {aiConfig.enabled && <ConciergeMount config={aiConfig} />}
                 </RecentlyViewedProvider>
               </WishlistProvider>
             </CartProvider>

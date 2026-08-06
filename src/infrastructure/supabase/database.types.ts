@@ -360,6 +360,178 @@ export interface Database {
           },
         ];
       };
+      ai_settings: {
+        Row: {
+          id: string;
+          enabled: boolean;
+          welcome_message: string;
+          persona: string;
+          model: string;
+          suggested_questions: Json;
+          quick_actions: Json;
+          human_handoff: boolean;
+          handoff_message: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          enabled?: boolean;
+          welcome_message?: string;
+          persona?: string;
+          model?: string;
+          suggested_questions?: Json;
+          quick_actions?: Json;
+          human_handoff?: boolean;
+          handoff_message?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          enabled?: boolean;
+          welcome_message?: string;
+          persona?: string;
+          model?: string;
+          suggested_questions?: Json;
+          quick_actions?: Json;
+          human_handoff?: boolean;
+          handoff_message?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_faqs: {
+        Row: {
+          id: string;
+          question: string;
+          answer: string;
+          sort_order: number;
+          enabled: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          question: string;
+          answer: string;
+          sort_order?: number;
+          enabled?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          question?: string;
+          answer?: string;
+          sort_order?: number;
+          enabled?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_conversations: {
+        Row: {
+          id: string;
+          token: string;
+          user_id: string | null;
+          contact_email: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+          last_message_at: string;
+        };
+        Insert: {
+          id?: string;
+          token?: string;
+          user_id?: string | null;
+          contact_email?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_message_at?: string;
+        };
+        Update: {
+          id?: string;
+          token?: string;
+          user_id?: string | null;
+          contact_email?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_message_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          role: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          role: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          role?: string;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      knowledge_documents: {
+        Row: {
+          id: string;
+          title: string;
+          content: string;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          content: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          content?: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      knowledge_chunks: {
+        Row: {
+          id: string;
+          document_id: string;
+          content: string;
+          tsv: unknown;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       payment_events: {
         Row: {
           id: string;

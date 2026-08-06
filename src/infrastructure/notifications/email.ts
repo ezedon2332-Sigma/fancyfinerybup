@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
 import { formatMoney } from "@/domain/shared/money";
+import { BRAND_EMAIL, SITE_URL } from "@/lib/site";
 import { orderStatusLabel } from "@/lib/order-status";
 import { sendViaProvider } from "@/infrastructure/notifications/email-provider";
 import { buildTransactionalEmail } from "@/infrastructure/notifications/newsletter-emails";
@@ -104,6 +105,25 @@ export async function notifyPaymentReceived(orderId: string): Promise<void> {
     });
   } catch {
     /* best-effort — a receipt failing must never unwind a confirmed payment */
+  }
+}
+
+/** Alert the team that a concierge conversation needs a human. Best-effort. */
+export async function notifyHumanHandoff(
+  conversationId: string,
+  snippet: string,
+): Promise<void> {
+  try {
+    await sendEmail({
+      to: BRAND_EMAIL,
+      subject: "A shopper asked for a human — Fancy Finery concierge",
+      text:
+        `A shopper has asked to speak with the team via the concierge.\n\n` +
+        `Latest message: ${snippet.slice(0, 300)}\n\n` +
+        `Open and reply here:\n${SITE_URL}/admin/ai/conversations/${conversationId}`,
+    });
+  } catch {
+    /* best-effort */
   }
 }
 

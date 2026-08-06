@@ -18,6 +18,7 @@ import {
   Plug,
   Settings,
   ShoppingCart,
+  Sparkles,
   Tags,
   Truck,
   UserCog,
@@ -133,6 +134,8 @@ export const NAV: NavGroup[] = [
   {
     heading: "System",
     items: [
+      { label: "AI Concierge", href: "/admin/ai", icon: Sparkles, status: "ready" },
+      { label: "AI Conversations", href: "/admin/ai/conversations", icon: MessageSquare, status: "ready" },
       { label: "Staff & Roles", href: "#", icon: UserCog, status: "planned" },
       { label: "Activity Logs", href: "#", icon: Activity, status: "planned" },
       { label: "Integrations", href: "#", icon: Plug, status: "planned" },
