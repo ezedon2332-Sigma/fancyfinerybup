@@ -1,9 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
-import { Headset, Send, Sparkles } from "lucide-react";
+import {
+  Gem,
+  Headset,
+  Package,
+  Send,
+  Shirt,
+  ShoppingBag,
+  Sparkles,
+  Truck,
+} from "lucide-react";
 
 import type {
   AiPublicConfig,
@@ -32,6 +41,16 @@ interface Saved {
   lastPolled: string | null;
 }
 
+function actionIcon(label: string) {
+  const l = label.toLowerCase();
+  if (/women|woman|ladies|dress|gown/.test(l)) return Gem;
+  if (/men|man|suit|shirt|tailor/.test(l)) return Shirt;
+  if (/track|order/.test(l)) return Package;
+  if (/ship|deliver/.test(l)) return Truck;
+  if (/contact|support|help|human|team|concierge/.test(l)) return Headset;
+  return ShoppingBag;
+}
+
 export function ConciergePanel({ config }: { config: AiPublicConfig }) {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
@@ -48,6 +67,11 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   modeRef.current = mode;
+
+  const openedAt = useMemo(
+    () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    [],
+  );
 
   const patch = useCallback((id: string, fn: (m: UiMessage) => UiMessage) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)));
@@ -95,7 +119,6 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
     pollTimer.current = setInterval(pollOnce, 4000);
   }, [pollOnce]);
 
-  // Restore this session's conversation (per-tab) after mount.
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -122,7 +145,6 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
     };
   }, [startPolling]);
 
-  // Persist + autoscroll.
   useEffect(() => {
     try {
       const saved: Saved = {
@@ -212,7 +234,6 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "send", token, content: text }),
     });
-    // Agent replies arrive via polling.
   }, []);
 
   const send = useCallback(
@@ -255,33 +276,39 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
   );
 
   const started = messages.length > 0;
+  const showLaunchpad = !started && mode === "bot";
 
   return (
     <div className="flex h-full flex-col">
       <div
         ref={scrollRef}
-        className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
+        className="concierge-scroll flex-1 space-y-4 overflow-y-auto px-4 py-4"
         aria-live="polite"
       >
         {mode === "human" && (
-          <div className="rounded-xl border border-yellow-600/30 bg-yellow-500/5 px-3 py-2 text-center text-xs text-yellow-200">
+          <div className="rounded-xl border border-yellow-600/30 bg-yellow-500/[0.06] px-3 py-2 text-center text-xs text-yellow-200">
             You’re connected with our team — a stylist will reply here shortly.
           </div>
         )}
 
         {/* Greeting */}
-        <div className="flex gap-2.5">
-          <BotCrest />
-          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-200">
-            {config.welcomeMessage}
+        <div>
+          <div className="flex gap-2.5">
+            <BotCrest />
+            <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-white/5 bg-white/[0.04] px-3.5 py-2.5 text-sm leading-relaxed text-gray-200">
+              {config.welcomeMessage}
+            </div>
           </div>
+          <p className="ml-10 mt-1 text-[10px] tracking-wide text-gray-600">
+            {openedAt}
+          </p>
         </div>
 
         {messages.map((m) => {
           if (m.role === "user") {
             return (
               <div key={m.id} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-yellow-500/90 px-3.5 py-2.5 text-sm font-medium text-black">
+                <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-gradient-to-br from-yellow-300 to-yellow-500 px-3.5 py-2.5 text-sm font-medium text-black shadow-lg shadow-yellow-900/20">
                   {m.content}
                 </div>
               </div>
@@ -305,7 +332,7 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
                   </span>
                 )}
                 {m.content ? (
-                  <div className="prose-concierge rounded-2xl rounded-tl-sm bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-200">
+                  <div className="prose-concierge rounded-2xl rounded-tl-md border border-white/5 bg-white/[0.04] px-3.5 py-2.5 text-sm leading-relaxed text-gray-200">
                     {isAgent ? (
                       <p className="whitespace-pre-wrap">{m.content}</p>
                     ) : (
@@ -347,6 +374,40 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
           );
         })}
 
+        {/* Launchpad: suggestions + iconed quick actions, before the chat starts */}
+        {showLaunchpad && (
+          <div className="space-y-3 pt-1">
+            {config.suggestedQuestions.slice(0, 3).map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => send(q)}
+                className="block w-full rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-left text-xs text-gray-300 transition-colors hover:border-yellow-500/40 hover:text-yellow-300"
+              >
+                {q}
+              </button>
+            ))}
+
+            {config.quickActions.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {config.quickActions.map((a) => {
+                  const Icon = actionIcon(a.label);
+                  return (
+                    <a
+                      key={a.href + a.label}
+                      href={a.href}
+                      className="group flex items-center gap-2.5 rounded-xl border border-yellow-600/25 bg-white/[0.02] px-3 py-3 text-sm text-gray-200 transition-all hover:-translate-y-0.5 hover:border-yellow-500/50 hover:bg-yellow-500/[0.06]"
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-yellow-500 transition-colors group-hover:text-yellow-400" />
+                      <span className="truncate">{a.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {error && (
           <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
             {error}
@@ -354,75 +415,58 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
         )}
       </div>
 
-      {!started && mode === "bot" && (
-        <div className="space-y-2 px-4 pb-2">
-          {config.suggestedQuestions.slice(0, 4).map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => send(q)}
-              className="block w-full rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-left text-xs text-gray-300 transition-colors hover:border-yellow-500/40 hover:text-yellow-300"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {config.quickActions.length > 0 && mode === "bot" && (
-        <div className="flex flex-wrap gap-1.5 border-t border-white/5 px-4 py-2">
-          {config.quickActions.map((a) => (
-            <a
-              key={a.href + a.label}
-              href={a.href}
-              className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-gray-400 transition-colors hover:border-yellow-500/40 hover:text-yellow-300"
-            >
-              {a.label}
-            </a>
-          ))}
-        </div>
-      )}
-
-      <form
-        className="flex items-end gap-2 border-t border-white/10 p-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          send(input);
-        }}
-      >
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send(input);
-            }
+      {/* Composer */}
+      <div className="border-t border-white/10 px-3 pb-2 pt-3">
+        <form
+          className="flex items-end gap-2 rounded-2xl border border-white/12 bg-black/50 p-1.5 pl-3 transition-colors focus-within:border-yellow-500/60"
+          onSubmit={(e) => {
+            e.preventDefault();
+            send(input);
           }}
-          rows={1}
-          maxLength={2000}
-          placeholder={mode === "human" ? "Message our team…" : "Ask the concierge…"}
-          aria-label="Message"
-          className="max-h-28 flex-1 resize-none rounded-xl border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none transition-colors placeholder:text-gray-500 focus:border-yellow-500"
-        />
-        <button
-          type="submit"
-          disabled={streaming || !input.trim()}
-          aria-label="Send"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-500 text-black transition-colors hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Send className="h-4 w-4" />
-        </button>
-      </form>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(input);
+              }
+            }}
+            rows={1}
+            maxLength={2000}
+            placeholder={mode === "human" ? "Message our team…" : "Ask me anything…"}
+            aria-label="Message"
+            className="max-h-28 flex-1 resize-none bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-gray-500"
+          />
+          <button
+            type="submit"
+            disabled={streaming || !input.trim()}
+            aria-label="Send"
+            className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-300 to-yellow-600 text-black shadow-md shadow-yellow-900/30 transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Send className="h-4 w-4" strokeWidth={2.25} />
+          </button>
+        </form>
+        <p className="mt-1.5 flex items-center justify-center gap-1 text-[10px] tracking-wide text-gray-600">
+          <Sparkles className="h-3 w-3 text-yellow-600/70" /> Powered by Claude
+        </p>
+      </div>
     </div>
   );
 }
 
 function BotCrest() {
   return (
-    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 text-black">
-      <Sparkles className="h-3.5 w-3.5" />
+    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-yellow-500/30 bg-black">
+      <Image
+        src="/logo.png"
+        alt=""
+        width={44}
+        height={44}
+        className="h-5 w-5 object-contain mix-blend-screen"
+      />
     </div>
   );
 }
@@ -437,7 +481,7 @@ function AgentCrest() {
 
 function TypingDots() {
   return (
-    <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-white/[0.04] px-3.5 py-3">
+    <div className="flex items-center gap-1 rounded-2xl rounded-tl-md border border-white/5 bg-white/[0.04] px-3.5 py-3">
       {[0, 1, 2].map((i) => (
         <span
           key={i}
@@ -453,7 +497,7 @@ function ProductCard({ product }: { product: ConciergeProduct }) {
   return (
     <a
       href={`/products/${product.slug}`}
-      className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 transition-colors hover:border-yellow-500/40"
+      className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 transition-all hover:-translate-y-0.5 hover:border-yellow-500/40"
     >
       <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-md bg-black/40">
         {product.imageUrl ? (
