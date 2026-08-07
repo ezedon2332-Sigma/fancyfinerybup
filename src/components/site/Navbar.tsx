@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
-  User,
   X,
 } from "lucide-react";
 
@@ -22,6 +21,7 @@ import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { MobileNav } from "./MobileNav";
+import { AccountMenu } from "./AccountMenu";
 
 /** One definition of an icon button: 44x44 on touch, 40 from lg. */
 const ICON =
@@ -57,7 +57,11 @@ function Count({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Navbar({ user }: { user: { email: string | null } | null }) {
+export function Navbar({
+  user,
+}: {
+  user: { email: string | null; firstName: string | null } | null;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { count, openCart } = useCart();
@@ -217,6 +221,12 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             {count > 0 && <Count>{count}</Count>}
           </button>
 
+          {/* The single account control — desktop only; mobile carries it in
+              the drawer as one Account section. */}
+          <span className="hidden xl:flex">
+            <AccountMenu user={user} />
+          </span>
+
           <button
             type="button"
             aria-label={open ? "Close menu" : "Open menu"}
@@ -281,17 +291,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             {count > 0 && <StripCount>{count}</StripCount>}
           </button>
 
-          {/* A link, not the dropdown: a menu opening inside a horizontally
-              scrolling container would be clipped by its overflow. */}
-          {user && (
-            <Link
-              href="/account"
-              className={`${STRIP_ITEM} text-gray-300 hover:text-yellow-400`}
-            >
-              <User className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
-              Account
-            </Link>
-          )}
         </div>
       </div>
 

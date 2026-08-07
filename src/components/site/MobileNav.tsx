@@ -6,13 +6,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronRight,
   Heart,
+  LogIn,
+  LogOut,
+  MapPin,
+  Package,
   Search,
+  Settings,
   ShoppingBag,
-  User,
+  UserPlus,
   X,
 } from "lucide-react";
 
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { signOut } from "@/app/account/actions";
 
 export interface MobileNavLink {
   href: string;
@@ -49,7 +55,7 @@ export function MobileNav({
   onClose: () => void;
   links: readonly MobileNavLink[];
   isActive: (href: string) => boolean;
-  user: { email: string | null } | null;
+  user: { email: string | null; firstName: string | null } | null;
   cartCount: number;
   wishCount: number;
   onOpenCart: () => void;
@@ -186,23 +192,46 @@ export function MobileNav({
             </Section>
 
             <Section title="Account">
-              {user && (
-                <Link
-                  href="/account"
-                  onClick={close}
-                  className={`${ROW} text-sm text-gray-200`}
-                >
-                  <User className="h-4 w-4 shrink-0 text-yellow-600" />
-                  <span className="min-w-0 flex-1">
-                    My Account
-                    {user.email && (
-                      <span className="block truncate text-[11px] text-gray-500">
-                        {user.email}
-                      </span>
-                    )}
-                  </span>
-                </Link>
+              {user ? (
+                <>
+                  <Link href="/account" onClick={close} className={`${ROW} text-sm text-gray-200`}>
+                    <Package className="h-4 w-4 shrink-0 text-yellow-600" />
+                    <span className="flex-1">My Orders</span>
+                  </Link>
+                  <Link href="/wishlist" onClick={close} className={`${ROW} text-sm text-gray-200`}>
+                    <Heart className="h-4 w-4 shrink-0 text-yellow-600" />
+                    <span className="flex-1">Wishlist</span>
+                  </Link>
+                  <Link href="/account" onClick={close} className={`${ROW} text-sm text-gray-200`}>
+                    <MapPin className="h-4 w-4 shrink-0 text-yellow-600" />
+                    <span className="flex-1">Address Book</span>
+                  </Link>
+                  <Link href="/account" onClick={close} className={`${ROW} text-sm text-gray-200`}>
+                    <Settings className="h-4 w-4 shrink-0 text-yellow-600" />
+                    <span className="flex-1">Account Settings</span>
+                  </Link>
+                  <form action={signOut}>
+                    <button type="submit" className={`${ROW} w-full text-left text-sm text-gray-400`}>
+                      <LogOut className="h-4 w-4 shrink-0" />
+                      <span className="flex-1">Sign Out</span>
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" onClick={close} className={`${ROW} text-sm text-gray-200`}>
+                    <LogIn className="h-4 w-4 shrink-0 text-yellow-600" />
+                    <span className="flex-1">Sign In</span>
+                  </Link>
+                  <Link href="/signup" onClick={close} className={`${ROW} text-sm text-gray-200`}>
+                    <UserPlus className="h-4 w-4 shrink-0 text-yellow-600" />
+                    <span className="flex-1">Create Account</span>
+                  </Link>
+                </>
               )}
+            </Section>
+
+            <Section title="Store">
               <Link href="/shipping" onClick={close} className={`${ROW} text-sm text-gray-200`}>
                 <span className="flex-1">Shipping Rates</span>
               </Link>
