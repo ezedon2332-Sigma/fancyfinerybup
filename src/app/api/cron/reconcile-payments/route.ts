@@ -29,9 +29,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     console.error("[cron:reconcile-payments] failed", e);
-    return NextResponse.json(
-      { ok: false, error: String(e) },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

@@ -16,6 +16,11 @@ type Mode = "password" | "link";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+/** Only same-origin paths are safe post-login redirect targets. */
+function safeNext(next: string | null): string {
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/account";
+}
+
 /**
  * Identity-first sign in.
  *
@@ -27,7 +32,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("redirect") ?? "/account";
+  const next = safeNext(searchParams.get("redirect"));
   const authError = searchParams.get("error");
   const signupIntent = searchParams.get("intent") === "signup";
 

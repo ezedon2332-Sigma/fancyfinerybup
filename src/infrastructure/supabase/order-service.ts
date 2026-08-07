@@ -25,9 +25,14 @@ import {
  */
 export async function getCheckoutDeps(): Promise<CheckoutDeps> {
   const client = await createSupabaseServerClient();
+  // Orders are written with the service role, never the RLS-scoped browser
+  // client: every figure (subtotal, shipping, tax, total, unit prices) is
+  // recomputed server-side in `placeOrder`, and there is no INSERT policy on
+  // orders/order_items, so a customer cannot forge an order via PostgREST.
+  const admin = createSupabaseAdminClient();
   return {
     products: createProductRepository(client),
-    orders: createOrderRepository(client),
+    orders: createOrderRepository(admin),
     pricing: loadPricingTable,
     defaultItemWeightGrams,
     findDiscountCode,

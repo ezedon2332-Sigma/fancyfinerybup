@@ -39,8 +39,13 @@ const bodySchema = z.object({
 });
 
 function clientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  return (fwd ? fwd.split(",")[0] : req.headers.get("x-real-ip"))?.trim() || "unknown";
+  // Prefer the platform-set x-real-ip; the leftmost x-forwarded-for entry is
+  // client-controllable and must not be the primary rate-limit key.
+  return (
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    "unknown"
+  );
 }
 
 function ndjson(controller: ReadableStreamDefaultController, e: ConciergeStreamEvent) {

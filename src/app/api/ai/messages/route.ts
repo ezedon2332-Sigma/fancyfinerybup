@@ -25,8 +25,13 @@ const schema = z.discriminatedUnion("action", [
 ]);
 
 function clientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  return (fwd ? fwd.split(",")[0] : req.headers.get("x-real-ip"))?.trim() || "unknown";
+  // Prefer the platform-set x-real-ip over the client-controllable leftmost
+  // x-forwarded-for entry.
+  return (
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    "unknown"
+  );
 }
 
 /**

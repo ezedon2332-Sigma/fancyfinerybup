@@ -28,8 +28,8 @@ export async function checkEmailExists(email: unknown): Promise<EmailCheckResult
 
   const h = await headers();
   const ip =
-    h.get("x-forwarded-for")?.split(",")[0].trim() ||
     h.get("x-real-ip")?.trim() ||
+    h.get("x-forwarded-for")?.split(",")[0].trim() ||
     "unknown";
   const gate = rateLimit(`emailcheck:${ip}`, 30, 60_000);
   if (!gate.ok) {

@@ -35,18 +35,23 @@ export async function GET(request: Request) {
     runBirthdayEmails(),
   ]);
 
+  const ok =
+    campaigns.status === "fulfilled" && birthdays.status === "fulfilled";
   const body = {
-    ok: campaigns.status === "fulfilled" && birthdays.status === "fulfilled",
+    ok,
+    // Never return raw error strings (they can carry internal detail); the real
+    // reasons are logged server-side below.
     campaigns:
-      campaigns.status === "fulfilled"
-        ? campaigns.value
-        : { error: String(campaigns.reason) },
+      campaigns.status === "fulfilled" ? campaigns.value : { error: "failed" },
     birthdays:
-      birthdays.status === "fulfilled"
-        ? birthdays.value
-        : { error: String(birthdays.reason) },
+      birthdays.status === "fulfilled" ? birthdays.value : { error: "failed" },
   };
 
-  if (!body.ok) console.error("[cron:newsletter] partial failure", body);
-  return NextResponse.json(body, { status: body.ok ? 200 : 500 });
+  if (!ok) {
+    console.error("[cron:newsletter] partial failure", {
+      campaigns: campaigns.status === "rejected" ? campaigns.reason : "ok",
+      birthdays: birthdays.status === "rejected" ? birthdays.reason : "ok",
+    });
+  }
+  return NextResponse.json(body, { status: ok ? 200 : 500 });
 }

@@ -1,7 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
 import { colorRequestSchema } from "@/lib/validation";
+import { rateLimit } from "@/lib/ai-rate-limit";
 
 export interface ColorRequestResult {
   ok: boolean;
@@ -19,6 +22,17 @@ export async function submitColorRequestAction(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid request." };
   }
   const v = parsed.data;
+
+  // Throttle by client IP — this writes attacker-controlled PII via the service
+  // role, so an unthrottled public action is a spam / storage-exhaustion sink.
+  const h = await headers();
+  const ip =
+    h.get("x-real-ip")?.trim() ||
+    h.get("x-forwarded-for")?.split(",")[0].trim() ||
+    "unknown";
+  if (!rateLimit(`color:${ip}`, 5, 60_000).ok) {
+    return { ok: false, error: "Please wait a moment before requesting again." };
+  }
 
   try {
     const admin = createSupabaseAdminClient();
