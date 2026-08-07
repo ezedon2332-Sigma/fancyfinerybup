@@ -70,6 +70,30 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
     },
   });
 
+  // Server-side diagnostics for email confirmation (never returned to the
+  // browser). `confirmationSentAt` is the key signal: with autoconfirm off it
+  // should be set when Supabase dispatches the confirmation email — a null here
+  // (or a repeated "email rate limit exceeded" error) points at the mailer/SMTP
+  // configuration rather than the app.
+  console.log("[signup] auth.signUp", {
+    email: data.email,
+    origin,
+    redirectTo: `${origin}/auth/callback?next=/account`,
+    hasUser: Boolean(created?.user),
+    userId: created?.user?.id ?? null,
+    identities: created?.user?.identities?.length ?? null,
+    hasSession: Boolean(created?.session),
+    emailConfirmedAt: created?.user?.email_confirmed_at ?? null,
+    confirmationSentAt: created?.user?.confirmation_sent_at ?? null,
+    error: error
+      ? {
+          message: error.message,
+          status: (error as { status?: number }).status ?? null,
+          code: (error as { code?: string }).code ?? null,
+        }
+      : null,
+  });
+
   if (error) {
     // Supabase reports an existing address in a few different wordings.
     if (/already registered|already exists|user already/i.test(error.message)) {
@@ -80,7 +104,16 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
         fieldErrors: { email: "This email is already registered" },
       };
     }
-    if (/rate limit|too many/i.test(error.message)) {
+    // The confirmation email itself couldn't be sent (mailer rate limit / SMTP).
+    // Surface the real cause rather than a generic "check your inbox".
+    if (/email rate limit|error sending|smtp|confirmation email/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "We couldn't send your confirmation email right now (mail service limit). Please try again in a few minutes.",
+      };
+    }
+    if (/rate limit|too many|after \d+ seconds/i.test(error.message)) {
       return {
         ok: false,
         error:

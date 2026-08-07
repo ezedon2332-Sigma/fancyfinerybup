@@ -73,27 +73,11 @@ export function AuthPanel({ mode }: { mode: Mode }) {
           <AnimatePresence mode="wait" initial={false}>
             {view === "sent" || view === "verify" ? (
               <Fade key="confirm">
-                <div className="py-3 text-center">
-                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-yellow-600/30 bg-yellow-500/5">
-                    <Mail className="h-6 w-6 text-yellow-400" />
-                  </span>
-                  <h2 className="brand-wordmark mt-5 text-xl">
-                    {view === "verify" ? "Confirm your email" : "Check your inbox"}
-                  </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-gray-300">
-                    {view === "verify"
-                      ? "We sent a confirmation link to "
-                      : "We sent a password-reset link to "}
-                    <b className="text-white">{sentTo}</b>.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setView("signin")}
-                    className="mt-6 inline-flex items-center gap-1.5 text-xs uppercase tracking-widest text-gray-400 hover:text-yellow-400"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
-                  </button>
-                </div>
+                <ConfirmView
+                  kind={view}
+                  email={sentTo}
+                  onBack={() => setView("signin")}
+                />
               </Fade>
             ) : view === "forgot" ? (
               <Fade key="forgot">
@@ -346,6 +330,93 @@ function SignUp({ google, onVerify, onActive, setError }: {
         </label>
         <Submit pending={pending} label="Create Account" busy="Creating your account…" />
       </form>
+    </div>
+  );
+}
+
+function ConfirmView({
+  kind,
+  email,
+  onBack,
+}: {
+  kind: "verify" | "sent";
+  email: string;
+  onBack: () => void;
+}) {
+  const [state, setState] = useState<"idle" | "sending" | "resent">("idle");
+  const [err, setErr] = useState<string | null>(null);
+
+  async function resend() {
+    setState("sending");
+    setErr(null);
+    const supabase = createSupabaseBrowserClient();
+    const { error } =
+      kind === "verify"
+        ? await supabase.auth.resend({
+            type: "signup",
+            email,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/callback?next=/account`,
+            },
+          })
+        : await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+          });
+    if (error) {
+      setState("idle");
+      setErr(
+        /rate limit|too many|after \d+ seconds/i.test(error.message)
+          ? "Please wait a little before requesting another email."
+          : error.message,
+      );
+    } else {
+      setState("resent");
+    }
+  }
+
+  return (
+    <div className="py-3 text-center">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-yellow-600/30 bg-yellow-500/5">
+        <Mail className="h-6 w-6 text-yellow-400" />
+      </span>
+      <h2 className="brand-wordmark mt-5 text-xl">
+        {kind === "verify" ? "Confirm your email" : "Check your inbox"}
+      </h2>
+      <p className="mt-3 text-sm leading-relaxed text-gray-300">
+        {kind === "verify"
+          ? "We sent a confirmation link to "
+          : "We sent a password-reset link to "}
+        <b className="text-white">{email}</b>.
+      </p>
+      <p className="mt-1.5 text-xs text-gray-500">
+        Didn&apos;t get it? Check your spam folder, or resend below.
+      </p>
+
+      <button
+        type="button"
+        onClick={resend}
+        disabled={state !== "idle"}
+        className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-yellow-500/40 px-5 py-2.5 text-sm font-medium text-yellow-300 transition-colors hover:bg-yellow-500/10 disabled:opacity-60"
+      >
+        {state === "sending" ? (
+          <><Loader2 className="h-4 w-4 animate-spin" /> Resending…</>
+        ) : state === "resent" ? (
+          <><Check className="h-4 w-4" /> Email resent</>
+        ) : (
+          "Resend email"
+        )}
+      </button>
+      {err && <p className="mt-3 text-sm text-red-400">{err}</p>}
+
+      <div className="mt-5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest text-gray-400 hover:text-yellow-400"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+        </button>
+      </div>
     </div>
   );
 }
