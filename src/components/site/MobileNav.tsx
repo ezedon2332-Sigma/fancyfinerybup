@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronRight,
   Heart,
-  LogIn,
   Search,
   ShoppingBag,
   User,
@@ -187,25 +186,23 @@ export function MobileNav({
             </Section>
 
             <Section title="Account">
-              <Link
-                href={user ? "/account" : "/login"}
-                onClick={close}
-                className={`${ROW} text-sm text-gray-200`}
-              >
-                {user ? (
+              {user && (
+                <Link
+                  href="/account"
+                  onClick={close}
+                  className={`${ROW} text-sm text-gray-200`}
+                >
                   <User className="h-4 w-4 shrink-0 text-yellow-600" />
-                ) : (
-                  <LogIn className="h-4 w-4 shrink-0 text-yellow-600" />
-                )}
-                <span className="min-w-0 flex-1">
-                  {user ? "My Account" : "Sign In"}
-                  {user?.email && (
-                    <span className="block truncate text-[11px] text-gray-500">
-                      {user.email}
-                    </span>
-                  )}
-                </span>
-              </Link>
+                  <span className="min-w-0 flex-1">
+                    My Account
+                    {user.email && (
+                      <span className="block truncate text-[11px] text-gray-500">
+                        {user.email}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              )}
               <Link href="/shipping" onClick={close} className={`${ROW} text-sm text-gray-200`}>
                 <span className="flex-1">Shipping Rates</span>
               </Link>

@@ -20,10 +20,8 @@ import {
 import { useCart } from "@/components/cart/CartProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
-import { AuthButtons } from "./AuthButtons";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { MobileNav } from "./MobileNav";
-import { AccountMenu } from "./AccountMenu";
 
 /** One definition of an icon button: 44x44 on touch, 40 from lg. */
 const ICON =
@@ -95,9 +93,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {/* Guests get the pair here; a signed-in visitor gets nothing,
-                because their profile menu is in the row below. */}
-            {!user && <AuthButtons />}
             <CurrencyLanguageMenu />
           </div>
         </div>
@@ -222,18 +217,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
             {count > 0 && <Count>{count}</Count>}
           </button>
 
-          {/* Signed in only, and from sm up.
-              Guests do not get this: the Create Account / Sign In pair in the
-              utility bar replaces it, and everything the guest version of this
-              menu held is reachable from there or the strip. Held back below sm
-              because at 320px the row has 17px spare and this control is 44 —
-              on that width the drawer carries the account links instead. */}
-          {user && (
-            <span className="hidden sm:inline-flex">
-              <AccountMenu user={user} wishCount={wishCount} />
-            </span>
-          )}
-
           <button
             type="button"
             aria-label={open ? "Close menu" : "Open menu"}
@@ -257,16 +240,6 @@ export function Navbar({ user }: { user: { email: string | null } | null }) {
           below that, contained here so the page itself never scrolls. */}
       <div className="border-t border-white/8 xl:hidden">
         <div className="nav-strip mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-2 sm:px-4">
-          {/* Auth first in the scroll order, not buried after eight page links.
-              There is no utility bar below lg, so this is where the pair lives
-              on phones and tablets. */}
-          {!user && (
-            <>
-              <AuthButtons compact />
-              <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/12" />
-            </>
-          )}
-
           {LINKS.map((link) => {
             const active = isActive(link.href);
             return (

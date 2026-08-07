@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   ChevronRight,
   Heart,
-  LogOut,
   MapPin,
   Package,
   ShieldCheck,
@@ -27,7 +26,6 @@ import {
   PageHeader,
   Stat,
 } from "@/components/ui";
-import { signOut } from "./actions";
 
 export const metadata: Metadata = { title: "My Account" };
 
@@ -63,24 +61,14 @@ export default async function AccountPage() {
         title={`Welcome back, ${name}`}
         lead={user.email ?? undefined}
         actions={
-          <div className="flex items-center gap-2">
-            {profile?.role === "admin" && (
-              <Link
-                href="/admin"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-yellow-500/40 px-4 text-[11px] font-semibold uppercase tracking-widest text-yellow-400 transition-colors hover:bg-yellow-500/10"
-              >
-                <ShieldCheck className="h-4 w-4" /> Admin
-              </Link>
-            )}
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-white/15 px-4 text-[11px] uppercase tracking-widest text-gray-300 transition-colors hover:border-red-500/50 hover:text-red-400"
-              >
-                <LogOut className="h-4 w-4" /> Sign out
-              </button>
-            </form>
-          </div>
+          profile?.role === "admin" ? (
+            <Link
+              href="/admin"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-yellow-500/40 px-4 text-[11px] font-semibold uppercase tracking-widest text-yellow-400 transition-colors hover:bg-yellow-500/10"
+            >
+              <ShieldCheck className="h-4 w-4" /> Admin
+            </Link>
+          ) : undefined
         }
       />
 
