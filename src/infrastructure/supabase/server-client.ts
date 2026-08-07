@@ -28,7 +28,15 @@ export async function createSupabaseServerClient() {
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              cookieStore.set(name, value, {
+                ...options,
+                // Restrict auth cookies to HTTPS in production — @supabase/ssr's
+                // defaults set SameSite=Lax + path=/ but omit Secure. (httpOnly
+                // stays false as the library requires: the SSR browser client
+                // reads the session, which is a short-lived JWT refreshed
+                // server-side by the proxy.)
+                secure: process.env.NODE_ENV === "production",
+              });
             }
           } catch {
             // `setAll` was called from a Server Component, where mutating

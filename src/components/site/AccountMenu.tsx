@@ -81,14 +81,14 @@ export function AccountMenu({
               <>
                 <div className="border-b border-white/8 px-4 py-3">
                   <p className="text-[9px] uppercase tracking-[0.24em] text-yellow-500">
-                    Signed in
+                    Welcome back
                   </p>
                   <p className="mt-1 truncate text-xs text-gray-400">
                     {user.email}
                   </p>
                 </div>
                 <Link href="/account" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
-                  <User className="h-4 w-4 shrink-0 text-yellow-600" /> Profile
+                  <User className="h-4 w-4 shrink-0 text-yellow-600" /> My Account
                 </Link>
                 <Link href="/account/orders" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
                   <Package className="h-4 w-4 shrink-0 text-yellow-600" /> My Orders
@@ -106,7 +106,7 @@ export function AccountMenu({
                     not be triggered by a prefetch or a crawler. */}
                 <form action={signOut} className="border-t border-white/8">
                   <button type="submit" role="menuitem" className={`${row} w-full text-left text-gray-400`}>
-                    <LogOut className="h-4 w-4 shrink-0" /> Sign Out
+                    <LogOut className="h-4 w-4 shrink-0" /> Logout
                   </button>
                 </form>
               </>
@@ -115,7 +115,7 @@ export function AccountMenu({
                 <Link href="/login" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
                   <LogIn className="h-4 w-4 shrink-0 text-yellow-600" /> Sign In
                 </Link>
-                <Link href="/signup" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
+                <Link href="/login?intent=signup" role="menuitem" onClick={() => setOpen(false)} className={`${row} text-gray-200`}>
                   <UserPlus className="h-4 w-4 shrink-0 text-yellow-600" /> Create Account
                 </Link>
                 <Link href="/wishlist" role="menuitem" onClick={() => setOpen(false)} className={`${row} border-t border-white/8 text-gray-200`}>

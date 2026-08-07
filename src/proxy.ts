@@ -35,7 +35,12 @@ export async function proxy(request: NextRequest) {
           }
           response = NextResponse.next({ request });
           for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
+            response.cookies.set(name, value, {
+              ...options,
+              // Mark refreshed auth cookies Secure in production (the SSR
+              // defaults omit it); SameSite=Lax/path come from the library.
+              secure: process.env.NODE_ENV === "production",
+            });
           }
         },
       },
