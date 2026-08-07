@@ -1,6 +1,6 @@
 /** Canonical site constants (SEO, metadata, sitemap, structured data). */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://fancyfinerybup.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL || "https://fancyfinerybup.com"
 ).replace(/\/$/, "");
 
 export const SITE_NAME = "Fancy Finery";

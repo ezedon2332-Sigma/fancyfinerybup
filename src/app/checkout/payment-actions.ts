@@ -19,7 +19,7 @@ export interface StartPaymentResult {
 function siteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://fancyfinerybup.vercel.app"
+    "https://fancyfinerybup.com"
   );
 }
 
