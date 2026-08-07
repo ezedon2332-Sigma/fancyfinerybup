@@ -37,14 +37,20 @@ const STRENGTH_COLOUR = [
  * the server still re-validates, because a client check is a courtesy rather
  * than a control.
  */
-export function SignUpForm({ next = "/account" }: { next?: string }) {
+export function SignUpForm({
+  next = "/account",
+  initialEmail = "",
+}: {
+  next?: string;
+  initialEmail?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
-    email: "",
+    email: initialEmail,
     phone: "",
     country: "",
     acceptTerms: false,

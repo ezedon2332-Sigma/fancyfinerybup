@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { Card } from "@/components/ui";
+import { getCurrentUser } from "@/infrastructure/supabase/auth";
 
 export const metadata: Metadata = {
   title: "Create account",
@@ -9,7 +11,11 @@ export const metadata: Metadata = {
     "Create a Fancy Finery account to save addresses, track orders and review your pieces.",
 };
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  // Already signed in? No signup prompts — take them to their account.
+  const user = await getCurrentUser();
+  if (user) redirect("/account");
+
   return (
     <div className="flex min-h-[70vh] items-center justify-center px-5 py-16 sm:px-6">
       <div className="w-full max-w-md">

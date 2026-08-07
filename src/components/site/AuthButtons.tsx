@@ -22,7 +22,7 @@ export function AuthButtons({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
       <Link
-        href="/signup"
+        href="/login?intent=signup"
         className={`group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-yellow-500/70 bg-gradient-to-b from-yellow-400/25 to-yellow-600/15 font-semibold uppercase tracking-[0.12em] text-yellow-200 transition-all hover:border-yellow-400 hover:from-yellow-400/35 hover:to-yellow-600/25 hover:text-yellow-100 active:scale-[0.98] ${
           compact
             ? "min-h-[44px] px-4 text-[11px]"
