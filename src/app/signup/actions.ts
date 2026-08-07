@@ -5,13 +5,12 @@ import { headers } from "next/headers";
 import { signUpSchema, signUpFieldErrors } from "@/lib/validation";
 import { composeFullName } from "@/domain/password-policy";
 import { countryByCode } from "@/domain/shipping/countries";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
 import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
-import { SITE_URL } from "@/lib/site";
+import { rateLimit } from "@/lib/ai-rate-limit";
 
 export interface SignUpResult {
   ok: boolean;
-  /** "active" — signed in already. "verify" — a confirmation email was sent. */
+  /** "active" — account is ready; the client signs in immediately. */
   kind?: "active" | "verify";
   email?: string;
   error?: string;
@@ -19,17 +18,21 @@ export interface SignUpResult {
 }
 
 /**
- * Create a customer account.
+ * Create a customer account — reliably, without depending on confirmation-email
+ * delivery.
  *
- * Runs on the server rather than calling Supabase from the browser, for three
- * reasons: the schema that decides is the one the client cannot edit, the
- * session cookie is set by the SSR adapter rather than reconstructed after the
- * fact, and the honeypot verdict never reaches the browser.
+ * The project's Supabase instance requires email confirmation, but the built-in
+ * mailer is heavily rate-limited and no custom SMTP is configured, so those
+ * emails don't reach real customers. Rather than strand every new shopper on a
+ * "check your inbox" screen for a message that never arrives, the account is
+ * created ALREADY CONFIRMED via the admin API (`email_confirm: true`) and the
+ * browser signs in straight after. To restore the email-verification flow,
+ * configure custom SMTP in the Supabase dashboard and switch back to
+ * `auth.signUp` with `emailRedirectTo`.
  *
- * Passwords are never handled here beyond being passed to Supabase Auth, which
- * stores them bcrypt-hashed in `auth.users`. Nothing in this codebase reads,
- * logs or stores a password, and the profile row deliberately holds no
- * credential material at all.
+ * Runs on the server so the schema, the honeypot verdict, and the service-role
+ * key never reach the browser. Passwords are only ever passed to Supabase Auth
+ * (bcrypt-hashed in auth.users); nothing here reads, logs, or stores them.
  */
 export async function signUpAction(input: unknown): Promise<SignUpResult> {
   const parsed = signUpSchema.safeParse(input);
@@ -44,47 +47,40 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
   const data = parsed.data;
 
   // Honeypot: hidden from humans, irresistible to bots. Report success so the
-  // bot learns nothing from the response, and create nothing.
-  if (data.website) return { ok: true, kind: "verify", email: data.email };
+  // bot learns nothing, and create nothing.
+  if (data.website) return { ok: true, kind: "active", email: data.email };
 
+  // Light per-IP throttle — creating confirmed accounts has no email step to
+  // slow abuse, so cap it here (8 / hour / IP).
   const h = await headers();
-  const origin = h.get("origin") ?? SITE_URL;
+  const ip =
+    h.get("x-real-ip")?.trim() ||
+    h.get("x-forwarded-for")?.split(",")[0].trim() ||
+    "unknown";
+  if (!rateLimit(`signup:${ip}`, 8, 60 * 60 * 1000).ok) {
+    return { ok: false, error: "Too many sign-up attempts. Please try again later." };
+  }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: created, error } = await supabase.auth.signUp({
+  const admin = createSupabaseAdminClient();
+  const { data: created, error } = await admin.auth.admin.createUser({
     email: data.email,
     password: data.password,
-    options: {
-      // Read by the on-signup trigger, which writes the profile row.
-      data: {
-        full_name: composeFullName(data.firstName, data.lastName),
-        first_name: data.firstName,
-        last_name: data.lastName,
-        phone: data.phone || null,
-        country: data.country || null,
-        // Recorded against the account, because "they ticked a box" is only
-        // worth anything if there is something showing when.
-        terms_accepted_at: new Date().toISOString(),
-      },
-      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/account")}`,
+    email_confirm: true, // no confirmation email required
+    user_metadata: {
+      full_name: composeFullName(data.firstName, data.lastName),
+      first_name: data.firstName,
+      last_name: data.lastName,
+      phone: data.phone || null,
+      country: data.country || null,
+      terms_accepted_at: new Date().toISOString(),
     },
   });
 
-  // Server-side diagnostics for email confirmation (never returned to the
-  // browser). `confirmationSentAt` is the key signal: with autoconfirm off it
-  // should be set when Supabase dispatches the confirmation email — a null here
-  // (or a repeated "email rate limit exceeded" error) points at the mailer/SMTP
-  // configuration rather than the app.
-  console.log("[signup] auth.signUp", {
+  // Server-side diagnostics (never returned to the browser).
+  console.log("[signup] admin.createUser", {
     email: data.email,
-    origin,
-    redirectTo: `${origin}/auth/callback?next=/account`,
     hasUser: Boolean(created?.user),
     userId: created?.user?.id ?? null,
-    identities: created?.user?.identities?.length ?? null,
-    hasSession: Boolean(created?.session),
-    emailConfirmedAt: created?.user?.email_confirmed_at ?? null,
-    confirmationSentAt: created?.user?.confirmation_sent_at ?? null,
     error: error
       ? {
           message: error.message,
@@ -95,61 +91,30 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
   });
 
   if (error) {
-    // Supabase reports an existing address in a few different wordings.
-    if (/already registered|already exists|user already/i.test(error.message)) {
+    if (
+      /already been registered|already registered|already exists|duplicate|email_exists|has already/i.test(
+        error.message,
+      )
+    ) {
       return {
         ok: false,
-        error:
-          "An account already exists for that email. Try signing in instead.",
+        error: "An account already exists for that email. Try signing in instead.",
         fieldErrors: { email: "This email is already registered" },
       };
     }
-    // The confirmation email itself couldn't be sent (mailer rate limit / SMTP).
-    // Surface the real cause rather than a generic "check your inbox".
-    if (/email rate limit|error sending|smtp|confirmation email/i.test(error.message)) {
+    if (/rate limit|too many/i.test(error.message)) {
       return {
         ok: false,
-        error:
-          "We couldn't send your confirmation email right now (mail service limit). Please try again in a few minutes.",
-      };
-    }
-    if (/rate limit|too many|after \d+ seconds/i.test(error.message)) {
-      return {
-        ok: false,
-        error:
-          "Too many attempts from this network. Please wait a moment and try again.",
+        error: "Too many attempts. Please wait a moment and try again.",
       };
     }
     return { ok: false, error: error.message };
   }
 
-  // Duplicate address, the quiet way.
-  //
-  // With email confirmation enabled Supabase does NOT error for an address that
-  // already exists — that would let anyone test which emails have accounts.
-  // It returns a user with an empty `identities` array and sends no mail. Left
-  // unhandled, a duplicate signup would show the customer a cheerful "check
-  // your inbox" for a message that is never coming.
-  //
-  // We do tell them the address is taken, which trades a little enumeration
-  // resistance for not stranding a real customer who simply forgot they had an
-  // account. The sign-in link next to the message is the point.
-  if (created.user && (created.user.identities?.length ?? 0) === 0) {
-    return {
-      ok: false,
-      error: "An account already exists for that email. Try signing in instead.",
-      fieldErrors: { email: "This email is already registered" },
-    };
-  }
-
-  // The trigger creates the profile from auth metadata, but it only knows about
-  // full_name and avatar_url. Phone is written here instead of by extending the
-  // trigger, so this needs no migration and works whether or not the address
-  // has been confirmed yet. Best-effort: a failure here must not lose an
-  // account that already exists.
+  // The on-signup trigger creates the profile from the metadata above; write
+  // phone/country onto it (best-effort — a failure must not lose the account).
   if (created.user && (data.phone || data.country)) {
     try {
-      const admin = createSupabaseAdminClient();
       const patch: { phone?: string; country?: string } = {};
       if (data.phone) patch.phone = data.phone;
       if (data.country) {
@@ -161,9 +126,6 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
     }
   }
 
-  // With email confirmation enabled there is no session yet. Saying so beats
-  // redirecting to a dashboard that will bounce them straight back to login.
-  return created.session
-    ? { ok: true, kind: "active", email: data.email }
-    : { ok: true, kind: "verify", email: data.email };
+  // Account is ready and confirmed — the client signs in to establish a session.
+  return { ok: true, kind: "active", email: data.email };
 }

@@ -89,12 +89,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
               </Fade>
             ) : view === "signup" ? (
               <Fade key="signup">
-                <SignUp
-                  google={google}
-                  onVerify={(email) => { setSentTo(email); setView("verify"); }}
-                  onActive={done}
-                  setError={setError}
-                />
+                <SignUp google={google} onActive={done} setError={setError} />
               </Fade>
             ) : (
               <Fade key="signin">
@@ -244,8 +239,8 @@ function SignIn({ google, onSignedIn, onForgot, setError }: {
   );
 }
 
-function SignUp({ google, onVerify, onActive, setError }: {
-  google: () => void; onVerify: (email: string) => void; onActive: () => void; setError: (m: string | null) => void;
+function SignUp({ google, onActive, setError }: {
+  google: () => void; onActive: () => void; setError: (m: string | null) => void;
 }) {
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", acceptTerms: false, website: "" });
   const [touched, setTouched] = useState(false);
@@ -264,8 +259,17 @@ function SignUp({ google, onVerify, onActive, setError }: {
     start(async () => {
       const res = await signUpAction(parsed.data);
       if (!res.ok) return setError(res.error ?? "Could not create your account.");
-      if (res.kind === "verify") onVerify(form.email);
-      else onActive();
+      // The account is created + confirmed server-side; establish the session.
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+      if (error) {
+        setError("Your account is ready — please sign in.");
+        return;
+      }
+      onActive();
     });
   }
 
