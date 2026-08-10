@@ -79,6 +79,43 @@ export async function recordPaymentEvent(
 }
 
 /**
+ * Log that a charge was started, so the reference survives being overwritten.
+ *
+ * An order row remembers only its newest reference. Reopening checkout mints a
+ * fresh one and re-points the row, which leaves the reconcile sweep unable to
+ * even ask the provider about an earlier attempt — and an earlier attempt is
+ * exactly what a customer paying from a stale tab completes. Keeping every
+ * reference in the ledger gives the sweep the full set to check.
+ *
+ * Recorded as already processed: there is no work pending on an attempt, and
+ * leaving it unstamped would pollute the unprocessed-event index.
+ */
+export async function recordPaymentAttempt(input: {
+  provider: "paystack" | "stripe";
+  reference: string;
+  orderId: string;
+}): Promise<void> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin.from("payment_events").insert({
+      provider: input.provider,
+      // Unique per attempt, so a retried action can't duplicate the row.
+      event_id: `attempt:${input.reference}`,
+      event_type: "attempt",
+      reference: input.reference,
+      order_id: input.orderId,
+      processed_at: new Date().toISOString(),
+    });
+    // 23505 just means this attempt is already logged.
+    if (error && error.code !== "23505") {
+      console.error("[payments] attempt log failed:", error.message);
+    }
+  } catch (e) {
+    console.error("[payments] attempt log threw:", e);
+  }
+}
+
+/**
  * Close the loop: mark an event handled so later deliveries of it are skipped.
  * Call ONLY after the work actually succeeded — stamping early re-opens the very
  * hole `processed_at` exists to close. Never throws; an unstamped event is

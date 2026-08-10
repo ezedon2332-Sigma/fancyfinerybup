@@ -9,6 +9,7 @@ import {
   onlinePaymentEnabled,
   providerForCurrency,
 } from "@/infrastructure/payments/providers";
+import { recordPaymentAttempt } from "@/infrastructure/payments/events";
 
 export interface StartPaymentResult {
   ok: boolean;
@@ -61,11 +62,18 @@ export async function startPaymentAction(
 
   const email = order.shipping_email || user.email || "";
 
+  // providerForCurrency's type spans providers that aren't implemented yet, but
+  // it only ever returns one of these two — and the branch below already treats
+  // "not paystack" as Stripe. Narrowing here keeps that assumption in one place
+  // and lets the ledger record a precise provider.
+  const settleWith: "paystack" | "stripe" =
+    provider === "paystack" ? "paystack" : "stripe";
+
   try {
     let reference: string;
     let url: string;
 
-    if (provider === "paystack") {
+    if (settleWith === "paystack") {
       reference = `FF-${order.id}-${Date.now().toString(36)}`;
       const init = await paystackInitialize({
         email,
@@ -111,8 +119,8 @@ export async function startPaymentAction(
       .from("orders")
       .update({
         payment_reference: reference,
-        payment_provider: provider,
-        ...(provider === "paystack" ? { paystack_reference: reference } : {}),
+        payment_provider: settleWith,
+        ...(settleWith === "paystack" ? { paystack_reference: reference } : {}),
       })
       .eq("id", order.id);
     if (refError) {
@@ -121,6 +129,16 @@ export async function startPaymentAction(
         error: "Could not start payment. Please try again.",
       };
     }
+
+    // Keep this attempt's reference on the ledger. The column above only holds
+    // the newest one, so without this a charge completed on an earlier checkout
+    // tab is invisible to the reconcile sweep. Best-effort: failing to log an
+    // attempt must not stop the customer from paying.
+    await recordPaymentAttempt({
+      provider: settleWith,
+      reference,
+      orderId: order.id,
+    });
 
     return { ok: true, url };
   } catch (e) {

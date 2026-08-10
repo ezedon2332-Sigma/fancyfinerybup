@@ -186,12 +186,24 @@ export async function confirmStripeBySession(
 /**
  * Record a failed charge — only ever unpaid → failed, so it can't clobber a
  * paid or refunded order. Driven by explicit provider failure webhooks.
+ *
+ * Resolves the order the same way the success path does, so a failure webhook
+ * for an order keyed to the legacy `paystack_reference` column lands instead of
+ * silently matching nothing.
+ *
+ * Deliberately does NOT fall back to the charge's metadata order id the way
+ * confirmation does: a customer who abandons one attempt and pays on a second
+ * would otherwise have the abandoned attempt's failure mark the order they are
+ * actively paying for. `failed` never blocks a later payment, but showing it
+ * while a charge is still in flight would be a lie.
  */
 export async function markPaymentFailed(reference: string): Promise<void> {
   const admin = createSupabaseAdminClient();
+  const order = await findOrderByReference(admin, reference);
+  if (!order) return;
   await admin
     .from("orders")
     .update({ payment_status: "failed" })
-    .eq("payment_reference", reference)
+    .eq("id", order.id)
     .eq("payment_status", "unpaid");
 }
