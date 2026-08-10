@@ -71,6 +71,9 @@ export function CartDrawer() {
                           src={item.image}
                           alt={item.name}
                           fill
+                          // Fixed 80px-wide cart thumbnail; `fill` alone would
+                          // imply 100vw and pull a full-width variant.
+                          sizes="80px"
                           className="object-cover"
                         />
                       </div>

@@ -65,6 +65,14 @@ const nextConfig: NextConfig = {
     // Next 16 requires an explicit allowlist; 95 is for the hero brand mark,
     // where gradient banding shows at the default 75.
     qualities: [75, 95],
+    // 31 days, up from the Next 16 default of 4 hours. Every revalidation
+    // re-fetches the original from Supabase Storage, which bills as cached
+    // egress — the quota that took the project offline. Uploads are written to
+    // `products/<uuid>.<ext>` with upsert:false (see src/lib/upload-media.ts),
+    // so an image's URL is immutable: replacing a product photo yields a new
+    // path and a new src. There is nothing to go stale, which is what makes a
+    // TTL this long safe here despite there being no cache-invalidation hook.
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       {
         // Supabase Storage public objects (product images).

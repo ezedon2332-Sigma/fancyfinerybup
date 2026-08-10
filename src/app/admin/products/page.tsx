@@ -51,7 +51,16 @@ export default async function AdminProductsPage() {
                     <div className="flex items-center gap-3">
                       <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded bg-neutral-900">
                         {p.thumbnail && (
-                          <Image src={p.thumbnail} alt="" fill className="object-cover" />
+                          <Image
+                            src={p.thumbnail}
+                            alt=""
+                            fill
+                            // Fixed 40px row thumbnail. Without sizes, `fill`
+                            // implies 100vw — a full-width variant per product
+                            // for every row of the admin list.
+                            sizes="40px"
+                            className="object-cover"
+                          />
                         )}
                       </div>
                       <div>

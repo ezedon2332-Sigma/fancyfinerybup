@@ -126,7 +126,16 @@ export function ProductDetail({
                     </span>
                   </>
                 ) : (
-                  <Image src={m.url} alt={m.alt} fill className="object-cover" />
+                  <Image
+                    src={m.url}
+                    alt={m.alt}
+                    fill
+                    // Fixed 64px-wide thumbnail. Without this, `fill` implies
+                    // 100vw and the optimizer fetches and encodes a full-width
+                    // variant of every gallery image for a strip of thumbnails.
+                    sizes="64px"
+                    className="object-cover"
+                  />
                 )}
               </button>
             ))}
