@@ -80,6 +80,13 @@ export interface VerifyResult {
   amountMinor: number;
   currency: string;
   reference: string;
+  /**
+   * The order this charge was created for, read back from the metadata we set at
+   * initialize time. Survives the order row being re-pointed at a newer
+   * reference, so it is the only reliable link for a charge completed on a stale
+   * checkout tab.
+   */
+  orderId: string | null;
 }
 
 export async function paystackVerify(reference: string): Promise<VerifyResult> {
@@ -97,7 +104,27 @@ export async function paystackVerify(reference: string): Promise<VerifyResult> {
     amountMinor: json.data.amount,
     currency: json.data.currency,
     reference: json.data.reference,
+    orderId: metadataOrderId(json.data?.metadata),
   };
+}
+
+/**
+ * Pull our own `orderId` back out of a charge's metadata. Paystack returns
+ * metadata as an object, but echoes it as a JSON string in some payloads, so
+ * accept both rather than lose the link on a formatting quirk.
+ */
+export function metadataOrderId(metadata: unknown): string | null {
+  let meta = metadata;
+  if (typeof meta === "string") {
+    try {
+      meta = JSON.parse(meta);
+    } catch {
+      return null;
+    }
+  }
+  if (!meta || typeof meta !== "object") return null;
+  const id = (meta as { orderId?: unknown }).orderId;
+  return typeof id === "string" && id.length > 0 ? id : null;
 }
 
 /** Refund a Paystack transaction in full, by its reference. */

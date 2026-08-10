@@ -16,12 +16,22 @@ export default async function PaymentCallbackPage({
   const { reference, trxref } = await searchParams;
   const ref = reference || trxref;
 
+  let orderId: string | null = null;
   if (ref) {
-    const res = await confirmPaystackByReference(ref);
-    if (res.ok && res.orderId) {
-      redirect(`/account/orders/${res.orderId}?paid=1`);
+    try {
+      const res = await confirmPaystackByReference(ref);
+      if (res.ok && res.orderId) orderId = res.orderId;
+    } catch (e) {
+      // A garbage or unknown reference makes the verify call throw. That is not
+      // an application error — show the reassurance card below and let the
+      // webhook or the reconcile sweep settle a charge that was genuinely taken.
+      console.error("[paystack] callback verify failed:", e);
     }
   }
+
+  // Outside the try: redirect() signals by throwing, so calling it inside would
+  // be caught above and swallowed.
+  if (orderId) redirect(`/account/orders/${orderId}?paid=1`);
 
   return (
     <div className="mx-auto max-w-md px-6 py-24 text-center">

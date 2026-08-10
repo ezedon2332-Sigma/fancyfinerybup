@@ -51,6 +51,19 @@ async function findOrderByReference(
   return legacy ?? null;
 }
 
+/** Look an order up directly, for charges that carry their order id. */
+async function findOrderById(
+  admin: Admin,
+  orderId: string,
+): Promise<OrderRow | null> {
+  const { data } = await admin
+    .from("orders")
+    .select("id, total, currency, payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  return data ?? null;
+}
+
 /**
  * The one place an order is marked paid, shared by both providers. Idempotent
  * and amount-guarded: a tampered callback can't mark an order paid without a
@@ -106,16 +119,40 @@ async function markOrderPaid(
  * Confirm a Paystack payment by reference. Used by both the browser callback
  * and the webhook. Uses the service-role client because marking an order paid
  * is admin-gated by RLS.
+ *
+ * `fallbackOrderId` lets a caller that can already see the charge's metadata
+ * (the webhook) supply the order id without waiting on the verify call.
  */
 export async function confirmPaystackByReference(
   reference: string,
+  opts?: { fallbackOrderId?: string | null },
 ): Promise<ConfirmResult> {
   const admin = createSupabaseAdminClient();
-  const order = await findOrderByReference(admin, reference);
-  if (!order) return { ok: false, error: "Order not found for reference." };
-  if (order.payment_status === "paid") return { ok: true, orderId: order.id };
+  const byReference = await findOrderByReference(admin, reference);
+  // Settled already — skip the provider round-trip entirely.
+  if (byReference?.payment_status === "paid") {
+    return { ok: true, orderId: byReference.id };
+  }
 
   const v = await paystackVerify(reference);
+
+  // Starting checkout again mints a fresh reference and re-points the order row
+  // at it, so a charge completed on an earlier tab arrives with a reference that
+  // now matches nothing. The order id travels with the charge itself, so fall
+  // back to it rather than stranding a real payment as unpaid.
+  const chargeOrderId = v.orderId ?? opts?.fallbackOrderId ?? null;
+  const order =
+    byReference ??
+    (chargeOrderId ? await findOrderById(admin, chargeOrderId) : null);
+  if (!order) return { ok: false, error: "Order not found for reference." };
+
+  // Defense in depth: a charge naming a different order than the reference
+  // resolved to is incoherent — settle neither.
+  if (byReference && v.orderId && v.orderId !== byReference.id) {
+    return { ok: false, orderId: byReference.id, error: "Charge/order mismatch." };
+  }
+  if (order.payment_status === "paid") return { ok: true, orderId: order.id };
+
   return markOrderPaid(
     admin,
     order,

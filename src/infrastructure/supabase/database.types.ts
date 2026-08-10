@@ -542,6 +542,7 @@ export interface Database {
           order_id: string | null;
           raw: Json | null;
           created_at: string;
+          processed_at: string | null;
         };
         Insert: {
           id?: string;
@@ -552,6 +553,7 @@ export interface Database {
           order_id?: string | null;
           raw?: Json | null;
           created_at?: string;
+          processed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -562,6 +564,7 @@ export interface Database {
           order_id?: string | null;
           raw?: Json | null;
           created_at?: string;
+          processed_at?: string | null;
         };
         Relationships: [
           {

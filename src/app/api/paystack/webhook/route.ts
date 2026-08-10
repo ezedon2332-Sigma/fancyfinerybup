@@ -1,12 +1,16 @@
 import {
   isPaystackEnabled,
+  metadataOrderId,
   paystackValidWebhook,
 } from "@/infrastructure/payments/paystack";
 import {
   confirmPaystackByReference,
   markPaymentFailed,
 } from "@/infrastructure/payments/confirm";
-import { recordPaymentEvent } from "@/infrastructure/payments/events";
+import {
+  markPaymentEventProcessed,
+  recordPaymentEvent,
+} from "@/infrastructure/payments/events";
 
 // Node runtime — the webhook signature check uses node:crypto.
 export const runtime = "nodejs";
@@ -26,7 +30,11 @@ export async function POST(request: Request): Promise<Response> {
 
   let event: {
     event?: string;
-    data?: { reference?: string; id?: number | string };
+    data?: {
+      reference?: string;
+      id?: number | string;
+      metadata?: unknown;
+    };
   };
   try {
     event = JSON.parse(raw);
@@ -39,22 +47,36 @@ export async function POST(request: Request): Promise<Response> {
   // id so a success and a later failure for the same charge don't dedupe away.
   const eventId =
     event.data?.id != null ? `${event.event}:${event.data.id}` : null;
+  const orderId = metadataOrderId(event.data?.metadata);
 
-  const { isNew } = await recordPaymentEvent({
+  const { shouldProcess } = await recordPaymentEvent({
     provider: "paystack",
     eventId,
     eventType: event.event,
     reference,
+    orderId,
     raw: event,
   });
-  if (!isNew) return new Response("ok", { status: 200 });
+  // Only an event already handled to completion is skipped. One that was merely
+  // recorded before a handler died is replayed — see recordPaymentEvent.
+  if (!shouldProcess) return new Response("ok", { status: 200 });
 
-  if (event.event === "charge.success" && reference) {
-    await confirmPaystackByReference(reference);
-  } else if (event.event === "charge.failed" && reference) {
-    await markPaymentFailed(reference);
+  try {
+    if (event.event === "charge.success" && reference) {
+      await confirmPaystackByReference(reference, { fallbackOrderId: orderId });
+    } else if (event.event === "charge.failed" && reference) {
+      await markPaymentFailed(reference);
+    }
+  } catch (e) {
+    // Transient: the provider verify call or the database failed. Leave the
+    // event unstamped and hand Paystack a 5xx so it retries — swallowing this
+    // with a 200 is how a real charge ends up permanently unsettled.
+    console.error("[paystack] webhook handling failed:", e);
+    return new Response("Handling failed", { status: 500 });
   }
 
-  // Always 200 so Paystack doesn't retry once we've received it.
+  // Handled — including outcomes a retry can't improve (amount mismatch, an
+  // unknown order), which are decisions, not failures.
+  await markPaymentEventProcessed("paystack", eventId);
   return new Response("ok", { status: 200 });
 }
