@@ -1,14 +1,17 @@
 import "server-only";
-import { BRAND_FROM } from "@/lib/site";
+import { MAIL_FROM, MAIL_REPLY_TO } from "@/lib/site";
 
 /**
- * Pluggable marketing-email transport.
+ * Pluggable email transport. Resend is the house provider; the others are kept
+ * as drop-in escape hatches.
  *
  * Every supported provider is reachable over plain HTTPS, so there is no SDK
- * dependency and no build-time coupling: pick one with NEWSLETTER_PROVIDER and
+ * dependency and no build-time coupling: pick one with EMAIL_PROVIDER and
  * supply its key. With nothing configured the transport no-ops and logs in dev
- * — exactly like the transactional `sendEmail` helper — so the whole newsletter
- * flow (signup, welcome, campaigns) works end to end before a provider exists.
+ * — so the whole newsletter flow (signup, welcome, campaigns) works end to end
+ * before a provider exists. In production a missing key is logged as an error
+ * rather than passing silently, because that is how a store discovers weeks
+ * later that no customer ever got a receipt.
  *
  * Adding a provider means adding one entry to SENDERS. Nothing else changes.
  */
@@ -34,6 +37,15 @@ export interface MarketingEmail {
   text: string;
   /** Surfaced as List-Unsubscribe so inbox providers show a native control. */
   unsubscribeUrl?: string;
+  /** Override the Reply-To; defaults to the house mailbox. */
+  replyTo?: string;
+  /**
+   * Stable key identifying the *thing being said*, e.g.
+   * `payment-received:<orderId>`. Resend collapses repeat sends of the same key
+   * for 24h, so a retried serverless invocation or a re-delivered webhook can't
+   * email the customer the same receipt twice.
+   */
+  idempotencyKey?: string;
 }
 
 export interface SendResult {
@@ -44,18 +56,30 @@ export interface SendResult {
 }
 
 function fromAddress(): string {
-  // Defaults to the house mailbox rather than no-reply@fancyfinery.com, which
-  // was a domain the business does not own — mail from an unowned domain fails
-  // SPF and DKIM and is dropped or filed as spam. EMAIL_FROM overrides this the
-  // day a real sending domain exists.
-  return process.env.EMAIL_FROM ?? BRAND_FROM;
+  // Must be an address on a domain verified with the provider — see MAIL_FROM
+  // for why this is not the gmail house mailbox.
+  return process.env.EMAIL_FROM?.trim() || MAIL_FROM;
 }
 
+function replyToAddress(msg: MarketingEmail): string {
+  return msg.replyTo?.trim() || process.env.EMAIL_REPLY_TO?.trim() || MAIL_REPLY_TO;
+}
+
+/**
+ * Resolve the live provider. EMAIL_PROVIDER is the current name;
+ * NEWSLETTER_PROVIDER is still honoured so existing deployments keep working.
+ */
 function configured(): { provider: EmailProvider; key: string } | null {
-  const name = (process.env.NEWSLETTER_PROVIDER ?? "resend") as EmailProvider;
-  if (!EMAIL_PROVIDERS.includes(name)) return null;
-  const key = process.env[KEY_ENV[name]];
-  return key ? { provider: name, key } : null;
+  const raw = (
+    process.env.EMAIL_PROVIDER ??
+    process.env.NEWSLETTER_PROVIDER ??
+    "resend"
+  )
+    .trim()
+    .toLowerCase() as EmailProvider;
+  if (!EMAIL_PROVIDERS.includes(raw)) return null;
+  const key = process.env[KEY_ENV[raw]]?.trim();
+  return key ? { provider: raw, key } : null;
 }
 
 const KEY_ENV: Record<EmailProvider, string> = {
@@ -81,8 +105,12 @@ async function post(
     if (!res.ok) {
       return { ok: false, provider, error: `${res.status} ${await res.text()}` };
     }
-    const body = (await res.json().catch(() => ({}))) as { id?: string; MessageID?: string };
-    return { ok: true, provider, id: body.id ?? body.MessageID };
+    const body = (await res.json().catch(() => ({}))) as {
+      id?: string;
+      MessageID?: string;
+      data?: { id?: string };
+    };
+    return { ok: true, provider, id: body.id ?? body.data?.id ?? body.MessageID };
   } catch (e) {
     return { ok: false, provider, error: (e as Error).message };
   }
@@ -96,7 +124,22 @@ function unsubscribeHeaders(msg: MarketingEmail): Record<string, string> {
   };
 }
 
+/**
+ * Resend caps the Idempotency-Key at 256 chars and only accepts a single
+ * header line, so keep the key to safe ASCII and truncate rather than let the
+ * whole send 422 on a stray character.
+ */
+function idempotencyHeader(msg: MarketingEmail): Record<string, string> {
+  if (!msg.idempotencyKey) return {};
+  const key = msg.idempotencyKey
+    .replace(/[^a-zA-Z0-9:_.@-]/g, "-")
+    .slice(0, 256);
+  return key ? { "Idempotency-Key": key } : {};
+}
+
 const SENDERS: Record<EmailProvider, Sender> = {
+  // The house provider. Plain REST — the JSON body is snake_case (`reply_to`),
+  // unlike the Node SDK's camelCase, which is the usual thing to get wrong here.
   resend: (msg, key) =>
     post(
       "https://api.resend.com/emails",
@@ -105,10 +148,12 @@ const SENDERS: Record<EmailProvider, Sender> = {
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
+          ...idempotencyHeader(msg),
         },
         body: JSON.stringify({
           from: fromAddress(),
           to: [msg.to],
+          reply_to: replyToAddress(msg),
           subject: msg.subject,
           html: msg.html,
           text: msg.text,
@@ -274,9 +319,18 @@ export async function sendViaProvider(
   const cfg = configured();
   if (!cfg) {
     if (process.env.NODE_ENV !== "production") {
-      console.info(`[newsletter:noop] → ${msg.to}: ${msg.subject}`);
+      console.info(`[email:noop] → ${msg.to}: ${msg.subject}`);
+      // Dev keeps the optimistic result so the newsletter and checkout flows
+      // stay exercisable end to end without a provider key.
+      return { ok: true, provider: "none" };
     }
-    return { ok: true, provider: "none" };
+    // Production tells the truth: nothing was delivered. Reporting success here
+    // is what lets "sent" pile up in automation_logs while inboxes stay empty.
+    console.error(
+      `[email] no provider configured — dropped "${msg.subject}" to ${msg.to}. ` +
+        `Set RESEND_API_KEY (and EMAIL_FROM) in the environment.`,
+    );
+    return { ok: false, provider: "none", error: "No email provider configured." };
   }
   return SENDERS[cfg.provider](msg, cfg.key);
 }

@@ -30,59 +30,64 @@ of generic branding.
 The house address is `fancyxquisite@gmail.com` — the mailbox that owns the admin
 dashboard, defined once as `BRAND_EMAIL` in `src/lib/site.ts`.
 
-### Sending as that address
+### Route the auth emails through Resend
 
-Only one route actually works, and it is worth understanding why before trying
-the other.
-
-A mail service will only let you send **from** an address whose domain you can
-prove you own, by adding DKIM and SPF records to its DNS. Nobody can add DNS
-records to `gmail.com`. So Resend, SendGrid, Postmark and the rest will all
-reject `fancyxquisite@gmail.com` as a sender no matter what is typed into the
-box. The one server entitled to send as that address is Google's own.
+The app's own mail already goes through Resend. Supabase's auth mail does not —
+it is sent by Supabase, from Supabase's servers, so no amount of application
+code can move it. Point Supabase's SMTP at Resend and both halves finally leave
+from the same place.
 
 **Supabase → Project Settings → Authentication → SMTP Settings**
 
 | Field | Value |
 | --- | --- |
-| Host | `smtp.gmail.com` |
-| Port | `465` (SSL) — or `587` for STARTTLS |
-| Username | `fancyxquisite@gmail.com` |
-| Password | a Google **App Password**, not the account password |
+| Host | `smtp.resend.com` |
+| Port | `465` (implicit TLS) — or `587` for STARTTLS |
+| Username | `resend` (literally that word, for every account) |
+| Password | your `RESEND_API_KEY` |
 | Sender name | `Fancy Finery` |
-| Sender email | `fancyxquisite@gmail.com` |
+| Sender email | `orders@fancyfinerybup.com` |
 
-An App Password is generated at Google Account → Security → 2-Step Verification
-→ App passwords, and 2-Step Verification has to be switched on first. A normal
-password will be refused.
+Prerequisite: `fancyfinerybup.com` must be verified in **Resend → Domains**,
+with the DKIM and SPF records it issues added to that domain's DNS. Until then
+Resend rejects the send and confirmations silently stop arriving.
 
-Two limits to know about rather than discover:
+Keep the sender email identical to `EMAIL_FROM` in `.env`. One address, one
+verified domain, one reputation to build — a customer sees the same sender
+whether they are confirming an account or reading a receipt.
 
-- A free Gmail account allows roughly **500 recipients a day** and throttles
-  bursts. Fine for early signups; it will not survive a launch.
-- The inbox will read **Fancy Finery**, which is the goal, but the address
-  underneath still says `@gmail.com`. Every luxury house a customer compares you
-  to writes from its own domain, so this is worth revisiting when there is one.
+### Why not send as the gmail address
 
-### The better long-term answer
+A mail service will only let you send **from** an address whose domain you can
+prove you own, by adding DKIM and SPF records to its DNS. Nobody can add DNS
+records to `gmail.com`. So Resend, SendGrid, Postmark and the rest all reject
+`fancyxquisite@gmail.com` as a sender no matter what is typed into the box.
 
-Buy the domain, then send from `no-reply@` or `hello@` on it through Resend —
-which this codebase already speaks (`src/infrastructure/notifications/email-provider.ts`,
-keyed on `RESEND_API_KEY`). Set `EMAIL_FROM` to override the default, point
-Supabase's SMTP at Resend, and authenticate the domain with SPF, DKIM and
-ideally DMARC. No daily cap, better deliverability, and it reads as a real
-company.
+Gmail's own SMTP (`smtp.gmail.com` with a Google App Password) is the one server
+entitled to send as it, and it was the interim answer before the house owned a
+domain. It is no longer the right one: a free Gmail account caps out around
+**500 recipients a day** and throttles bursts, and the address underneath still
+reads `@gmail.com` where every house a customer compares you to writes from its
+own domain.
 
-Whichever route you take, note that Supabase's built-in sender is intended for
-development and is rate limited, so leaving it in place risks confirmations
-silently failing to arrive.
+That mailbox stays useful as the **reply** address — `EMAIL_REPLY_TO` — which
+needs no verification, so a customer who hits Reply reaches a human.
+
+Note either way that Supabase's built-in sender is intended for development and
+is heavily rate limited, so leaving it in place risks confirmations silently
+failing to arrive. That is exactly why `signUpAction` currently creates
+already-confirmed accounts (see `src/app/signup/actions.ts`); once SMTP above is
+live, the email-verification flow can be restored.
 
 ### What the code already does
 
-`EMAIL_FROM` overrides the sender for the app's own mail (newsletter, order
-notifications). Its default was `no-reply@fancyfinery.com` — a domain the
-business does not own, which would have failed SPF and DKIM and been dropped or
-filed as spam. It now falls back to `BRAND_FROM`, the house address.
+- `EMAIL_PROVIDER` (default `resend`) picks the transport; `RESEND_API_KEY`
+  activates it. See `src/infrastructure/notifications/email-provider.ts`.
+- `EMAIL_FROM` sets the sender, defaulting to `orders@` on the site's own domain
+  (`MAIL_FROM` in `src/lib/site.ts`).
+- `EMAIL_REPLY_TO` sets Reply-To, defaulting to the house mailbox.
+- Transactional sends carry an `Idempotency-Key`, so a retried invocation or a
+  re-delivered webhook cannot send the same receipt twice within 24h.
 
 ## Other auth emails
 

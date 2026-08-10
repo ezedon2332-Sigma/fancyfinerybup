@@ -4,7 +4,10 @@ import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-clien
 import { formatMoney } from "@/domain/shared/money";
 import { BRAND_EMAIL, SITE_URL } from "@/lib/site";
 import { orderStatusLabel } from "@/lib/order-status";
-import { sendViaProvider } from "@/infrastructure/notifications/email-provider";
+import {
+  sendViaProvider,
+  type SendResult,
+} from "@/infrastructure/notifications/email-provider";
 import { buildTransactionalEmail } from "@/infrastructure/notifications/newsletter-emails";
 
 /**
@@ -27,14 +30,23 @@ export interface EmailMessage {
   text: string;
   /** Optional override; otherwise the text is wrapped in the house frame. */
   html?: string;
+  /**
+   * Identifies the notification, not the attempt — e.g. `order-status:<id>:shipped`.
+   * Lets the provider collapse a duplicate send caused by a retried invocation.
+   */
+  idempotencyKey?: string;
 }
 
-export async function sendEmail(msg: EmailMessage): Promise<void> {
+/** Send one transactional message. Never throws; returns the delivery result so
+ *  a caller that cares can react, and logs so one that doesn't still leaves a
+ *  trail. */
+export async function sendEmail(msg: EmailMessage): Promise<SendResult> {
   const result = await sendViaProvider({
     to: msg.to,
     subject: msg.subject,
     text: msg.text,
     html: msg.html ?? buildTransactionalEmail(msg.subject, msg.text),
+    idempotencyKey: msg.idempotencyKey,
   });
 
   if (!result.ok) {
@@ -44,6 +56,7 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
       `[email] delivery failed → ${msg.to} (${msg.subject}): ${result.error}`,
     );
   }
+  return result;
 }
 
 async function loadOrderEmail(orderId: string): Promise<{
@@ -75,6 +88,7 @@ export async function notifyOrderPlaced(orderId: string): Promise<void> {
   if (!info?.email) return;
   await sendEmail({
     to: info.email,
+    idempotencyKey: `order-placed:${orderId}`,
     subject: "We've received your order — Fancy Finery",
     text:
       `Hi ${info.name ?? "there"},\n\n` +
@@ -96,6 +110,9 @@ export async function notifyPaymentReceived(orderId: string): Promise<void> {
     const amount = formatMoney(data.total, data.currency);
     await sendEmail({
       to: data.shipping_email,
+      // One receipt per order, even if a webhook, the browser callback and the
+      // reconcile sweep all reach this line.
+      idempotencyKey: `payment-received:${orderId}`,
       subject: "Payment received — Fancy Finery",
       text:
         `Hi ${data.shipping_name ?? "there"},\n\n` +
@@ -139,6 +156,8 @@ export async function notifyOrderStatusChanged(
     : "";
   await sendEmail({
     to: info.email,
+    // Keyed by status, so "shipped" and a later "delivered" both go out.
+    idempotencyKey: `order-status:${orderId}:${status}`,
     subject: `Your order is ${orderStatusLabel(status)} — Fancy Finery`,
     text:
       `Hi ${info.name ?? "there"},\n\n` +
