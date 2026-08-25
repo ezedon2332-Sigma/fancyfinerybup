@@ -68,11 +68,19 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/db ./db
 COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
 
-# Next bundles better-auth into the server rather than leaving it resolvable in
-# node_modules, but the plain-Node admin seed (scripts/seed-admin.mjs) imports
-# `better-auth/crypto` to hash the bootstrap password. Install it (pinned to the
-# app's version) so the migration/seed runners resolve it. pg is already traced.
-RUN npm install --no-save --no-audit --no-fund better-auth@1.6.28
+# The plain-Node admin seed (scripts/seed-admin.mjs) imports `better-auth/crypto`
+# to hash the bootstrap password, but Next bundles better-auth into the server
+# instead of leaving it resolvable. Install it in ISOLATION (an empty dir) so we
+# only pull better-auth's own small tree — installing into /app would drag the
+# whole project's dev tree (drizzle-kit/tsx → esbuild) into the runtime image —
+# then copy it where the ESM seed can resolve it. Finally remove npm: the runtime
+# runs `node` only, and npm's bundled `tar` carries CVEs we don't need to ship.
+RUN mkdir -p /tmp/seed-deps \
+ && cd /tmp/seed-deps && npm init -y >/dev/null 2>&1 \
+ && npm install --no-audit --no-fund --omit=dev better-auth@1.6.28 \
+ && cp -a node_modules/. /app/node_modules/ \
+ && cd /app && rm -rf /tmp/seed-deps \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
 
 USER nextjs
 EXPOSE 3000

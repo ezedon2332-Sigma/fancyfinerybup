@@ -145,6 +145,9 @@ services:
       APP_DOMAIN: ${APP_DOMAIN:?}
       MEDIA_DOMAIN: ${MEDIA_DOMAIN:?}
       ACME_EMAIL: ${ACME_EMAIL:?}
+      # Production: www.fancyfinerybup.com (301 -> apex). Staging leaves it unset,
+      # so it falls back to a harmless internal address (no cert requested).
+      WWW_DOMAIN: ${WWW_DOMAIN:-http://localhost}
     ports:
       - "80:80"
       - "443:443"

@@ -8,6 +8,14 @@
 	email {$ACME_EMAIL}
 }
 
+# --- www -> apex redirect ---------------------------------------------------
+# Production sets WWW_DOMAIN=www.fancyfinerybup.com and this 301s it to the apex.
+# Staging has no www (it uses an app.staging.* subdomain), so WWW_DOMAIN defaults
+# to http://localhost — a harmless internal address that never requests a cert.
+{$WWW_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
 # --- Storefront + admin -----------------------------------------------------
 {$APP_DOMAIN} {
 	encode zstd gzip
