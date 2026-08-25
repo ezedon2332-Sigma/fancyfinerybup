@@ -106,12 +106,47 @@ function group(value: number): string {
  *
  * @param ngnMinor amount in kobo, as stored in the catalogue
  */
+/**
+ * Admin-set exchange rates, as naira per ONE unit of each currency.
+ *
+ * `enabled` is the switch between the two pricing models the store can run:
+ *
+ *   OFF — the original "leading value" rule. ₦300,000 reads as $300. Not a
+ *         conversion: it is the dollar price of the same garment, chosen so the
+ *         figure is a sane amount to ask for.
+ *   ON  — true FX. ₦300,000 at 1600 becomes $187.50.
+ *
+ * The difference is large and it is revenue, so the switch is an explicit admin
+ * decision (Admin → Exchange Rates) and defaults to OFF.
+ */
+export interface ExchangeRates {
+  enabled: boolean;
+  ngnPer: Record<DisplayCurrency, number>;
+}
+
+/** Conversion off, matching the behaviour the store has always had. */
+export const DEFAULT_EXCHANGE_RATES: ExchangeRates = {
+  enabled: false,
+  ngnPer: { NGN: 1, USD: 1600, EUR: 1750, GBP: 2050 },
+};
+
 export function priceInMinor(
   ngnMinor: number,
   currency: DisplayCurrency,
+  rates: ExchangeRates = DEFAULT_EXCHANGE_RATES,
 ): number {
   const safe = Number.isFinite(ngnMinor) ? Math.round(ngnMinor) : 0;
   if (currency === "NGN") return safe;
+
+  if (rates.enabled) {
+    const ngnPerUnit = rates.ngnPer[currency];
+    // A zero or missing rate would divide to Infinity and price the item at
+    // nothing. Fall back to the leading-value rule rather than give it away.
+    if (Number.isFinite(ngnPerUnit) && ngnPerUnit > 0) {
+      return Math.round(safe / ngnPerUnit);
+    }
+  }
+
   return Math.round(leadingValue(safe / 100) * 100);
 }
 
@@ -134,6 +169,7 @@ export function formatMinor(minor: number, currency: DisplayCurrency): string {
 export function formatDisplayPrice(
   ngnMinor: number,
   currency: DisplayCurrency,
+  rates: ExchangeRates = DEFAULT_EXCHANGE_RATES,
 ): string {
-  return formatMinor(priceInMinor(ngnMinor, currency), currency);
+  return formatMinor(priceInMinor(ngnMinor, currency, rates), currency);
 }

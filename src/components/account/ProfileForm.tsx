@@ -7,6 +7,7 @@ import { Check, Loader2, MapPin } from "lucide-react";
 import type { Profile } from "@/domain/entities/profile";
 import { profileSchema } from "@/lib/validation";
 import { updateProfile } from "@/app/account/actions";
+import { toast } from "@/components/ui/Toast";
 
 export function ProfileForm({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -26,15 +27,13 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   function useMyLocation() {
-    setError(null);
     if (!("geolocation" in navigator)) {
-      setError("Geolocation isn't supported on this device.");
+      toast.error("Geolocation isn't supported on this device.");
       return;
     }
     setLocating(true);
@@ -69,7 +68,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       },
       () => {
         setLocating(false);
-        setError("Couldn't get your location — enter it manually.");
+        toast.error("Couldn't get your location — enter it manually.");
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -77,7 +76,6 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setSaved(false);
     const payload = {
       fullName: form.fullName || null,
@@ -91,7 +89,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     };
     const parsed = profileSchema.safeParse(payload);
     if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
+      toast.error(parsed.error.issues[0].message);
       return;
     }
     setSaving(true);
@@ -102,7 +100,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       router.refresh();
       setTimeout(() => setSaved(false), 1800);
     } else {
-      setError(res.error ?? "Could not save.");
+      toast.error(res.error ?? "Could not save.");
     }
   }
 
@@ -143,7 +141,6 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <input className={field} placeholder="Country" value={form.country} onChange={set("country")} />
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <button
         type="submit"

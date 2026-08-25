@@ -6,8 +6,9 @@ import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 
 import type { ProductSummary } from "@/domain/entities/product";
-import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
+import { CardCurrencyToggle } from "./CardCurrencyToggle";
 import { averageFromTotals } from "@/domain/reviews";
 import { Stars } from "./Stars";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
@@ -18,7 +19,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
   const wished = has(product.id);
   const isVideo = product.primaryImage?.mediaType === "video";
   const src = product.primaryImage
-    ? resolveImageUrl(product.primaryImage.storagePath)
+    ? resolveMediaUrl(product.primaryImage.storagePath)
     : "/image.jpeg";
 
   return (
@@ -85,9 +86,12 @@ export function ProductCard({ product }: { product: ProductSummary }) {
           <h3 className="text-sm font-medium text-gray-100 transition-colors group-hover:text-yellow-400">
             {product.name}
           </h3>
-          <p className="whitespace-nowrap text-sm font-semibold text-yellow-400">
-            {format(product.price)}
-          </p>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <p className="whitespace-nowrap text-sm font-semibold text-yellow-400">
+              {format(product.price)}
+            </p>
+            <CardCurrencyToggle />
+          </div>
         </div>
 
         {/* Rating from the product's own denormalised aggregates, so a grid of

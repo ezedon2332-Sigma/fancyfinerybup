@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "home": "Home",
+    "collections": "Collections",
+    "allCollections": "All Collections",
+    "lookbook": "Lookbook",
+    "about": "About",
+    "contact": "Contact",
+    "search": "Search",
+    "wishlist": "Wishlist",
+    "bag": "Bag",
+    "account": "Account",
+    "menu": "Menu",
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "createAccount": "Create Account",
+    "orders": "My Orders",
+    "addressBook": "Address Book",
+    "accountSettings": "Account Settings",
+    "adminDashboard": "Admin Dashboard"
+  },
+  "utility": {
+    "worldwideShipping": "WORLDWIDE SHIPPING",
+    "worldwideShippingDetail": "Delivery to 200+ countries",
+    "premiumQuality": "PREMIUM QUALITY",
+    "premiumQualityDetail": "Finest fabrics & craftsmanship",
+    "easyReturns": "EASY RETURNS",
+    "easyReturnsDetail": "30-day return policy"
+  },
+  "footer": {
+    "shop": "Shop",
+    "company": "Company",
+    "help": "Help",
+    "rights": "All rights reserved."
+  },
+  "common": {
+    "language": "Language",
+    "currency": "Currency",
+    "displayCurrency": "Display currency",
+    "addToBag": "Add to Bag",
+    "outOfStock": "Out of Stock",
+    "viewAll": "View All",
+    "loading": "Loading…"
+  },
+  "home": {
+    "justIn": "Just In",
+    "newArrivals": "New Arrivals",
+    "handpicked": "Handpicked",
+    "featuredCollection": "Featured Collection",
+    "mostLoved": "Most Loved",
+    "bestSellers": "Best Sellers",
+    "whatsHot": "What's Hot",
+    "trendingNow": "Trending Now"
+  }
+}

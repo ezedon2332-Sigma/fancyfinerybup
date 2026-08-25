@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { MapPin } from "lucide-react";
 
-import { getOrderRepository } from "@/infrastructure/supabase/order-service";
+import { getOrderRepository } from "@/infrastructure/db/order-service";
 import { formatMoney } from "@/domain/shared/money";
 import { paymentStatusBadge, paymentStatusLabel } from "@/lib/order-status";
 import { OrderStatusForm } from "@/components/admin/OrderStatusForm";
@@ -18,7 +18,9 @@ export default async function AdminOrderDetail({
 }) {
   const { id } = await params;
   const orders = await getOrderRepository();
-  const order = await orders.findById(id); // admin sees all via RLS
+  // requireAdmin() has already run in the /admin layout and above; this is the
+  // deliberately-named unscoped read.
+  const order = await orders.findByIdAsAdmin(id);
   if (!order) notFound();
 
   return (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { startPaymentAction } from "@/app/checkout/payment-actions";
+import { toast } from "@/components/ui/Toast";
 
 /** Starts (or retries) online payment for an existing order and redirects to
  *  the provider's hosted page. Shown on unpaid / failed orders. */
@@ -14,17 +15,15 @@ export function PayNowButton({
   label?: string;
 }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handlePay() {
     setLoading(true);
-    setError(null);
     const res = await startPaymentAction(orderId);
     if (res.ok && res.url) {
       window.location.href = res.url;
       return;
     }
-    setError(res.error ?? "Could not start payment. Please try again.");
+    toast.error(res.error ?? "Could not start payment. Please try again.");
     setLoading(false);
   }
 
@@ -38,7 +37,6 @@ export function PayNowButton({
       >
         {loading ? "Starting…" : label}
       </button>
-      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
     </div>
   );
 }

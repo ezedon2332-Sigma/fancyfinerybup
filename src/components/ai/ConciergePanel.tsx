@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
+import { toast } from "@/components/ui/Toast";
 import {
   Gem,
   Headset,
@@ -55,7 +56,6 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"bot" | "human">("bot");
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -66,7 +66,16 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
   const seenRef = useRef<Set<string>>(new Set());
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  modeRef.current = mode;
+  // Mirror `mode` into a ref for the long-lived polling closures below, which
+  // capture their environment once and would otherwise read a stale value.
+  //
+  // Assigning during render (as this did) makes the component impure: React may
+  // render without committing, and under StrictMode renders twice, so the ref
+  // could hold a value the committed UI never had. An effect runs only after a
+  // commit, which is exactly the guarantee the pollers need.
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   const openedAt = useMemo(
     () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -127,11 +136,10 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
         tokenRef.current = saved.token ?? null;
         lastPolledRef.current = saved.lastPolled ?? null;
         if (Array.isArray(saved.messages) && saved.messages.length) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration from sessionStorage
           setMessages(saved.messages);
         }
         if (saved.mode === "human") {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration
           setMode("human");
           startPolling();
         }
@@ -187,7 +195,7 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
       const decoder = new TextDecoder();
       let buf = "";
       let gotText = false;
-      // eslint-disable-next-line no-constant-condition
+       
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -213,7 +221,7 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
           } else if (ev.type === "handoff") {
             enterHumanMode();
           } else if (ev.type === "error") {
-            setError(ev.message);
+            toast.error(ev.message);
           }
         }
       }
@@ -240,7 +248,6 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
     async (text: string) => {
       const value = text.trim();
       if (!value || streaming) return;
-      setError(null);
       const userMsg: UiMessage = { id: nextId(), role: "user", content: value };
       setInput("");
 
@@ -250,7 +257,7 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
         try {
           await sendHuman(value);
         } catch {
-          setError("Couldn't send your message. Please try again.");
+          toast.error("Couldn't send your message. Please try again.");
         } finally {
           setStreaming(false);
           inputRef.current?.focus();
@@ -265,7 +272,7 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
       try {
         await sendBot(history, assistantId);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
+        toast.error(e instanceof Error ? e.message : "Something went wrong.");
         setMessages((prev) => prev.filter((m) => m.id !== assistantId || m.content));
       } finally {
         setStreaming(false);
@@ -408,11 +415,6 @@ export function ConciergePanel({ config }: { config: AiPublicConfig }) {
           </div>
         )}
 
-        {error && (
-          <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
-            {error}
-          </p>
-        )}
       </div>
 
       {/* Composer */}

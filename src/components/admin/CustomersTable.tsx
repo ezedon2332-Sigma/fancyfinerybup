@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
 import { formatMoney } from "@/domain/shared/money";
-import type { CustomerRow } from "@/infrastructure/supabase/customer-service";
+import type { CustomerRow } from "@/domain/entities/customer-views";
 import { RoleToggle } from "./RoleToggle";
 
 type Filter = "all" | "with-orders" | "admins";

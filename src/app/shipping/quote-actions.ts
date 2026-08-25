@@ -19,9 +19,9 @@ import {
   findDiscountCode,
   isFirstOrder,
   loadPricingTable,
-} from "@/infrastructure/supabase/pricing-service";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
-import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+} from "@/infrastructure/db/pricing-service";
+import { getCurrentUser } from "@/infrastructure/auth/session";
+import { getCatalogDeps } from "@/infrastructure/db/catalog-service";
 import {
   DEFAULT_ORDER_CURRENCY,
   discountCodeInCurrency,
@@ -37,7 +37,7 @@ import {
   isNigeria,
   localFeeKobo,
 } from "@/domain/shipping/nigeria";
-import { findDestination } from "@/infrastructure/supabase/nigeria-shipping-service";
+import { findDestination } from "@/infrastructure/db/nigeria-shipping-service";
 
 /**
  * The one quote endpoint.

@@ -4,7 +4,7 @@ import {
   listCampaigns,
   listSubscribers,
   newsletterStats,
-} from "@/infrastructure/supabase/newsletter-service";
+} from "@/infrastructure/db/newsletter-service";
 import { activeProvider } from "@/infrastructure/notifications/email-provider";
 import { interestLabel } from "@/domain/newsletter";
 import { SubscribersPanel } from "@/components/admin/SubscribersPanel";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ProductForm } from "@/components/admin/ProductForm";
-import { listAdminCategories } from "@/infrastructure/supabase/admin-service";
+import { listAdminCategories } from "@/infrastructure/db/admin-service";
 
 export const metadata: Metadata = { title: "Admin · New product" };
 

@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
+import { requireAdmin } from "@/infrastructure/auth/session";
 import {
   deleteReview,
   setReviewStatus,
-} from "@/infrastructure/supabase/review-service";
+} from "@/infrastructure/db/review-service";
 import { REVIEW_STATUSES } from "@/domain/reviews";
 
 export interface ModResult {

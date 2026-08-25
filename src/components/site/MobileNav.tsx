@@ -18,11 +18,15 @@ import {
 } from "lucide-react";
 
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { useTranslations } from "next-intl";
+
 import { signOut } from "@/app/account/actions";
+import { clearPersonalStorage } from "@/lib/personal-storage";
 
 export interface MobileNavLink {
   href: string;
-  label: string;
+  /** Message key under the "nav" namespace, resolved at render. */
+  key: string;
 }
 
 /** Every row is at least 44px tall — the minimum comfortable tap target. */
@@ -45,6 +49,7 @@ export function MobileNav({
   open,
   onClose,
   links,
+  collections = [],
   isActive,
   user,
   cartCount,
@@ -54,12 +59,14 @@ export function MobileNav({
   open: boolean;
   onClose: () => void;
   links: readonly MobileNavLink[];
+  collections?: readonly { slug: string; name: string }[];
   isActive: (href: string) => boolean;
   user: { email: string | null; firstName: string | null } | null;
   cartCount: number;
   wishCount: number;
   onOpenCart: () => void;
 }) {
+  const t = useTranslations("nav");
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
 
@@ -156,12 +163,31 @@ export function MobileNav({
                       active ? "bg-yellow-500/10 text-yellow-400" : "text-gray-200"
                     }`}
                   >
-                    <span className="flex-1">{link.label}</span>
+                    <span className="flex-1">{t(link.key)}</span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
                   </Link>
                 );
               })}
             </nav>
+
+            {/* Collections, from the database. The drawer has room to list
+                them flat, so it does not need the desktop dropdown — but it
+                shows the same admin-created categories and nothing else. */}
+            {collections.length > 0 && (
+              <Section title="Collections">
+                {collections.map((c) => (
+                  <Link
+                    key={c.slug}
+                    href={`/collections?category=${encodeURIComponent(c.slug)}`}
+                    onClick={close}
+                    className={`${ROW} text-sm text-gray-200`}
+                  >
+                    <span className="flex-1">{c.name}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
+                  </Link>
+                ))}
+              </Section>
+            )}
 
             <Section title="Shop">
               <Link href="/collections" onClick={close} className={`${ROW} text-sm text-gray-200`}>
@@ -210,7 +236,10 @@ export function MobileNav({
                     <Settings className="h-4 w-4 shrink-0 text-yellow-600" />
                     <span className="flex-1">Account Settings</span>
                   </Link>
-                  <form action={signOut}>
+                <form
+                  action={signOut}
+                  onSubmit={clearPersonalStorage}
+                >
                     <button type="submit" className={`${ROW} w-full text-left text-sm text-gray-400`}>
                       <LogOut className="h-4 w-4 shrink-0" />
                       <span className="flex-1">Sign Out</span>

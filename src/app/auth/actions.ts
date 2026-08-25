@@ -2,7 +2,10 @@
 
 import { headers } from "next/headers";
 
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { sql } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { user } from "@/infrastructure/db/schema";
 import { magicLinkSchema } from "@/lib/validation";
 import { rateLimit } from "@/lib/ai-rate-limit";
 
@@ -37,19 +40,18 @@ export async function checkEmailExists(email: unknown): Promise<EmailCheckResult
   }
 
   try {
-    const admin = createSupabaseAdminClient();
-    // The Database type leaves Functions untyped on purpose — typing it there
-    // perturbs supabase-js relation inference for unrelated tables — so bind rpc
-    // through a narrow local signature instead of widening the global schema.
-    const callEmailExists = admin.rpc.bind(admin) as unknown as (
-      name: "email_exists",
-      args: { p_email: string },
-    ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
-    const { data, error } = await callEmailExists("email_exists", {
-      p_email: parsed.data.email,
-    });
-    if (error) return { ok: false, exists: false, error: "Could not verify email." };
-    return { ok: true, exists: Boolean(data) };
+    // Replaces the `email_exists()` SECURITY DEFINER function. That existed so
+    // PostgREST could answer this question without granting the browser read
+    // access to auth.users; the identity table is ours now and this code runs
+    // server-side, so a plain query is both sufficient and clearer.
+    //
+    // Matched case-insensitively against the unique index on email.
+    const [row] = await db
+      .select({ n: sql<number>`1` })
+      .from(user)
+      .where(sql`lower(${user.email}) = ${parsed.data.email.toLowerCase()}`)
+      .limit(1);
+    return { ok: true, exists: Boolean(row) };
   } catch {
     return { ok: false, exists: false, error: "Could not verify email." };
   }

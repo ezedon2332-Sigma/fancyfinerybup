@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Package, Truck } from "lucide-react";
 
-import { loadCountryRates } from "@/infrastructure/supabase/rate-card";
+import { loadCountryRates } from "@/infrastructure/db/rate-card";
 import {
   RatesBrowser,
   type CountryRates,

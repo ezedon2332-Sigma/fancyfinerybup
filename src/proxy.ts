@@ -1,79 +1,60 @@
-import { createServerClient } from "@supabase/ssr";
+import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
-
-import type { Database } from "@/infrastructure/supabase/database.types";
 
 /**
  * Proxy (Next.js 16's renamed Middleware). Runs before every matched request.
  *
  * Responsibilities — OPTIMISTIC ONLY:
- *  1. Refresh the Supabase auth session cookie so Server Components see a
- *     current session.
- *  2. Cheap redirect of signed-out users away from /admin and /account.
+ *   cheap redirect of signed-out users away from /admin, /account, /checkout
+ *   and /reset-password.
  *
- * This is NOT the security boundary. Authoritative authorization (including
- * the admin role check) happens in the /admin layout and in every Server
- * Action — see AGENTS.md / docs/PROJECT_PLAN.md.
+ * This is NOT the security boundary. Authoritative authorization (including the
+ * admin role check) happens in the /admin layout and in every Server Action —
+ * see AGENTS.md / docs/PROJECT_PLAN.md.
  *
- * We read env directly here (not via the config module) because Proxy runs in
- * an isolated edge-style context that shouldn't share app modules.
+ * Two things got simpler when Supabase left:
+ *
+ *  - **No session refresh.** The old proxy constructed a Supabase SSR client on
+ *    every request and called `getClaims()` to validate and re-issue the JWT,
+ *    writing refreshed cookies onto the response and hand-copying them onto any
+ *    redirect. Better Auth sessions are server-side rows keyed by an opaque
+ *    cookie; there is no token to refresh here, so all of that is gone.
+ *
+ *  - **No database call.** `getSessionCookie` only checks that a signed session
+ *    cookie is present. It deliberately does NOT validate the session against
+ *    the database — that would put a query on every navigation, and Next's own
+ *    docs warn against using Proxy for session management. A forged or expired
+ *    cookie gets past this and is then rejected by `requireUser`/`requireAdmin`,
+ *    which is exactly the intended division of labour.
  */
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value } of cookiesToSet) {
-            request.cookies.set(name, value);
-          }
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, {
-              ...options,
-              // Mark refreshed auth cookies Secure in production (the SSR
-              // defaults omit it); SameSite=Lax/path come from the library.
-              secure: process.env.NODE_ENV === "production",
-            });
-          }
-        },
-      },
-    },
-  );
-
-  // Touch the session: validates the JWT (locally via JWKS when possible) and
-  // refreshes it if expired, writing fresh cookies through setAll above.
-  const { data } = await supabase.auth.getClaims();
-  const isSignedIn = Boolean(data?.claims);
-
   const { pathname } = request.nextUrl;
+
+  // /admin/login is the staff sign-in page itself — gating it would redirect
+  // it to itself.
+  if (pathname.startsWith("/admin/login")) return NextResponse.next();
+
   const isProtected =
     pathname.startsWith("/admin") ||
     pathname.startsWith("/account") ||
     pathname.startsWith("/checkout") ||
-    // Reached with a session already established by /auth/callback when
-    // following a recovery link; bounce anyone arriving without one.
     pathname.startsWith("/reset-password");
 
-  if (isProtected && !isSignedIn) {
+  if (!isProtected) return NextResponse.next();
+
+  // Must match `advanced.cookiePrefix` in src/infrastructure/auth/auth.ts.
+  const sessionCookie = getSessionCookie(request, { cookiePrefix: "fancy" });
+
+  if (!sessionCookie) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
+    redirectUrl.pathname = pathname.startsWith("/admin")
+      ? "/admin/login"
+      : "/login";
     redirectUrl.searchParams.set("redirect", pathname);
-    const redirect = NextResponse.redirect(redirectUrl);
-    // Carry over any refreshed auth cookies onto the redirect response.
-    for (const cookie of response.cookies.getAll()) {
-      redirect.cookies.set(cookie);
-    }
-    return redirect;
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

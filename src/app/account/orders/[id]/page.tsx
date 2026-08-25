@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { CheckCircle2, MapPin } from "lucide-react";
+import { CheckCircle2, MapPin, MessageCircleQuestion } from "lucide-react";
 
-import { requireUser } from "@/infrastructure/supabase/auth";
-import { getOrderRepository } from "@/infrastructure/supabase/order-service";
+import { requireUser } from "@/infrastructure/auth/session";
+import { getOrderRepository } from "@/infrastructure/db/order-service";
 import { isCurrencyPayable } from "@/infrastructure/payments/providers";
 import { PayNowButton } from "@/components/checkout/PayNowButton";
+import { CancelOrderButton } from "@/components/account/CancelOrderButton";
 import { formatMoney } from "@/domain/shared/money";
 import {
   orderStatusBadge,
@@ -24,18 +25,28 @@ export default async function OrderDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ placed?: string; paid?: string; canceled?: string }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { id } = await params;
   const { placed, paid, canceled } = await searchParams;
 
   const orders = await getOrderRepository();
-  const order = await orders.findById(id); // RLS: only the owner (or admin) sees it
+  // Ownership is now an explicit argument. Under Supabase this was findById()
+  // and RLS supplied `user_id = auth.uid()` invisibly — without it, any
+  // signed-in customer could read any order by guessing its id.
+  const order = await orders.findByIdForUser(id, user.id);
   if (!order) notFound();
 
   // Whether an online charge can be (re)started for this order right now.
   const canPayNow =
     (order.paymentStatus === "unpaid" || order.paymentStatus === "failed") &&
     isCurrencyPayable(order.currency);
+
+  // Mirrors the repository predicate exactly (cancelUnpaidForUser): unpaid and
+  // still processing. Kept in step so the button is never offered for something
+  // the server would then refuse.
+  const canCancel =
+    (order.paymentStatus === "unpaid" || order.paymentStatus === "failed") &&
+    order.status === "processing";
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 lg:px-10">
@@ -138,6 +149,32 @@ export default async function OrderDetailPage({
           <p className="mt-3 text-sm text-gray-500">
             This order is payable on delivery.
           </p>
+        )}
+        {/* Somewhere to go when something is wrong.
+            The order reference travels in the link, so the customer does not
+            have to find and retype it and support does not have to ask. A
+            payment that failed, an address that needs changing, an item that
+            arrived damaged — all of it used to dead-end on this page. */}
+        <div className="mt-5 border-t border-white/8 pt-4">
+          <Link
+            href={`/contact?order=${encodeURIComponent(order.id.slice(0, 8).toUpperCase())}`}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-400 underline transition-colors hover:text-yellow-400"
+          >
+            <MessageCircleQuestion className="h-3.5 w-3.5" />
+            Problem with this order?
+          </Link>
+          {order.paymentStatus === "failed" && (
+            <p className="mt-2 text-sm text-gray-500">
+              Your last payment attempt did not go through. You can retry above,
+              or get in touch and we will help.
+            </p>
+          )}
+        </div>
+
+        {canCancel && (
+          <div className="mt-5 border-t border-white/8 pt-4">
+            <CancelOrderButton orderId={order.id} />
+          </div>
         )}
         {canceled && order.paymentStatus !== "paid" && (
           <p className="mt-3 text-sm text-gray-400">

@@ -9,9 +9,9 @@ import {
   setDestinationEnabled,
   upsertDestination,
   upsertState,
-  type WriteResult,
-} from "@/infrastructure/supabase/nigeria-shipping-service";
-import { requireAdmin } from "@/infrastructure/supabase/auth";
+} from "@/infrastructure/db/nigeria-shipping-service";
+import type { WriteResult } from "@/domain/entities/shipping-views";
+import { requireAdmin } from "@/infrastructure/auth/session";
 import type { NgDestination } from "@/domain/shipping/nigeria";
 
 /**

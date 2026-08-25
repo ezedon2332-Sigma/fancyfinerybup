@@ -1,0 +1,44 @@
+# Fancy Finery — reverse proxy and TLS.
+#
+# Caddy obtains and renews Let's Encrypt certificates on its own; there is no
+# certbot step and no renewal cron. Both hostnames must already resolve to this
+# server before the first start, or the ACME challenge fails.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# --- Storefront + admin -----------------------------------------------------
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# The app sets its own CSP, HSTS and frame headers (next.config.ts); they are
+	# not duplicated here, so there is one place to change them.
+	reverse_proxy web:3000 {
+		# Next reads these to build absolute URLs and to see the real client IP,
+		# which the rate limiters key on. Without them every request appears to
+		# come from the proxy and one abusive client would throttle everyone.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# --- Product media ----------------------------------------------------------
+# MinIO is not published to the host; it is reachable only through here.
+{$MEDIA_DOMAIN} {
+	encode zstd gzip
+
+	# Uploads are browser -> MinIO via a presigned PUT, so this host must accept
+	# PUT as well as GET. The signature is what authorises the write; Caddy is
+	# only carrying it.
+	reverse_proxy minio:9000 {
+		header_up Host {upstream_hostport}
+	}
+
+	# Object paths are immutable (products/<uuid>.<ext>), so a long cache is safe
+	# — replacing a photo yields a new path, never a changed one.
+	header /products/* Cache-Control "public, max-age=31536000, immutable"
+
+	# Nothing here is ever a document; stop the browser guessing otherwise.
+	header X-Content-Type-Options nosniff
+}

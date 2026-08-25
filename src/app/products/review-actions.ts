@@ -4,9 +4,9 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getCurrentProfile } from "@/infrastructure/supabase/auth";
-import { hashIp } from "@/infrastructure/supabase/newsletter-service";
-import { submitReview } from "@/infrastructure/supabase/review-service";
+import { getCurrentProfile } from "@/infrastructure/auth/session";
+import { hashIp } from "@/infrastructure/db/newsletter-service";
+import { submitReview } from "@/infrastructure/db/review-service";
 import { FIT_FEEDBACK } from "@/domain/reviews";
 
 const schema = z.object({

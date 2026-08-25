@@ -3,7 +3,7 @@
 import {
   listDestinations,
   listStates,
-} from "@/infrastructure/supabase/nigeria-shipping-service";
+} from "@/infrastructure/db/nigeria-shipping-service";
 import type { NgDestination, NgState } from "@/domain/shipping/nigeria";
 
 /**

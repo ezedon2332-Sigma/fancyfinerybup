@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { refundOrder } from "@/app/admin/orders/actions";
+import { toast } from "@/components/ui/Toast";
 
 /** Full refund of a paid order, with a confirm guard. Admin-only. */
 export function RefundButton({ orderId }: { orderId: string }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleRefund() {
@@ -20,13 +20,12 @@ export function RefundButton({ orderId }: { orderId: string }) {
       return;
     }
     setLoading(true);
-    setError(null);
     const res = await refundOrder(orderId);
     setLoading(false);
     if (res.ok) {
       router.refresh();
     } else {
-      setError(res.error ?? "Refund failed.");
+      toast.error(res.error ?? "Refund failed.");
     }
   }
 
@@ -40,7 +39,6 @@ export function RefundButton({ orderId }: { orderId: string }) {
       >
         {loading ? "Refunding…" : "Refund order"}
       </button>
-      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
     </div>
   );
 }

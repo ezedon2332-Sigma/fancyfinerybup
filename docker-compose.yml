@@ -1,0 +1,125 @@
+# Fancy Finery — local development stack.
+#
+# Brings up the two services that replace Supabase: our own Postgres and MinIO.
+# The Next.js app runs on the host via `npm run dev` against them, which keeps
+# hot-reload fast; the web/caddy/ofelia containers land with the VPS work.
+#
+#   docker compose up -d
+#   npm run db:push && npm run db:seed
+#   npm run dev
+#
+# Values come from .env (docker compose reads it automatically). Defaults here
+# are development-only conveniences — the VPS compose file supplies real ones.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: fancy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fancy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fancy_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-fancy}
+      # Deterministic collation, so ORDER BY matches production regardless of
+      # the host's locale.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    ports:
+      # Exposed on the host so `npm run dev` and drizzle-kit can reach it.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # `-d` matters: without it pg_isready checks a database named after the
+      # user and reports healthy before our database actually exists.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fancy} -d ${POSTGRES_DB:-fancy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio:
+    image: minio/minio:latest
+    container_name: fancy-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"   # S3 API — presigned uploads + public reads
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"   # web console (dev convenience)
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot: creates the bucket and makes `products/*` publicly readable.
+  # Exits 0 once done; `docker compose ps` showing it as Exited is correct.
+  minio-init:
+    image: minio/mc:latest
+    container_name: fancy-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-product-media}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/$${S3_BUCKET} &&
+      mc anonymous set download local/$${S3_BUCKET}/products &&
+      echo '[minio-init] bucket $${S3_BUCKET} ready (products/ is public-read)'
+      "
+
+  # Cache for hot read paths — see src/infrastructure/cache/.
+  #
+  # `--maxmemory-policy allkeys-lru` matters: this holds only derived data that
+  # can always be recomputed from Postgres, so evicting under pressure is
+  # correct. Without it Redis would refuse writes when full and the cache would
+  # start throwing instead of quietly missing.
+  redis:
+    image: redis:7-alpine
+    container_name: fancy-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Public HTTPS tunnel to the local dev server, so provider webhooks
+  # (Paystack, Stripe) can reach a machine that has no public address.
+  #
+  # OPT-IN — it does not start with `docker compose up`:
+  #     npm run tunnel
+  #
+  # Production is unaffected by design. Paystack and Stripe both keep SEPARATE
+  # webhook endpoints for test mode and live mode, so the rule is:
+  #     TEST webhook URL  -> this tunnel        (rotates every restart)
+  #     LIVE webhook URL  -> fancyfinerybup.com (never touched)
+  # Nothing here can redirect a live charge's callback.
+  #
+  # This is a quick tunnel: no account, no token, and a NEW random hostname on
+  # every start. Copy the printed URL into the provider dashboard each session.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: fancy-tunnel
+    profiles: ["tunnel"]
+    # host.docker.internal resolves to the Docker host, which is where
+    # `npm run dev` is listening — the app is not a container in dev.
+    command: tunnel --no-autoupdate --url http://host.docker.internal:3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres-data:
+  minio-data:

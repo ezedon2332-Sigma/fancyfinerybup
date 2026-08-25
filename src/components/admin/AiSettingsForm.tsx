@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 
 import { saveAiSettings, addFaq, deleteFaq } from "@/app/admin/ai/actions";
 import type { QuickAction } from "@/lib/ai-types";
+import { toast } from "@/components/ui/Toast";
 
 interface Settings {
   enabled: boolean;
@@ -83,7 +84,7 @@ export function AiSettingsForm({
       {!configured && (
         <div className="rounded-lg border border-yellow-600/30 bg-yellow-500/5 p-4 text-sm text-yellow-200">
           <strong>ANTHROPIC_API_KEY is not set.</strong> The concierge stays
-          hidden until the key is configured in your environment (Vercel), even
+          hidden until the key is configured in the server environment, even
           with “Enabled” on.
         </div>
       )}
@@ -213,11 +214,9 @@ function FaqManager({ faqs }: { faqs: Faq[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [a, setA] = useState("");
-  const [err, setErr] = useState<string | null>(null);
   const [busy, startBusy] = useTransition();
 
   function add() {
-    setErr(null);
     startBusy(async () => {
       const res = await addFaq({ question: q, answer: a });
       if (res.ok) {
@@ -225,7 +224,7 @@ function FaqManager({ faqs }: { faqs: Faq[] }) {
         setA("");
         router.refresh();
       } else {
-        setErr(res.error ?? "Could not add.");
+        toast.error(res.error ?? "Could not add.");
       }
     });
   }
@@ -297,7 +296,6 @@ function FaqManager({ faqs }: { faqs: Faq[] }) {
           >
             Add FAQ
           </button>
-          {err && <span className="text-sm text-red-400">{err}</span>}
         </div>
       </div>
     </section>

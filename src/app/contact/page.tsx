@@ -1,6 +1,21 @@
 import { BRAND_EMAIL } from "@/lib/site";
 
-export default function ContactPage() {
+/**
+ * Accepts `?order=REF` from the order page's "Problem with this order?" link,
+ * so the customer arrives with their reference already on screen and support
+ * does not have to ask for it.
+ */
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ order?: string }>;
+}) {
+  const { order } = await searchParams;
+  // Reference only — it is rendered back to the page, so keep it to the shape
+  // the order page produces and nothing else.
+  const orderRef =
+    order && /^[A-Z0-9]{4,12}$/i.test(order) ? order.toUpperCase() : null;
+
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-2xl px-6 py-16 lg:px-10">
@@ -13,13 +28,29 @@ export default function ContactPage() {
           </h1>
         </div>
 
+        {orderRef && (
+          <div className="mt-8 rounded-2xl border border-yellow-600/30 bg-yellow-500/5 px-5 py-4 text-center">
+            <p className="text-xs uppercase tracking-widest text-yellow-500">
+              About order
+            </p>
+            <p className="mt-1 font-mono text-lg text-gray-100">#{orderRef}</p>
+            <p className="mt-2 text-sm text-gray-400">
+              Quote this reference and we can find your order straight away.
+            </p>
+          </div>
+        )}
+
         <div className="mt-12 space-y-6 text-center">
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-widest text-white">
               Email
             </h2>
             <a
-              href={`mailto:${BRAND_EMAIL}`}
+              href={
+                orderRef
+                  ? `mailto:${BRAND_EMAIL}?subject=${encodeURIComponent(`Order #${orderRef}`)}`
+                  : `mailto:${BRAND_EMAIL}`
+              }
               className="mt-1 inline-block text-lg text-gray-200 transition-colors hover:text-yellow-400"
             >
               {BRAND_EMAIL}

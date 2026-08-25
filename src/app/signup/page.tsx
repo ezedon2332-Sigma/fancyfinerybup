@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { AuthPanel } from "@/components/auth/AuthPanel";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
+import { getCurrentUser } from "@/infrastructure/auth/session";
 
 export const metadata: Metadata = {
   title: "Create account",
@@ -17,7 +18,10 @@ export default async function SignUpPage() {
 
   return (
     <div className="flex min-h-[75vh] items-center justify-center px-5 py-16 sm:px-6">
-      <AuthPanel mode="signup" />
+      {/* AuthPanel reads ?redirect via useSearchParams. */}
+      <Suspense fallback={<div className="h-96 w-full max-w-md" />}>
+        <AuthPanel mode="signup" />
+      </Suspense>
     </div>
   );
 }

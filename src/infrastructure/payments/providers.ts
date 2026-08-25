@@ -79,12 +79,21 @@ export function providerForCurrency(currency: string): PaymentProviderId | null 
   const paystackOk = isPaystackEnabled() && paystackSupportsCurrency(cur);
   const stripeOk = isStripeEnabled() && stripeSupportsCurrency(cur);
 
-  if ((cur === "NGN" || cur === "USD") && paystackOk) return "paystack";
-  if ((cur === "EUR" || cur === "GBP") && stripeOk) return "stripe";
-
-  // Fallbacks: only one provider live, or an unusual currency one of them takes.
+  // Paystack first for EVERY currency it settles — NGN, USD, GHS, ZAR, KES.
+  //
+  // This used to name NGN and USD explicitly and let the other three arrive by
+  // falling through the Stripe branch below. Same outcome, but the rule was
+  // invisible: someone adding a currency to PAYSTACK_CURRENCIES would have had
+  // no way to tell whether routing followed. It is one condition now, and the
+  // supported set is the single source of truth.
   if (paystackOk) return "paystack";
+
+  // Stripe covers what Paystack cannot settle (EUR, GBP).
   if (stripeOk) return "stripe";
+
+  // Neither provider takes this currency, or neither is configured. The order
+  // stays pay-on-delivery rather than failing at the redirect with a provider
+  // error the customer cannot act on.
   return null;
 }
 

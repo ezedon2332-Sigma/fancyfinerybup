@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { listAdminOrders } from "@/infrastructure/supabase/admin-service";
+import { listAdminOrders } from "@/infrastructure/db/admin-service";
 import { formatMoney } from "@/domain/shared/money";
 import {
   orderStatusBadge,

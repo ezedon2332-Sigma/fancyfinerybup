@@ -12,14 +12,14 @@ import { RecentlyViewedRow } from "@/components/recent/RecentlyViewedRow";
 import { getProductBySlug, listProducts,
   listCategories,
 } from "@/application/use-cases/catalog";
-import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { getCatalogDeps } from "@/infrastructure/db/catalog-service";
 import { safeJsonLd } from "@/lib/safe-json-ld";
-import { listApprovedReviews } from "@/infrastructure/supabase/review-service";
+import { listApprovedReviews } from "@/infrastructure/db/review-service";
 import { ReviewsSection } from "@/components/catalog/ReviewsSection";
 import { summarise } from "@/domain/reviews";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
-import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { loadActiveColors } from "@/infrastructure/db/admin-read-service";
+import { getCurrentUser } from "@/infrastructure/auth/session";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 type Params = { slug: string };
@@ -36,7 +36,7 @@ export async function generateMetadata({
 
   const img =
     product.images.find((m) => m.mediaType === "image") ?? product.images[0];
-  const raw = img ? resolveImageUrl(img.storagePath) : "/logo.png";
+  const raw = img ? resolveMediaUrl(img.storagePath) : "/logo.png";
   const imageUrl = raw.startsWith("http") ? raw : `${SITE_URL}${raw}`;
   const description = product.description ?? SITE_DESCRIPTION;
 
@@ -107,16 +107,7 @@ export default async function ProductPage({
   // built-in popular colours if the table isn't available).
   let colorOptions: { name: string; code: string | null }[] = [];
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("colors")
-      .select("color_name, color_code")
-      .eq("active", true)
-      .order("color_name", { ascending: true });
-    colorOptions = (data ?? []).map((c) => ({
-      name: c.color_name,
-      code: c.color_code,
-    }));
+    colorOptions = await loadActiveColors();
   } catch {
     /* colours table not migrated yet — dialog uses its built-in list */
   }
@@ -130,7 +121,7 @@ export default async function ProductPage({
     image: product.images
       .filter((m) => m.mediaType === "image")
       .slice(0, 5)
-      .map((m) => abs(resolveImageUrl(m.storagePath))),
+      .map((m) => abs(resolveMediaUrl(m.storagePath))),
     ...(sku ? { sku } : {}),
     brand: { "@type": "Brand", name: SITE_NAME },
     offers: {
@@ -165,7 +156,7 @@ export default async function ProductPage({
           slug: product.slug,
           name: product.name,
           price: product.price,
-          image: thumb ? resolveImageUrl(thumb.storagePath) : "/image.jpeg",
+          image: thumb ? resolveMediaUrl(thumb.storagePath) : "/image.jpeg",
         }}
       />
 

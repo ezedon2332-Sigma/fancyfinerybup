@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 import { CustomersTable } from "@/components/admin/CustomersTable";
-import { listCustomers } from "@/infrastructure/supabase/customer-service";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
+import { listCustomers } from "@/infrastructure/db/customer-service";
+import { getCurrentUser } from "@/infrastructure/auth/session";
 
 export const metadata: Metadata = { title: "Admin · Customers" };
 

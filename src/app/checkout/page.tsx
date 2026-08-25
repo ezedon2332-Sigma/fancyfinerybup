@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import type { CountryOption } from "@/components/checkout/CountrySelect";
-import { getCurrentProfile, requireUser } from "@/infrastructure/supabase/auth";
+import { getCurrentProfile, requireUser } from "@/infrastructure/auth/session";
 import { onlinePaymentEnabled } from "@/infrastructure/payments/providers";
 import { COUNTRIES } from "@/domain/shipping/countries";
-import { loadCountryRates } from "@/infrastructure/supabase/rate-card";
+import { loadCountryRates } from "@/infrastructure/db/rate-card";
 
 export const metadata: Metadata = { title: "Checkout" };
 

@@ -1,5 +1,5 @@
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { listStatesForAdmin } from "@/infrastructure/supabase/nigeria-shipping-service";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { listStatesForAdmin } from "@/infrastructure/db/nigeria-shipping-service";
 import { NigeriaShippingPanel } from "@/components/admin/NigeriaShippingPanel";
 import { PageHeader } from "@/components/ui";
 

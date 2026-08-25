@@ -2,10 +2,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MessagesSquare } from "lucide-react";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
-import { loadAiConfig, isAiConfigured } from "@/infrastructure/ai/settings";
-import { listDocuments } from "@/infrastructure/ai/knowledge";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { loadAiFaqs } from "@/infrastructure/db/admin-read-service";
+import { loadAiConfig, isAiConfigured } from "@/infrastructure/db/ai/settings";
+import { listDocuments } from "@/infrastructure/db/ai/knowledge";
 import { AiSettingsForm } from "@/components/admin/AiSettingsForm";
 import { KnowledgeManager } from "@/components/admin/KnowledgeManager";
 
@@ -16,11 +16,7 @@ export default async function AdminAiPage() {
   const cfg = await loadAiConfig();
   const docs = await listDocuments();
 
-  const supabase = await createSupabaseServerClient();
-  const { data: faqRows } = await supabase
-    .from("ai_faqs")
-    .select("id, question, answer")
-    .order("sort_order", { ascending: true });
+  const faqRows = await loadAiFaqs();
 
   return (
     <div className="max-w-3xl">

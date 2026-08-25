@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { categories } from "@/infrastructure/db/schema";
 import { categorySchema, slugify } from "@/lib/validation";
 
 export interface CategoryResult {
@@ -19,25 +22,26 @@ export async function saveCategory(payload: unknown): Promise<CategoryResult> {
   }
   const input = parsed.data;
   const slug = input.slug && input.slug.length > 0 ? input.slug : slugify(input.name);
-  const supabase = await createSupabaseServerClient();
-
   const row = {
     name: input.name,
     slug,
     description: input.description ?? null,
-    sort_order: input.sortOrder,
+    sortOrder: input.sortOrder,
   };
 
-  const { error } = input.id
-    ? await supabase.from("categories").update(row).eq("id", input.id)
-    : await supabase.from("categories").insert(row);
-
-  if (error) {
+  try {
+    if (input.id) {
+      await db.update(categories).set(row).where(eq(categories.id, input.id));
+    } else {
+      await db.insert(categories).values(row);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
-      error: /duplicate|unique/i.test(error.message)
+      error: /duplicate|unique/i.test(message)
         ? "That slug is already in use."
-        : error.message,
+        : message,
     };
   }
 
@@ -49,9 +53,11 @@ export async function saveCategory(payload: unknown): Promise<CategoryResult> {
 
 export async function deleteCategory(id: string): Promise<CategoryResult> {
   await requireAdmin();
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("categories").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db.delete(categories).where(eq(categories.id, id));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
   revalidatePath("/admin/categories");
   revalidatePath("/collections");
   return { ok: true };

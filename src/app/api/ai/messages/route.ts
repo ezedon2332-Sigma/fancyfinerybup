@@ -4,7 +4,7 @@ import {
   getConversationByToken,
   appendMessage,
   loadMessagesAfter,
-} from "@/infrastructure/ai/conversations";
+} from "@/infrastructure/db/ai/conversations";
 import { rateLimit } from "@/lib/ai-rate-limit";
 import type { ConciergeTranscriptMessage } from "@/lib/ai-types";
 

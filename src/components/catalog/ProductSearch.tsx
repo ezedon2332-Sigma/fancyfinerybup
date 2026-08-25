@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 import type { ProductSummary } from "@/domain/entities/product";
-import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { ProductGrid } from "./ProductGrid";
 
@@ -188,7 +188,7 @@ export function ProductSearch({ products }: { products: ProductSummary[] }) {
           >
             {suggestions.map((p, i) => {
               const src = p.primaryImage
-                ? resolveImageUrl(p.primaryImage.storagePath)
+                ? resolveMediaUrl(p.primaryImage.storagePath)
                 : "/image.jpeg";
               return (
                 <li key={p.id} role="option" aria-selected={i === active}>

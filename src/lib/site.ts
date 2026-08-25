@@ -18,7 +18,8 @@ export const SITE_DESCRIPTION =
  * Note for whoever moves this to a custom domain: an address can only be sent
  * FROM if the sending service can prove it owns the domain. gmail.com cannot be
  * verified by us, so this address works through Gmail's own SMTP and nowhere
- * else — see supabase/templates/README.md.
+ * else. Auth mail now goes through the same Resend sender as everything else
+ * (src/infrastructure/auth/auth.ts), so there is no separate SMTP config.
  */
 export const BRAND_EMAIL = "fancyxquisite@gmail.com";
 

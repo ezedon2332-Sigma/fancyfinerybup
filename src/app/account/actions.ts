@@ -1,16 +1,23 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { getCurrentUser } from "@/infrastructure/auth/session";
+import { eq } from "drizzle-orm";
+
+import { auth } from "@/infrastructure/auth/auth";
+import { db } from "@/infrastructure/db/client";
+import { profiles } from "@/infrastructure/db/schema";
 import { profileSchema } from "@/lib/validation";
 
 /** Sign the current user out and return to the home page. */
 export async function signOut() {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  // Better Auth revokes the session row and clears the cookie. Unlike the
+  // Supabase JWT it replaces, the session is server-side state, so signing out
+  // genuinely invalidates it rather than only discarding the browser's copy.
+  await auth.api.signOut({ headers: await headers() });
   redirect("/");
 }
 
@@ -30,21 +37,26 @@ export async function updateProfile(payload: unknown): Promise<ProfileResult> {
   }
   const p = parsed.data;
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: p.fullName ?? null,
-      phone: p.phone ?? null,
-      address: p.address ?? null,
-      city: p.city ?? null,
-      state: p.state ?? null,
-      country: p.country ?? null,
-      lat: p.lat ?? null,
-      lng: p.lng ?? null,
-    })
-    .eq("id", user.id);
-  if (error) return { ok: false, error: error.message };
+  try {
+    // Scoped to the signed-in user's own id — never a value from the payload.
+    // The old RLS policy (`profiles_update_self_or_admin`) is what used to make
+    // that true; here it is the WHERE clause.
+    await db
+      .update(profiles)
+      .set({
+        fullName: p.fullName ?? null,
+        phone: p.phone ?? null,
+        address: p.address ?? null,
+        city: p.city ?? null,
+        state: p.state ?? null,
+        country: p.country ?? null,
+        lat: p.lat ?? null,
+        lng: p.lng ?? null,
+      })
+      .where(eq(profiles.id, user.id));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
   revalidatePath("/account");
   return { ok: true };

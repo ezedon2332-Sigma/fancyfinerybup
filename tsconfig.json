@@ -38,6 +38,8 @@
     "**/*.mts"
   ],
   "exclude": [
+    // Standalone tooling, run through tsx with its own resolution rules.
+    "scripts/**/*.mts",
     "node_modules"
   ]
 }

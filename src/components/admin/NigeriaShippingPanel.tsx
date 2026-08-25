@@ -13,9 +13,10 @@ import {
   adminToggleDestination,
 } from "@/app/admin/shipping/nigeria/actions";
 import { matchesQuery, type NgDestination } from "@/domain/shipping/nigeria";
-import type { AdminState } from "@/infrastructure/supabase/nigeria-shipping-service";
+import type { AdminNgState } from "@/domain/entities/shipping-views";
 import { formatMinor } from "@/domain/shared/display-price";
-import { Card, EmptyState, ErrorNote, FIELD, Spinner } from "@/components/ui";
+import { Card, EmptyState, FIELD, Spinner } from "@/components/ui";
+import { toast } from "@/components/ui/Toast";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -36,8 +37,8 @@ const BLANK: Draft = { name: "", priceNaira: "", enabled: true };
  * front — the table is meant to hold thousands of rows, and a management screen
  * that degrades as the data grows is the thing this replaces.
  */
-export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
-  const [selected, setSelected] = useState<AdminState | null>(
+export function NigeriaShippingPanel({ states }: { states: AdminNgState[] }) {
+  const [selected, setSelected] = useState<AdminNgState | null>(
     states.find((s) => s.destinationCount > 0) ?? states[0] ?? null,
   );
   // Keyed by state, so the visible list is derived rather than synced — the
@@ -49,7 +50,6 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
   const [stateQuery, setStateQuery] = useState("");
   const [areaQuery, setAreaQuery] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const stateId = selected?.id ?? null;
@@ -89,7 +89,6 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
 
   function save() {
     if (!draft || !stateId) return;
-    setError(null);
     startTransition(async () => {
       const res = await adminSaveDestination({
         id: draft.id,
@@ -99,7 +98,7 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
         enabled: draft.enabled,
       });
       if (!res.ok) {
-        setError(res.error ?? "Could not save.");
+        toast.error(res.error ?? "Could not save.");
         return;
       }
       setDraft(null);
@@ -109,16 +108,14 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
 
   function remove(id: string, name: string) {
     if (!confirm(`Delete "${name}"? Customers can no longer choose it.`)) return;
-    setError(null);
     startTransition(async () => {
       const res = await adminDeleteDestination(id);
-      if (!res.ok) setError(res.error ?? "Could not delete.");
+      if (!res.ok) toast.error(res.error ?? "Could not delete.");
       else refresh();
     });
   }
 
   function toggle(d: NgDestination) {
-    setError(null);
     // Optimistic: the row flips immediately and is corrected by the refetch if
     // the write fails, because a checkbox that waits on a round trip feels
     // broken when you are working through thirty of them.
@@ -134,7 +131,7 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
     );
     startTransition(async () => {
       const res = await adminToggleDestination(d.id, !d.enabled);
-      if (!res.ok) setError(res.error ?? "Could not update.");
+      if (!res.ok) toast.error(res.error ?? "Could not update.");
       refresh();
     });
   }
@@ -143,10 +140,10 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
     const name = prompt("New state name");
     if (!name) return;
     const res = await adminSaveState({ name, code: null, enabled: true });
-    if (!res.ok) setError(res.error ?? "Could not add that state.");
+    if (!res.ok) toast.error(res.error ?? "Could not add that state.");
   }
 
-  async function removeState(s: AdminState) {
+  async function removeState(s: AdminNgState) {
     if (
       !confirm(
         `Delete ${s.name} and its ${s.destinationCount} destination(s)? This cannot be undone.`,
@@ -155,16 +152,11 @@ export function NigeriaShippingPanel({ states }: { states: AdminState[] }) {
       return;
     }
     const res = await adminDeleteState(s.id);
-    if (!res.ok) setError(res.error ?? "Could not delete that state.");
+    if (!res.ok) toast.error(res.error ?? "Could not delete that state.");
   }
 
   return (
     <div className="mt-6">
-      {error && (
-        <div className="mb-4">
-          <ErrorNote>{error}</ErrorNote>
-        </div>
-      )}
 
       {/* Stacks on phones, two panes from lg — a master/detail split is
           unusable at 390px, where each pane would be under 200px wide. */}

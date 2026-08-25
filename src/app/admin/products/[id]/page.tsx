@@ -6,7 +6,7 @@ import { DeleteProductButton } from "@/components/admin/DeleteProductButton";
 import {
   getAdminProduct,
   listAdminCategories,
-} from "@/infrastructure/supabase/admin-service";
+} from "@/infrastructure/db/admin-service";
 
 export const metadata: Metadata = { title: "Admin · Edit product" };
 

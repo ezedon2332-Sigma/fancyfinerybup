@@ -7,7 +7,7 @@ import {
   hashIp,
   isRateLimited,
   subscribe,
-} from "@/infrastructure/supabase/newsletter-service";
+} from "@/infrastructure/db/newsletter-service";
 
 export interface JoinResult {
   ok: boolean;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileText, Trash2 } from "lucide-react";
 
 import { addKnowledgeDoc, removeKnowledgeDoc } from "@/app/admin/ai/actions";
+import { toast } from "@/components/ui/Toast";
 
 interface Doc {
   id: string;
@@ -20,11 +21,9 @@ export function KnowledgeManager({ docs }: { docs: Doc[] }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [err, setErr] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
   function add() {
-    setErr(null);
     start(async () => {
       const res = await addKnowledgeDoc({ title, content });
       if (res.ok) {
@@ -32,7 +31,7 @@ export function KnowledgeManager({ docs }: { docs: Doc[] }) {
         setContent("");
         router.refresh();
       } else {
-        setErr(res.error ?? "Could not save.");
+        toast.error(res.error ?? "Could not save.");
       }
     });
   }
@@ -105,7 +104,6 @@ export function KnowledgeManager({ docs }: { docs: Doc[] }) {
           >
             {busy ? "Saving…" : "Add document"}
           </button>
-          {err && <span className="text-sm text-red-400">{err}</span>}
         </div>
       </div>
     </section>

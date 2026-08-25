@@ -1,8 +1,10 @@
 "use server";
 
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { getCurrentUser } from "@/infrastructure/auth/session";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { orders } from "@/infrastructure/db/schema";
 import { paystackInitialize } from "@/infrastructure/payments/paystack";
 import { stripeCreateCheckoutSession } from "@/infrastructure/payments/stripe";
 import {
@@ -36,19 +38,27 @@ export async function startPaymentAction(
     return { ok: false, error: "Online payment isn't enabled yet." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: order, error } = await supabase
-    .from("orders")
-    .select("id, user_id, total, currency, payment_status, shipping_email")
-    .eq("id", orderId)
-    .maybeSingle();
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+    columns: {
+      id: true,
+      userId: true,
+      total: true,
+      currency: true,
+      paymentStatus: true,
+      shippingEmail: true,
+    },
+  });
 
-  if (error || !order) return { ok: false, error: "Order not found." };
-  if (order.user_id !== user.id) return { ok: false, error: "Not your order." };
-  if (order.payment_status === "paid") {
+  if (!order) return { ok: false, error: "Order not found." };
+  // The ownership check was already explicit here rather than left to RLS, so
+  // it survives the migration unchanged. It is the control that stops one
+  // customer starting a charge against another customer's order.
+  if (order.userId !== user.id) return { ok: false, error: "Not your order." };
+  if (order.paymentStatus === "paid") {
     return { ok: false, error: "This order is already paid." };
   }
-  if (order.payment_status === "refunded") {
+  if (order.paymentStatus === "refunded") {
     return { ok: false, error: "This order has been refunded." };
   }
 
@@ -60,7 +70,7 @@ export async function startPaymentAction(
     };
   }
 
-  const email = order.shipping_email || user.email || "";
+  const email = order.shippingEmail || user.email || "";
 
   // providerForCurrency's type spans providers that aren't implemented yet, but
   // it only ever returns one of these two — and the branch below already treats
@@ -114,16 +124,16 @@ export async function startPaymentAction(
     // rows, leaving the charge unlinkable. Ownership was already checked above.
     // paystack_reference is mirrored for the paystack path (legacy + its unique
     // index); the generic payment_reference is the canonical lookup key.
-    const admin = createSupabaseAdminClient();
-    const { error: refError } = await admin
-      .from("orders")
-      .update({
-        payment_reference: reference,
-        payment_provider: settleWith,
-        ...(settleWith === "paystack" ? { paystack_reference: reference } : {}),
-      })
-      .eq("id", order.id);
-    if (refError) {
+    try {
+      await db
+        .update(orders)
+        .set({
+          paymentReference: reference,
+          paymentProvider: settleWith,
+          ...(settleWith === "paystack" ? { paystackReference: reference } : {}),
+        })
+        .where(eq(orders.id, order.id));
+    } catch {
       return {
         ok: false,
         error: "Could not start payment. Please try again.",

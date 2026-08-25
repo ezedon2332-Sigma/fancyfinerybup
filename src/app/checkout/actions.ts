@@ -1,10 +1,14 @@
 "use server";
 
 import { placeOrder, CheckoutError } from "@/application/use-cases/checkout";
-import { getCheckoutDeps } from "@/infrastructure/supabase/order-service";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { getCheckoutDeps } from "@/infrastructure/db/order-service";
+import { getCurrentUser } from "@/infrastructure/auth/session";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { profiles } from "@/infrastructure/db/schema";
 import { notifyOrderPlaced } from "@/infrastructure/notifications/email";
+import { OutOfStockError } from "@/domain/repositories/order-repository";
 import { checkoutSchema } from "@/lib/validation";
 import { cookies } from "next/headers";
 import {
@@ -71,17 +75,18 @@ export async function placeOrderAction(
 
     // Automatically remember the customer's shipping details for next time.
     try {
-      const supabase = await createSupabaseServerClient();
-      await supabase
-        .from("profiles")
-        .update({
+      // Scoped to the signed-in user's own id. The old RLS policy
+      // (profiles_update_self_or_admin) is what made that true before.
+      await db
+        .update(profiles)
+        .set({
           phone: input.phone,
           address: input.address,
           city: input.city,
           state: input.state,
           country: input.country,
         })
-        .eq("id", user.id);
+        .where(eq(profiles.id, user.id));
     } catch {
       /* non-fatal — the order is already placed */
     }
@@ -91,8 +96,13 @@ export async function placeOrderAction(
 
     return { ok: true, orderId };
   } catch (e) {
+    // OutOfStockError is thrown by the repository when the conditional stock
+    // decrement matches no rows — someone else took the last one between this
+    // basket being priced and being written. It carries the item name, and the
+    // customer can act on it (remove the line, choose another size), so it is
+    // surfaced verbatim rather than flattened into "please try again".
     const message =
-      e instanceof CheckoutError
+      e instanceof OutOfStockError || e instanceof CheckoutError
         ? e.message
         : "Could not place your order. Please try again.";
     return { ok: false, error: message };

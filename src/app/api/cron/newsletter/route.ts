@@ -3,14 +3,15 @@ import { NextResponse } from "next/server";
 import {
   runBirthdayEmails,
   runDueCampaigns,
-} from "@/infrastructure/supabase/newsletter-service";
+} from "@/infrastructure/db/newsletter-service";
 
 export const dynamic = "force-dynamic";
 // Campaign sends are sequential; give them room before the platform cuts in.
 export const maxDuration = 300;
 
 /**
- * Daily newsletter automation (Vercel Cron → see vercel.json).
+ * Daily newsletter automation. Fired by the `ofelia` container in
+ * docker-compose, which sends the CRON_SECRET bearer token.
  *
  * Two jobs, both idempotent so a retry or a double-fire is harmless:
  *   1. Dispatch any campaign whose scheduled time has passed.
@@ -18,7 +19,7 @@ export const maxDuration = 300;
  *      skipping anyone already wished within the year.
  *
  * If CRON_SECRET is set, requires `Authorization: Bearer <CRON_SECRET>`
- * (Vercel sends this automatically for scheduled invocations).
+ * (the ofelia scheduler sends it on each run).
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;

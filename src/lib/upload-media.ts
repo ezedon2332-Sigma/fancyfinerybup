@@ -1,21 +1,30 @@
 "use client";
 
-import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
+import { createUploadUrl } from "@/app/admin/products/upload-actions";
 
 /**
- * Browser → Supabase Storage upload using the official supabase-js client
- * (`storage.from().upload()`). This is the same client the app already uses for
- * auth/data, so the session, CORS and content-type are all handled correctly —
- * no custom headers or third-party upload libraries that can misbehave in the
- * browser. Works for images and videos alike (up to the project's size limit).
+ * Browser → object storage upload, via a presigned PUT.
+ *
+ * The server issues a short-lived URL (admin-gated, see upload-actions.ts) and
+ * the browser PUTs the bytes straight to MinIO. Three things changed for the
+ * better versus the old Supabase Storage path:
+ *
+ *  1. **Real progress.** `supabase-js`'s `upload()` resolved only on completion,
+ *     so the old bar was a timer nudging itself to 90% and hoping. XHR reports
+ *     actual bytes sent.
+ *  2. **Real cancellation.** Aborting used to set a flag and then *delete the
+ *     object afterwards* — the file uploaded in full regardless. `xhr.abort()`
+ *     stops the transfer.
+ *  3. **No 50 MB ceiling.** That was the Supabase project limit; the cap is now
+ *     whatever MEDIA_MAX_VIDEO_MB says.
  */
 
-const BUCKET = "product-images";
-
-// The Supabase project upload ceiling is 50 MB (raise it in Storage settings to
-// allow larger). Keep client caps at/under that so oversized files fail fast.
-export const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25 MB
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB (project ceiling)
+// Client-side caps, mirrored from the server so an oversized file fails
+// instantly instead of after a round trip. NOT a control: the authoritative
+// limits are enforced in presignUpload() before a URL exists, and the signed
+// ContentLength binds the URL to the approved size.
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 export type MediaType = "image" | "video";
 
@@ -42,6 +51,15 @@ const EXT_MIME: Record<string, string> = {
   mkv: "video/x-matroska",
   "3gp": "video/3gpp",
   "3g2": "video/3gpp2",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+  bmp: "image/bmp",
 };
 
 function fileExt(file: File): string {
@@ -84,54 +102,49 @@ export function uploadMediaWithProgress(
 ): UploadHandle {
   const kind: MediaType = mediaKind(file) ?? "image";
   const contentType = resolveContentType(file, kind);
-  const ext = fileExt(file) || (kind === "video" ? "mp4" : "jpg");
-  const path = `products/${crypto.randomUUID()}.${ext}`;
 
+  let xhr: XMLHttpRequest | null = null;
   let cancelled = false;
-  // Coarse progress: supabase-js upload() resolves on completion without
-  // streaming progress, so we nudge the bar at start and finish at 100%.
-  let timer: ReturnType<typeof setInterval> | null = null;
 
   const promise = (async (): Promise<UploadResult> => {
-    const supabase = createSupabaseBrowserClient();
+    const signed = await createUploadUrl({
+      contentType,
+      sizeBytes: file.size,
+    });
+    if ("error" in signed) throw new Error(signed.error);
+    if (cancelled) throw new Error("Upload cancelled.");
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      throw new Error("Your session expired — please sign in again.");
-    }
+    onProgress(1);
 
-    // Animate the bar towards 90% while the upload is in flight.
-    let pct = 5;
-    onProgress(pct);
-    timer = setInterval(() => {
-      pct = Math.min(90, pct + 5);
-      onProgress(pct);
-    }, 400);
+    await new Promise<void>((resolve, reject) => {
+      xhr = new XMLHttpRequest();
+      xhr.open("PUT", signed.url, true);
+      // Must match the signed Content-Type exactly, or the signature fails.
+      xhr.setRequestHeader("Content-Type", signed.contentType);
 
-    try {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { contentType, upsert: false });
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+        }
+      };
+      xhr.onload = () =>
+        xhr && xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`Upload failed (${xhr?.status ?? 0}).`));
+      xhr.onerror = () => reject(new Error("Upload failed. Please try again."));
+      xhr.onabort = () => reject(new Error("Upload cancelled."));
+      xhr.send(file);
+    });
 
-      if (cancelled) {
-        await supabase.storage.from(BUCKET).remove([path]).catch(() => undefined);
-        throw new Error("Upload cancelled.");
-      }
-      if (error) {
-        throw new Error(error.message || "Upload failed. Please try again.");
-      }
-      onProgress(100);
-      return { path, mediaType: kind };
-    } finally {
-      if (timer) clearInterval(timer);
-    }
+    onProgress(100);
+    return { path: signed.storagePath, mediaType: kind };
   })();
 
   return {
     promise,
     abort: () => {
       cancelled = true;
-      if (timer) clearInterval(timer);
+      xhr?.abort();
     },
   };
 }

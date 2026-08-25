@@ -16,6 +16,10 @@ import {
   isDisplayCurrency,
   type DisplayCurrency,
 } from "@/domain/shared/display-price";
+import {
+  DEFAULT_EXCHANGE_RATES,
+  type ExchangeRates,
+} from "@/domain/shared/display-price";
 
 export {
   CURRENCY_COOKIE,
@@ -33,6 +37,8 @@ interface CurrencyContextValue {
   setCurrency: (c: DisplayCurrency) => void;
   /** Format an NGN-minor-units (kobo) amount in the selected display currency. */
   format: (ngnMinor: number) => string;
+  /** The active exchange rates, for callers that need the figure not the string. */
+  rates: ExchangeRates;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
@@ -63,9 +69,17 @@ function persist(c: DisplayCurrency) {
  */
 export function CurrencyProvider({
   initialCurrency = "NGN",
+  rates = DEFAULT_EXCHANGE_RATES,
   children,
 }: {
   initialCurrency?: DisplayCurrency;
+  /**
+   * Admin-set exchange rates, read on the server each render. Passed down
+   * rather than fetched here because pricing must be identical in the
+   * server-rendered HTML and after hydration — a client-side fetch would show
+   * one price and then change it.
+   */
+  rates?: ExchangeRates;
   children: React.ReactNode;
 }) {
   const [currency, setCurrencyState] =
@@ -95,13 +109,13 @@ export function CurrencyProvider({
   }, []);
 
   const format = useCallback(
-    (ngnMinor: number) => formatDisplayPrice(ngnMinor, currency),
-    [currency],
+    (ngnMinor: number) => formatDisplayPrice(ngnMinor, currency, rates),
+    [currency, rates],
   );
 
   return (
     <CurrencyContext.Provider
-      value={{ currency, setCurrency, format }}
+      value={{ currency, setCurrency, format, rates }}
     >
       {children}
     </CurrencyContext.Provider>

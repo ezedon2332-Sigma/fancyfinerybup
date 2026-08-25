@@ -12,10 +12,13 @@ const SECRET = process.env.PAYSTACK_SECRET_KEY;
 const BASE = "https://api.paystack.co";
 
 /**
- * Currencies Paystack can actually settle. The storefront lets a shopper be
- * charged in EUR or GBP, neither of which Paystack accepts — an order in one
- * of those has to stay pay-on-delivery rather than fail at the redirect with a
- * provider error the customer cannot act on.
+ * Currencies Paystack can actually settle, and the single source of truth for
+ * routing: `providerForCurrency` sends anything in this set to Paystack.
+ *
+ * Adding one here is all that is needed to start taking it — no routing change.
+ * The storefront also offers EUR and GBP, which Paystack does not accept; those
+ * go to Stripe, and if Stripe is not configured the order stays pay-on-delivery
+ * rather than failing at the redirect with an error the customer cannot act on.
  */
 const PAYSTACK_CURRENCIES = new Set(["NGN", "USD", "GHS", "ZAR", "KES"]);
 

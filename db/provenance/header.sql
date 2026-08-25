@@ -1,0 +1,24 @@
+-- ---------------------------------------------------------------------------
+-- Fancy Finery — canonical database baseline (plain PostgreSQL 17).
+--
+-- GENERATED, not hand-written. Provenance: the 28 migrations in
+-- supabase/migrations/ were applied verbatim to a scratch database behind
+-- compat shims, then every Supabase-ism was stripped and the result dumped.
+-- Applying those migrations unmodified is what makes this a faithful port
+-- rather than a retyped approximation.
+--
+-- What was deliberately removed, and where it went instead:
+--   * 35 RLS policies + RLS on 33 tables -> application-layer authorization
+--     (repository adapters + requireAdmin). See docs/MIGRATION_PLAN.md Phase 6.
+--   * is_admin(), guard_profile_role()   -> the admin gate in src/infrastructure/auth
+--   * handle_new_user() trigger          -> Better Auth databaseHooks
+--   * email_exists()                     -> a plain repository query
+--   * storage.buckets / storage.objects  -> MinIO
+--   * auth.users                         -> Better Auth's auth_user table
+--
+-- profiles.id has no foreign key here on purpose: it is re-pointed at
+-- auth_user(id) once Better Auth's tables exist (see db/0001_auth_fk.sql).
+--
+-- Regenerate with: npm run db:baseline
+-- ---------------------------------------------------------------------------
+

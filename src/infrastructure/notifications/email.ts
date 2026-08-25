@@ -1,7 +1,27 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { orders } from "@/infrastructure/db/schema";
 import { formatMoney } from "@/domain/shared/money";
+import {
+  button,
+  detailRows,
+  fallbackLink,
+  heading,
+  paragraph,
+  shell,
+} from "./email-shell";
+
+/** Customer-supplied names end up inside HTML; escape them. */
+function escapeForEmail(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 import { BRAND_EMAIL, SITE_URL } from "@/lib/site";
 import { orderStatusLabel } from "@/lib/order-status";
 import {
@@ -65,17 +85,19 @@ async function loadOrderEmail(orderId: string): Promise<{
   tracking: string | null;
 } | null> {
   try {
-    const supabase = createSupabaseAdminClient();
-    const { data } = await supabase
-      .from("orders")
-      .select("shipping_email, shipping_name, tracking_number")
-      .eq("id", orderId)
-      .maybeSingle();
-    if (!data) return null;
+    const row = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      columns: {
+        shippingEmail: true,
+        shippingName: true,
+        trackingNumber: true,
+      },
+    });
+    if (!row) return null;
     return {
-      email: data.shipping_email,
-      name: data.shipping_name,
-      tracking: data.tracking_number,
+      email: row.shippingEmail,
+      name: row.shippingName,
+      tracking: row.trackingNumber,
     };
   } catch {
     return null;
@@ -86,39 +108,78 @@ async function loadOrderEmail(orderId: string): Promise<{
 export async function notifyOrderPlaced(orderId: string): Promise<void> {
   const info = await loadOrderEmail(orderId);
   if (!info?.email) return;
+  const ref = orderId.slice(0, 8).toUpperCase();
+  const url = `${SITE_URL}/account/orders/${orderId}`;
+
   await sendEmail({
     to: info.email,
     idempotencyKey: `order-placed:${orderId}`,
     subject: "We've received your order — Fancy Finery",
+    html: shell(
+      "We've received your order",
+      heading("Thank you for your order") +
+        paragraph(`Hi ${escapeForEmail(info.name ?? "there")},`) +
+        paragraph(
+          "We have your order and are preparing it for despatch. You will get " +
+            "tracking details by email the moment it ships.",
+        ) +
+        detailRows([["Order reference", `#${ref}`]]) +
+        button(url, "View your order") +
+        fallbackLink(url),
+      { kicker: "Order Confirmation" },
+    ),
     text:
       `Hi ${info.name ?? "there"},\n\n` +
-      `Thanks for your order (#${orderId.slice(0, 8)}). We're preparing it for ` +
-      `shipment and will email tracking details as soon as it ships.\n\n— Fancy Finery`,
+      `Thanks for your order (#${ref}). We're preparing it for shipment and ` +
+      `will email tracking details as soon as it ships.\n\n` +
+      `View your order: ${url}\n\n— Fancy Finery`,
   });
 }
 
 /** Payment receipt once a charge is confirmed (webhook or callback). */
 export async function notifyPaymentReceived(orderId: string): Promise<void> {
   try {
-    const supabase = createSupabaseAdminClient();
-    const { data } = await supabase
-      .from("orders")
-      .select("shipping_email, shipping_name, total, currency")
-      .eq("id", orderId)
-      .maybeSingle();
-    if (!data?.shipping_email) return;
-    const amount = formatMoney(data.total, data.currency);
+    const row = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      columns: {
+        shippingEmail: true,
+        shippingName: true,
+        total: true,
+        currency: true,
+      },
+    });
+    if (!row?.shippingEmail) return;
+    const amount = formatMoney(row.total, row.currency);
+    const ref = orderId.slice(0, 8).toUpperCase();
+    const url = `${SITE_URL}/account/orders/${orderId}`;
+
     await sendEmail({
-      to: data.shipping_email,
+      to: row.shippingEmail,
       // One receipt per order, even if a webhook, the browser callback and the
       // reconcile sweep all reach this line.
       idempotencyKey: `payment-received:${orderId}`,
       subject: "Payment received — Fancy Finery",
+      html: shell(
+        "Payment received",
+        heading("Payment received") +
+          paragraph(`Hi ${escapeForEmail(row.shippingName ?? "there")},`) +
+          paragraph(
+            "Your payment has cleared and your order is confirmed. We are " +
+              "preparing it for despatch.",
+          ) +
+          detailRows([
+            ["Order reference", `#${ref}`],
+            ["Amount paid", amount],
+          ]) +
+          button(url, "View your order") +
+          fallbackLink(url),
+        { kicker: "Receipt" },
+      ),
       text:
-        `Hi ${data.shipping_name ?? "there"},\n\n` +
-        `We've received your payment of ${amount} for order ` +
-        `#${orderId.slice(0, 8)}. Your order is confirmed and being prepared ` +
-        `for shipment.\n\nThank you for shopping with Fancy Finery.`,
+        `Hi ${row.shippingName ?? "there"},\n\n` +
+        `We've received your payment of ${amount} for order #${ref}. Your ` +
+        `order is confirmed and being prepared for shipment.\n\n` +
+        `View your order: ${url}\n\nThank you for shopping with Fancy Finery.`,
     });
   } catch {
     /* best-effort — a receipt failing must never unwind a confirmed payment */

@@ -12,8 +12,8 @@ import {
 import {
   getCurrentProfile,
   requireUser,
-} from "@/infrastructure/supabase/auth";
-import { getOrderRepository } from "@/infrastructure/supabase/order-service";
+} from "@/infrastructure/auth/session";
+import { getOrderRepository } from "@/infrastructure/db/order-service";
 import { formatMoney } from "@/domain/shared/money";
 import { isShipped, orderStatusBadge, orderStatusLabel } from "@/lib/order-status";
 import { ProfileForm } from "@/components/account/ProfileForm";

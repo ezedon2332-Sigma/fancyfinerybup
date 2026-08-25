@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail, X } from "lucide-react";
 
-import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
+import { authClient } from "@/infrastructure/auth/client";
 import { signUpAction } from "@/app/signup/actions";
 import { magicLinkSchema, signUpSchema } from "@/lib/validation";
 import {
@@ -27,7 +27,7 @@ const LABEL = "mb-1.5 block text-xs font-medium uppercase tracking-widest text-g
 /**
  * The premium authentication panel — sign in or create an account, with inline
  * forgot-password. Elegant, minimal, on-brand; all logic runs through the
- * hardened Supabase browser client + the secure signUpAction.
+ * Better Auth browser client + the secure signUpAction.
  */
 export function AuthPanel({ mode }: { mode: Mode }) {
   const router = useRouter();
@@ -35,19 +35,46 @@ export function AuthPanel({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState("");
 
+  /**
+   * Where to land after a successful sign-in.
+   *
+   * proxy.ts sends a signed-out visitor to `/login?redirect=<path>`, so someone
+   * bounced out of checkout carries `redirect=/checkout`. This used to always
+   * `replace("/account")`, dropping that intent on the floor and stranding a
+   * customer mid-purchase on their dashboard with a full basket.
+   *
+   * Only same-origin PATHS are honoured. A value must start with a single "/"
+   * — "//evil.com" is a protocol-relative URL the browser would treat as
+   * another origin, so this is an open-redirect guard, not a formality.
+   */
+  const searchParams = useSearchParams();
+
+  function safeRedirect(): string {
+    const target = searchParams.get("redirect");
+    if (!target) return "/account";
+    if (!target.startsWith("/") || target.startsWith("//")) return "/account";
+    return target;
+  }
+
   function done() {
-    router.replace("/account");
+    router.replace(safeRedirect());
     router.refresh();
   }
 
   async function google() {
     setError(null);
-    const supabase = createSupabaseBrowserClient();
-    const { error: e } = await supabase.auth.signInWithOAuth({
+    // Better Auth serves its own callback at /api/auth/callback/google, so the
+    // app no longer needs the /auth/callback route that used to exchange a
+    // Supabase code for a session. `callbackURL` is where the user lands after.
+    const { error: e } = await authClient.signIn.social({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/account` },
+      // Must honour ?redirect too. This was hardcoded to /account, so a
+      // customer bounced out of checkout who chose "Continue with Google"
+      // completed the round trip and landed on their dashboard with a full
+      // basket — the same bug the password path had, on a different route.
+      callbackURL: safeRedirect(),
     });
-    if (e) setError(e.message);
+    if (e) setError(e.message ?? "Could not start Google sign-in.");
   }
 
   return (
@@ -76,6 +103,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
                 <ConfirmView
                   kind={view}
                   email={sentTo}
+                  redirectTo={safeRedirect()}
                   onBack={() => setView("signin")}
                 />
               </Fade>
@@ -89,7 +117,11 @@ export function AuthPanel({ mode }: { mode: Mode }) {
               </Fade>
             ) : view === "signup" ? (
               <Fade key="signup">
-                <SignUp google={google} onActive={done} setError={setError} />
+                <SignUp
+                  google={google}
+                  onVerify={(email) => { setSentTo(email); setView("verify"); }}
+                  setError={setError}
+                />
               </Fade>
             ) : (
               <Fade key="signin">
@@ -207,10 +239,21 @@ function SignIn({ google, onSignedIn, onForgot, setError }: {
     if (!password) return setError("Enter your password.");
     setError(null);
     start(async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password });
+      const { error } = await authClient.signIn.email({
+        email: parsed.data.email,
+        password,
+      });
       if (error) {
-        setError(error.message === "Invalid login credentials" ? "That email and password don't match." : error.message);
+        // Better Auth returns a distinct code when the address exists but has
+        // not been confirmed. Saying so is far kinder than "wrong password" —
+        // and reveals nothing the sign-up form does not already reveal.
+        if (error.code === "EMAIL_NOT_VERIFIED") {
+          setError("Please confirm your email address first — check your inbox.");
+        } else if (error.status === 401 || /invalid/i.test(error.message ?? "")) {
+          setError("That email and password don't match.");
+        } else {
+          setError(error.message ?? "Could not sign you in.");
+        }
         return;
       }
       onSignedIn();
@@ -239,8 +282,10 @@ function SignIn({ google, onSignedIn, onForgot, setError }: {
   );
 }
 
-function SignUp({ google, onActive, setError }: {
-  google: () => void; onActive: () => void; setError: (m: string | null) => void;
+function SignUp({ google, onVerify, setError }: {
+  google: () => void;
+  onVerify: (email: string) => void;
+  setError: (m: string | null) => void;
 }) {
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", acceptTerms: false, website: "" });
   const [touched, setTouched] = useState(false);
@@ -259,17 +304,10 @@ function SignUp({ google, onActive, setError }: {
     start(async () => {
       const res = await signUpAction(parsed.data);
       if (!res.ok) return setError(res.error ?? "Could not create your account.");
-      // The account is created + confirmed server-side; establish the session.
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: form.email,
-        password: form.password,
-      });
-      if (error) {
-        setError("Your account is ready — please sign in.");
-        return;
-      }
-      onActive();
+      // Sign-up now sends a confirmation email instead of creating an
+      // already-confirmed account (see src/app/signup/actions.ts), so there is
+      // no session to establish here — the customer confirms, then signs in.
+      onVerify(form.email);
     });
   }
 
@@ -341,10 +379,13 @@ function SignUp({ google, onActive, setError }: {
 function ConfirmView({
   kind,
   email,
+  redirectTo,
   onBack,
 }: {
   kind: "verify" | "sent";
   email: string;
+  /** Where the emailed link should land them — carries ?redirect through. */
+  redirectTo: string;
   onBack: () => void;
 }) {
   const [state, setState] = useState<"idle" | "sending" | "resent">("idle");
@@ -353,25 +394,23 @@ function ConfirmView({
   async function resend() {
     setState("sending");
     setErr(null);
-    const supabase = createSupabaseBrowserClient();
     const { error } =
       kind === "verify"
-        ? await supabase.auth.resend({
-            type: "signup",
+        ? await authClient.sendVerificationEmail({
             email,
-            options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback?next=/account`,
-            },
+            callbackURL: redirectTo,
           })
-        : await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        : await authClient.requestPasswordReset({
+            email,
+            redirectTo: "/reset-password",
           });
     if (error) {
       setState("idle");
+      const message = error.message ?? "Could not send that email.";
       setErr(
-        /rate limit|too many|after \d+ seconds/i.test(error.message)
+        /rate limit|too many|after \d+ seconds/i.test(message)
           ? "Please wait a little before requesting another email."
-          : error.message,
+          : message,
       );
     } else {
       setState("resent");
@@ -437,11 +476,11 @@ function Forgot({ onSent, onBack, setError }: {
     if (!parsed.success) return setError(parsed.error.issues[0].message);
     setError(null);
     start(async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      const { error } = await authClient.requestPasswordReset({
+        email: parsed.data.email,
+        redirectTo: "/reset-password",
       });
-      if (error) setError(error.message);
+      if (error) setError(error.message ?? "Could not send the reset link.");
       else onSent(parsed.data.email);
     });
   }

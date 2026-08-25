@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Sparkles } from "lucide-react";
 
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { loadColorRequests } from "@/infrastructure/db/admin-read-service";
 import {
   ColorRequestsTable,
   type ColorRequestRow,
@@ -12,14 +12,10 @@ export const metadata: Metadata = { title: "Admin · Color Requests" };
 export default async function ColorRequestsPage() {
   let requests: ColorRequestRow[] = [];
   try {
-    const admin = createSupabaseAdminClient();
-    const { data } = await admin
-      .from("color_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-    requests = (data ?? []) as ColorRequestRow[];
+    const rows = await loadColorRequests();
+    requests = rows as unknown as ColorRequestRow[];
   } catch {
-    // color_requests table not migrated yet — show empty state.
+    // A colour-requests outage must not take the admin dashboard down.
   }
 
   // Trending insight: same product+colour requested ≥3× in the last 30 days.

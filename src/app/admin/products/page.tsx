@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Pencil, Plus } from "lucide-react";
 
-import { listAdminProducts } from "@/infrastructure/supabase/admin-service";
+import { listAdminProducts } from "@/infrastructure/db/admin-service";
 import { formatMoney } from "@/domain/shared/money";
 import { DeleteProductButton } from "@/components/admin/DeleteProductButton";
 

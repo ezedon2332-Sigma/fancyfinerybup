@@ -2,7 +2,8 @@
 
 import { headers } from "next/headers";
 
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { db } from "@/infrastructure/db/client";
+import { colorRequests } from "@/infrastructure/db/schema";
 import { colorRequestSchema } from "@/lib/validation";
 import { rateLimit } from "@/lib/ai-rate-limit";
 
@@ -11,9 +12,14 @@ export interface ColorRequestResult {
   error?: string;
 }
 
-/** Public: submit an on-demand colour request. Inserts via the service-role
- *  client (server-side) so the request is stored without exposing the
- *  color_requests table (and its PII) to the public API. */
+/**
+ * Public: submit an on-demand colour request.
+ *
+ * Runs entirely server-side, so the color_requests table — which holds customer
+ * PII — is never reachable from the browser. That used to be true because the
+ * write went through the service-role key; it is now true because there is no
+ * browser-facing database API at all.
+ */
 export async function submitColorRequestAction(
   payload: unknown,
 ): Promise<ColorRequestResult> {
@@ -35,20 +41,18 @@ export async function submitColorRequestAction(
   }
 
   try {
-    const admin = createSupabaseAdminClient();
-    const { error } = await admin.from("color_requests").insert({
-      product_id: v.productId ?? null,
-      product_name: v.productName,
-      product_sku: v.productSku ?? null,
-      requested_color: v.requestedColor,
-      requested_size: v.requestedSize ?? null,
+    await db.insert(colorRequests).values({
+      productId: v.productId ?? null,
+      productName: v.productName,
+      productSku: v.productSku ?? null,
+      requestedColor: v.requestedColor,
+      requestedSize: v.requestedSize ?? null,
       quantity: v.quantity,
-      customer_name: v.customerName,
-      customer_email: v.customerEmail,
-      customer_phone: v.customerPhone ?? null,
+      customerName: v.customerName,
+      customerEmail: v.customerEmail,
+      customerPhone: v.customerPhone ?? null,
       note: v.note ?? null,
     });
-    if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e) {
     return {

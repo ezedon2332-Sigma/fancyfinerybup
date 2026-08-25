@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786715583715,
+      "tag": "0000_loose_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786716131288,
+      "tag": "0001_auth_and_admin_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786716196929,
+      "tag": "0002_profiles_auth_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786723317504,
+      "tag": "0003_product_lookbook",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786747955664,
+      "tag": "0004_exchange_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786751377230,
+      "tag": "0005_product_favorites",
+      "breakpoints": true
+    }
+  ]
+}

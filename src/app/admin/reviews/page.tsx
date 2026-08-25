@@ -1,12 +1,12 @@
 import { MessageSquare, ShieldCheck, Star, TriangleAlert } from "lucide-react";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
+import { requireAdmin } from "@/infrastructure/auth/session";
 import {
   listReviewsForAdmin,
   reviewCounts,
-} from "@/infrastructure/supabase/review-service";
+} from "@/infrastructure/db/review-service";
 import { listProducts } from "@/application/use-cases/catalog";
-import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { getCatalogDeps } from "@/infrastructure/db/catalog-service";
 import { ReviewsModeration } from "@/components/admin/ReviewsModeration";
 import { PageHeader, Stat } from "@/components/ui";
 

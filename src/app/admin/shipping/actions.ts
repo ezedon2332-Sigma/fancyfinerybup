@@ -3,8 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { and, count, eq, inArray } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import {
+  shippingMethods,
+  shippingRates,
+  shippingWeightBrackets,
+  shippingZoneCountries,
+  shippingZones,
+} from "@/infrastructure/db/schema";
 
 export interface ShipActionResult {
   ok: boolean;
@@ -40,17 +49,19 @@ export async function saveCourier(input: unknown): Promise<ShipActionResult> {
     return { ok: false, error: "Maximum days cannot be less than minimum days." };
   }
 
-  const admin = createSupabaseAdminClient();
-  const { error } = await admin
-    .from("shipping_methods")
-    .update({
-      display_name: d.displayName,
-      min_days: d.minDays,
-      max_days: d.maxDays,
-      enabled: d.enabled,
-    })
-    .eq("id", d.id);
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db
+      .update(shippingMethods)
+      .set({
+        displayName: d.displayName,
+        minDays: d.minDays,
+        maxDays: d.maxDays,
+        enabled: d.enabled,
+      })
+      .where(eq(shippingMethods.id, d.id));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
   refresh();
   return { ok: true, message: "Courier updated." };
@@ -77,23 +88,20 @@ export async function saveZone(input: unknown): Promise<ShipActionResult> {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid zone." };
   }
   const d = parsed.data;
-  const admin = createSupabaseAdminClient();
-
-  const { error } = d.id
-    ? await admin
-        .from("shipping_zones")
-        .update({ code: d.code, name: d.name, enabled: d.enabled })
-        .eq("id", d.id)
-    : await admin
-        .from("shipping_zones")
-        .insert({ code: d.code, name: d.name, enabled: d.enabled });
-
-  if (error) {
+  const values = { code: d.code, name: d.name, enabled: d.enabled };
+  try {
+    if (d.id) {
+      await db.update(shippingZones).set(values).where(eq(shippingZones.id, d.id));
+    } else {
+      await db.insert(shippingZones).values(values);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
-      error: /duplicate|unique/i.test(error.message)
+      error: /duplicate|unique/i.test(message)
         ? "A zone with that code already exists."
-        : error.message,
+        : message,
     };
   }
   refresh();
@@ -102,23 +110,29 @@ export async function saveZone(input: unknown): Promise<ShipActionResult> {
 
 export async function deleteZone(id: string): Promise<ShipActionResult> {
   await requireAdmin();
-  const admin = createSupabaseAdminClient();
-
   // Rates hang off zones. Deleting silently would wipe pricing, so say so.
-  const { count } = await admin
-    .from("shipping_rates")
-    .select("id", { count: "exact", head: true })
-    .eq("zone_id", id);
-
-  const { error } = await admin.from("shipping_zones").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  let affected = 0;
+  try {
+    // Count and delete in one transaction: reporting a number that a concurrent
+    // write has already changed would be a confident lie about what happened.
+    affected = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ n: count() })
+        .from(shippingRates)
+        .where(eq(shippingRates.zoneId, id));
+      await tx.delete(shippingZones).where(eq(shippingZones.id, id));
+      return row?.n ?? 0;
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
   refresh();
   return {
     ok: true,
     message:
-      (count ?? 0) > 0
-        ? `Zone deleted, along with ${count} rate${count === 1 ? "" : "s"}.`
+      affected > 0
+        ? `Zone deleted, along with ${affected} rate${affected === 1 ? "" : "s"}.`
         : "Zone deleted.",
   };
 }
@@ -137,23 +151,31 @@ export async function setZoneCountries(input: unknown): Promise<ShipActionResult
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid selection." };
   }
   const { zoneId, countryCodes } = parsed.data;
-  const admin = createSupabaseAdminClient();
 
-  // A country belongs to one zone. Clear it from any other first, or the
-  // engine's zone lookup becomes order-dependent.
-  if (countryCodes.length > 0) {
-    await admin
-      .from("shipping_zone_countries")
-      .delete()
-      .in("country_code", countryCodes);
-  }
-  await admin.from("shipping_zone_countries").delete().eq("zone_id", zoneId);
+  try {
+    // One transaction. Between the clear and the insert the zone has NO
+    // countries, so a quote priced in that window would silently miss its zone
+    // and fall through to a different rate. Atomicity closes that window.
+    await db.transaction(async (tx) => {
+      // A country belongs to one zone. Clear it from any other first, or the
+      // engine's zone lookup becomes order-dependent.
+      if (countryCodes.length > 0) {
+        await tx
+          .delete(shippingZoneCountries)
+          .where(inArray(shippingZoneCountries.countryCode, countryCodes));
+      }
+      await tx
+        .delete(shippingZoneCountries)
+        .where(eq(shippingZoneCountries.zoneId, zoneId));
 
-  if (countryCodes.length > 0) {
-    const { error } = await admin
-      .from("shipping_zone_countries")
-      .insert(countryCodes.map((c) => ({ zone_id: zoneId, country_code: c })));
-    if (error) return { ok: false, error: error.message };
+      if (countryCodes.length > 0) {
+        await tx
+          .insert(shippingZoneCountries)
+          .values(countryCodes.map((c) => ({ zoneId, countryCode: c })));
+      }
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 
   refresh();
@@ -182,17 +204,24 @@ export async function saveBracket(input: unknown): Promise<ShipActionResult> {
     return { ok: false, error: "Maximum weight must be above the minimum." };
   }
 
-  const admin = createSupabaseAdminClient();
   const row = {
     label: d.label,
-    min_grams: d.minGrams,
-    max_grams: d.maxGrams,
-    sort_order: d.sortOrder,
+    minGrams: d.minGrams,
+    maxGrams: d.maxGrams,
+    sortOrder: d.sortOrder,
   };
-  const { error } = d.id
-    ? await admin.from("shipping_weight_brackets").update(row).eq("id", d.id)
-    : await admin.from("shipping_weight_brackets").insert(row);
-  if (error) return { ok: false, error: error.message };
+  try {
+    if (d.id) {
+      await db
+        .update(shippingWeightBrackets)
+        .set(row)
+        .where(eq(shippingWeightBrackets.id, d.id));
+    } else {
+      await db.insert(shippingWeightBrackets).values(row);
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
   refresh();
   return { ok: true, message: "Weight band saved." };
@@ -200,25 +229,28 @@ export async function saveBracket(input: unknown): Promise<ShipActionResult> {
 
 export async function deleteBracket(id: string): Promise<ShipActionResult> {
   await requireAdmin();
-  const admin = createSupabaseAdminClient();
-
-  const { count } = await admin
-    .from("shipping_rates")
-    .select("id", { count: "exact", head: true })
-    .eq("bracket_id", id);
-
-  const { error } = await admin
-    .from("shipping_weight_brackets")
-    .delete()
-    .eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  let affected = 0;
+  try {
+    affected = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ n: count() })
+        .from(shippingRates)
+        .where(eq(shippingRates.bracketId, id));
+      await tx
+        .delete(shippingWeightBrackets)
+        .where(eq(shippingWeightBrackets.id, id));
+      return row?.n ?? 0;
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
   refresh();
   return {
     ok: true,
     message:
-      (count ?? 0) > 0
-        ? `Band deleted, along with ${count} rate${count === 1 ? "" : "s"}.`
+      affected > 0
+        ? `Band deleted, along with ${affected} rate${affected === 1 ? "" : "s"}.`
         : "Band deleted.",
   };
 }
@@ -243,10 +275,12 @@ const rateSchema = z.object({
 /**
  * Save one cell of the rate matrix.
  *
- * Uses select-then-write rather than an upsert: uniqueness on this table comes
+ * Still select-then-write rather than an upsert: uniqueness on this table comes
  * from partial indexes (one for zone rates, one for country overrides), and
- * Postgres cannot infer ON CONFLICT from a partial index without repeating its
- * predicate, which PostgREST gives no way to express.
+ * ON CONFLICT would have to repeat each index predicate to target them. The
+ * read and the write now share a transaction, which is what actually makes the
+ * pattern safe against two admins editing the same cell at once — PostgREST
+ * could not express that at all.
  */
 export async function saveRate(input: unknown): Promise<ShipActionResult> {
   await requireAdmin();
@@ -259,46 +293,62 @@ export async function saveRate(input: unknown): Promise<ShipActionResult> {
     return { ok: false, error: "A rate needs either a zone or a country." };
   }
 
-  const admin = createSupabaseAdminClient();
-  let lookup = admin
-    .from("shipping_rates")
-    .select("id")
-    .eq("method_id", d.courierId)
-    .eq("bracket_id", d.bracketId);
-  lookup = d.countryCode
-    ? lookup.eq("country_code", d.countryCode)
-    : lookup.eq("zone_id", d.zoneId!);
+  const scope = d.countryCode
+    ? eq(shippingRates.countryCode, d.countryCode)
+    : eq(shippingRates.zoneId, d.zoneId!);
 
-  const { data: existing } = await lookup.maybeSingle();
+  try {
+    const cleared = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: shippingRates.id })
+        .from(shippingRates)
+        .where(
+          and(
+            eq(shippingRates.methodId, d.courierId),
+            eq(shippingRates.bracketId, d.bracketId),
+            scope,
+          ),
+        )
+        .limit(1);
 
-  // Clearing the price removes the cell entirely, so the engine falls back to
-  // the zone rate (or offers nothing) rather than quoting zero.
-  if (d.priceNaira === null) {
-    if (existing) {
-      await admin.from("shipping_rates").delete().eq("id", existing.id);
-      refresh();
-      return { ok: true, message: "Rate cleared." };
-    }
-    return { ok: true };
+      // Clearing the price removes the cell entirely, so the engine falls back
+      // to the zone rate (or offers nothing) rather than quoting zero.
+      if (d.priceNaira === null) {
+        if (existing) {
+          await tx.delete(shippingRates).where(eq(shippingRates.id, existing.id));
+          return true;
+        }
+        return false;
+      }
+
+      const row = {
+        price: Math.round(d.priceNaira * 100),
+        freeOver:
+          d.freeOverNaira === null ? null : Math.round(d.freeOverNaira * 100),
+        enabled: true,
+      };
+
+      if (existing) {
+        await tx
+          .update(shippingRates)
+          .set(row)
+          .where(eq(shippingRates.id, existing.id));
+      } else {
+        await tx.insert(shippingRates).values({
+          ...row,
+          methodId: d.courierId,
+          bracketId: d.bracketId,
+          zoneId: d.countryCode ? null : d.zoneId,
+          countryCode: d.countryCode,
+        });
+      }
+      return false;
+    });
+
+    if (d.priceNaira === null && !cleared) return { ok: true };
+    refresh();
+    return cleared ? { ok: true, message: "Rate cleared." } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-
-  const row = {
-    price: Math.round(d.priceNaira * 100),
-    free_over: d.freeOverNaira === null ? null : Math.round(d.freeOverNaira * 100),
-    enabled: true,
-  };
-
-  const { error } = existing
-    ? await admin.from("shipping_rates").update(row).eq("id", existing.id)
-    : await admin.from("shipping_rates").insert({
-        ...row,
-        method_id: d.courierId,
-        bracket_id: d.bracketId,
-        zone_id: d.countryCode ? null : d.zoneId,
-        country_code: d.countryCode,
-      });
-
-  if (error) return { ok: false, error: error.message };
-  refresh();
-  return { ok: true };
 }

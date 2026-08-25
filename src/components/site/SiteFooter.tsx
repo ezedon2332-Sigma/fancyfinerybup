@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import { listCategories } from "@/application/use-cases/catalog";
+import { getCatalogDeps } from "@/infrastructure/db/catalog-service";
+import { rethrowFrameworkErrors } from "@/lib/rethrow-framework-errors";
+
 type BrandIconProps = { className?: string };
 
 function InstagramIcon({ className }: BrandIconProps) {
@@ -44,7 +48,21 @@ function WhatsAppIcon({ className }: BrandIconProps) {
   );
 }
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  // Same rule as the navbar: the Shop column lists the collections that
+  // actually exist, not a hardcoded pair. "Dresses" and "Outerwear" were
+  // written in by hand here, so a store that renamed or removed them shipped
+  // two permanently broken links. Capped at four — this is a footer, and
+  // /collections is the full list.
+  let collections: { slug: string; name: string }[] = [];
+  try {
+    const cats = await listCategories(await getCatalogDeps());
+    collections = cats.slice(0, 4).map((c) => ({ slug: c.slug, name: c.name }));
+  } catch (e) {
+    rethrowFrameworkErrors(e);
+    console.error("[footer] categories unavailable", e);
+  }
+
   return (
     <footer className="border-t border-yellow-600/30 bg-black text-gray-400">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4 lg:px-10">
@@ -67,16 +85,16 @@ export function SiteFooter() {
                 Collections
               </Link>
             </li>
-            <li>
-              <Link href="/collections?category=dresses" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
-                Dresses
-              </Link>
-            </li>
-            <li>
-              <Link href="/collections?category=outerwear" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
-                Outerwear
-              </Link>
-            </li>
+            {collections.map((c) => (
+              <li key={c.slug}>
+                <Link
+                  href={`/collections?category=${encodeURIComponent(c.slug)}`}
+                  className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1"
+                >
+                  {c.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 

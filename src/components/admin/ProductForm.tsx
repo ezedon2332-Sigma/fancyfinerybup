@@ -19,14 +19,15 @@ import {
   X,
 } from "lucide-react";
 
-import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { resolveMediaUrl } from "@/lib/media-url";
 import {
   uploadMediaWithProgress,
   validateMediaFile,
 } from "@/lib/upload-media";
 import { productSchema } from "@/lib/validation";
 import { saveProduct } from "@/app/admin/products/actions";
-import type { AdminProductDetail } from "@/infrastructure/supabase/admin-service";
+import type { AdminProductDetail } from "@/domain/entities/admin-views";
+import { toast } from "@/components/ui/Toast";
 
 const MAX_MEDIA = 100;
 
@@ -71,6 +72,7 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [status, setStatus] = useState(initial?.status ?? "draft");
   const [featured, setFeatured] = useState(initial?.featured ?? false);
+  const [lookbook, setLookbook] = useState(initial?.lookbook ?? false);
   // Shown in whichever unit it was saved in; converted to grams on submit.
   const [weightUnit, setWeightUnit] = useState<"g" | "kg">(
     initial?.weightUnit ?? "g",
@@ -97,22 +99,20 @@ export function ProductForm({
   );
 
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const uploading = tasks.some((t) => t.error === null);
 
   // --- Media upload ---------------------------------------------------------
   function addFiles(fileList: FileList | File[]) {
-    setError(null);
     const files = Array.from(fileList);
     const slotsLeft = MAX_MEDIA - media.length - tasks.length;
     if (slotsLeft <= 0) {
-      setError(`You can add at most ${MAX_MEDIA} media items.`);
+      toast.error(`You can add at most ${MAX_MEDIA} media items.`);
       return;
     }
     const toUpload = files.slice(0, slotsLeft);
     if (files.length > toUpload.length) {
-      setError(`Only ${MAX_MEDIA} media items allowed — some files were skipped.`);
+      toast.error(`Only ${MAX_MEDIA} media items allowed — some files were skipped.`);
     }
 
     for (const file of toUpload) {
@@ -187,7 +187,6 @@ export function ProductForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
 
     const payload = {
       ...(initial ? { id: initial.id } : {}),
@@ -198,6 +197,7 @@ export function ProductForm({
       categoryId: categoryId || null,
       status,
       featured,
+      lookbook,
       weight: Number(weight) || 0,
       weightUnit,
       media: media.map((m) => ({
@@ -215,7 +215,7 @@ export function ProductForm({
 
     const parsed = productSchema.safeParse(payload);
     if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
+      toast.error(parsed.error.issues[0].message);
       return;
     }
 
@@ -226,7 +226,7 @@ export function ProductForm({
       router.refresh();
     } else {
       setSaving(false);
-      setError(res.error ?? "Could not save.");
+      toast.error(res.error ?? "Could not save.");
     }
   }
 
@@ -307,6 +307,21 @@ export function ProductForm({
         <label className="flex items-center gap-2 sm:col-span-2">
           <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="h-4 w-4 accent-yellow-500" />
           <span className="text-sm text-gray-200">Featured on home page</span>
+        </label>
+        <label className="flex items-start gap-2 sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={lookbook}
+            onChange={(e) => setLookbook(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-yellow-500"
+          />
+          <span className="text-sm text-gray-200">
+            Show in Lookbook
+            <span className="mt-0.5 block text-xs text-gray-500">
+              Editorial campaign page. Needs a still image — a video-only piece
+              is skipped, and nothing appears while the product is a draft.
+            </span>
+          </span>
         </label>
       </div>
 
@@ -418,11 +433,11 @@ export function ProductForm({
                 <div className="relative aspect-square overflow-hidden rounded-md bg-black">
                   {m.mediaType === "video" ? (
                     <>
-                      <video src={resolveImageUrl(m.storagePath)} muted className="h-full w-full object-cover" />
+                      <video src={resolveMediaUrl(m.storagePath)} muted className="h-full w-full object-cover" />
                       <Film className="absolute left-1.5 top-1.5 h-4 w-4 text-white/80" />
                     </>
                   ) : (
-                    <Image src={resolveImageUrl(m.storagePath)} alt={m.alt || ""} fill sizes="200px" className="object-cover" />
+                    <Image src={resolveMediaUrl(m.storagePath)} alt={m.alt || ""} fill sizes="200px" className="object-cover" />
                   )}
 
                   {/* Drag affordance */}
@@ -496,7 +511,6 @@ export function ProductForm({
         )}
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="flex gap-3">
         <button type="submit" disabled={saving || uploading} className="inline-flex items-center gap-2 rounded-sm bg-yellow-500 px-6 py-3 font-semibold text-black hover:bg-yellow-600 disabled:opacity-50">

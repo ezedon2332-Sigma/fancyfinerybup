@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
-import { saveDocument, deleteDocument } from "@/infrastructure/ai/knowledge";
-import { appendMessage, setStatus } from "@/infrastructure/ai/conversations";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { aiFaqs, aiSettings } from "@/infrastructure/db/schema";
+import { saveDocument, deleteDocument } from "@/infrastructure/db/ai/knowledge";
+import { appendMessage, setStatus } from "@/infrastructure/db/ai/conversations";
 
 export interface AiActionResult {
   ok: boolean;
@@ -41,22 +44,24 @@ export async function saveAiSettings(input: unknown): Promise<AiActionResult> {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
   const s = parsed.data;
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
-    .from("ai_settings")
-    .update({
-      enabled: s.enabled,
-      model: s.model,
-      welcome_message: s.welcomeMessage,
-      persona: s.persona,
-      suggested_questions: s.suggestedQuestions,
-      quick_actions: s.quickActions,
-      human_handoff: s.humanHandoff,
-      handoff_message: s.handoffMessage,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", "default");
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db
+      .update(aiSettings)
+      .set({
+        enabled: s.enabled,
+        model: s.model,
+        welcomeMessage: s.welcomeMessage,
+        persona: s.persona,
+        suggestedQuestions: s.suggestedQuestions,
+        quickActions: s.quickActions,
+        humanHandoff: s.humanHandoff,
+        handoffMessage: s.handoffMessage,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(aiSettings.id, "default"));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
   revalidatePath("/admin/ai");
   return { ok: true };
 }
@@ -72,12 +77,14 @@ export async function addFaq(input: unknown): Promise<AiActionResult> {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid FAQ." };
   }
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("ai_faqs").insert({
-    question: parsed.data.question,
-    answer: parsed.data.answer,
-  });
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db.insert(aiFaqs).values({
+      question: parsed.data.question,
+      answer: parsed.data.answer,
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
   revalidatePath("/admin/ai");
   return { ok: true };
 }
@@ -85,9 +92,11 @@ export async function addFaq(input: unknown): Promise<AiActionResult> {
 export async function deleteFaq(id: string): Promise<AiActionResult> {
   await requireAdmin();
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: "Invalid id." };
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("ai_faqs").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db.delete(aiFaqs).where(eq(aiFaqs.id, id));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
   revalidatePath("/admin/ai");
   return { ok: true };
 }

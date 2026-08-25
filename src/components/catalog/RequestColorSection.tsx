@@ -7,6 +7,7 @@ import { Check, Loader2, Palette, Search, Sparkles, X } from "lucide-react";
 import { POPULAR_COLORS, colorHex } from "@/domain/colors";
 import { colorRequestSchema } from "@/lib/validation";
 import { submitColorRequestAction } from "@/app/products/color-request-actions";
+import { toast } from "@/components/ui/Toast";
 
 const CUSTOM = "Custom Color";
 
@@ -91,7 +92,6 @@ function RequestColorModal({
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const isCustom = color === CUSTOM;
@@ -115,7 +115,6 @@ function RequestColorModal({
   }, [query, palette]);
 
   async function submit() {
-    setError(null);
     const requestedColor = isCustom ? customName.trim() : color;
     const payload = {
       productId,
@@ -131,14 +130,14 @@ function RequestColorModal({
     };
     const parsed = colorRequestSchema.safeParse(payload);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Please complete the form.");
+      toast.error(parsed.error.issues[0]?.message ?? "Please complete the form.");
       return;
     }
     setSubmitting(true);
     const res = await submitColorRequestAction(parsed.data);
     setSubmitting(false);
     if (res.ok) setDone(true);
-    else setError(res.error ?? "Could not submit your request.");
+    else toast.error(res.error ?? "Could not submit your request.");
   }
 
   const field =
@@ -319,7 +318,6 @@ function RequestColorModal({
               </div>
             </div>
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
 
             <div className="flex gap-3">
               <button

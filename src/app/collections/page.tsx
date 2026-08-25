@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 import { ProductSearch } from "@/components/catalog/ProductSearch";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
-import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { getCatalogDeps } from "@/infrastructure/db/catalog-service";
 
 export const metadata: Metadata = {
   title: "Collections",

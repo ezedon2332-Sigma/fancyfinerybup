@@ -6,7 +6,8 @@ import { Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { categorySchema } from "@/lib/validation";
 import { deleteCategory, saveCategory } from "@/app/admin/categories/actions";
-import type { AdminCategoryRow } from "@/infrastructure/supabase/admin-service";
+import type { AdminCategoryRow } from "@/domain/entities/admin-views";
+import { toast } from "@/components/ui/Toast";
 
 interface FormState {
   id?: string;
@@ -26,7 +27,6 @@ export function CategoryManager({
   const router = useRouter();
   const [form, setForm] = useState<FormState>(BLANK);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const field =
     "w-full rounded-sm border border-white/20 bg-black/40 px-3 py-2 text-white outline-none focus:border-yellow-500";
@@ -39,12 +39,10 @@ export function CategoryManager({
       description: c.description ?? "",
       sortOrder: c.sortOrder,
     });
-    setError(null);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     const payload = {
       ...(form.id ? { id: form.id } : {}),
       name: form.name,
@@ -54,7 +52,7 @@ export function CategoryManager({
     };
     const parsed = categorySchema.safeParse(payload);
     if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
+      toast.error(parsed.error.issues[0].message);
       return;
     }
     setSaving(true);
@@ -64,7 +62,7 @@ export function CategoryManager({
       setForm(BLANK);
       router.refresh();
     } else {
-      setError(res.error ?? "Could not save.");
+      toast.error(res.error ?? "Could not save.");
     }
   }
 
@@ -93,7 +91,6 @@ export function CategoryManager({
         <input className={field} placeholder="Slug (optional)" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} />
         <textarea className={`${field} h-20`} placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
         <input type="number" min={0} className={field} placeholder="Sort order" value={form.sortOrder} onChange={(e) => setForm((f) => ({ ...f, sortOrder: Number(e.target.value) }))} />
-        {error && <p className="text-sm text-red-400">{error}</p>}
         <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-sm bg-yellow-500 py-2.5 font-semibold text-black hover:bg-yellow-600 disabled:opacity-50">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           {form.id ? "Save" : "Add collection"}

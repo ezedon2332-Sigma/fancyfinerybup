@@ -1,7 +1,7 @@
 import { Globe2, Layers, Truck } from "lucide-react";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { loadPricingTable } from "@/infrastructure/supabase/pricing-service";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { loadPricingTable } from "@/infrastructure/db/pricing-service";
 import { COUNTRIES } from "@/domain/shipping/countries";
 import {
   ShippingAdmin,

@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { taxRules } from "@/infrastructure/db/schema";
 
 export interface TaxActionResult {
   ok: boolean;
@@ -51,26 +54,28 @@ export async function saveTaxRule(input: unknown): Promise<TaxActionResult> {
 
   const row = {
     scope: d.scope,
-    country_code: d.scope === "country" ? d.countryCode : null,
-    zone_id: d.scope === "zone" ? d.zoneId : null,
-    rate_bps: Math.round(d.ratePercent * 100),
+    countryCode: d.scope === "country" ? (d.countryCode ?? null) : null,
+    zoneId: d.scope === "zone" ? (d.zoneId ?? null) : null,
+    rateBps: Math.round(d.ratePercent * 100),
     label: d.label,
-    applies_to_shipping: d.appliesToShipping,
+    appliesToShipping: d.appliesToShipping,
     enabled: d.enabled,
   };
 
-  const admin = createSupabaseAdminClient();
-  const { error } = d.id
-    ? await admin.from("tax_rules").update(row).eq("id", d.id)
-    : await admin.from("tax_rules").insert(row);
-
-  if (error) {
+  try {
+    if (d.id) {
+      await db.update(taxRules).set(row).where(eq(taxRules.id, d.id));
+    } else {
+      await db.insert(taxRules).values(row);
+    }
+  } catch (e) {
     // The partial unique indexes make a duplicate scope a real possibility.
+    const message = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
-      error: /duplicate|unique/i.test(error.message)
+      error: /duplicate|unique/i.test(message)
         ? "A rule already exists for that scope. Edit it instead."
-        : error.message,
+        : message,
     };
   }
 
@@ -83,9 +88,11 @@ export async function saveTaxRule(input: unknown): Promise<TaxActionResult> {
 
 export async function deleteTaxRule(id: string): Promise<TaxActionResult> {
   await requireAdmin();
-  const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("tax_rules").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db.delete(taxRules).where(eq(taxRules.id, id));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
   revalidatePath("/admin/tax");
   return { ok: true };
 }
@@ -95,9 +102,11 @@ export async function setTaxRuleEnabled(
   enabled: boolean,
 ): Promise<TaxActionResult> {
   await requireAdmin();
-  const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("tax_rules").update({ enabled }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  try {
+    await db.update(taxRules).set({ enabled }).where(eq(taxRules.id, id));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
   revalidatePath("/admin/tax");
   revalidatePath("/checkout");
   return { ok: true };

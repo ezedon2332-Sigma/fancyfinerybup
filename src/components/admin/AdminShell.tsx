@@ -18,6 +18,29 @@ import {
 import { NAV, navCounts, type NavItem } from "@/app/admin/nav";
 
 /**
+ * The longest nav href the given path sits under.
+ *
+ * Children are included: a Shipping sub-entry such as /admin/shipping/nigeria
+ * should beat the Shipping parent, not tie with it.
+ */
+function longestMatchingNavHref(pathname: string): string {
+  const hrefs: string[] = [];
+  for (const group of NAV) {
+    for (const item of group.items) {
+      hrefs.push(item.href.split("?")[0]);
+      for (const child of item.children ?? []) {
+        hrefs.push(child.href.split("?")[0]);
+      }
+    }
+  }
+  return hrefs
+    .filter(
+      (h) => h !== "#" && (pathname === h || pathname.startsWith(`${h}/`)),
+    )
+    .reduce((longest, h) => (h.length > longest.length ? h : longest), "");
+}
+
+/**
  * Admin shell: sidebar, top bar, mobile drawer.
  *
  * One layout for every admin page, so a new section inherits navigation,
@@ -281,7 +304,25 @@ function NavRow({
 }) {
   const Icon = item.icon;
   const base = item.href.split("?")[0];
-  const active = base !== "#" && (pathname === base || pathname.startsWith(`${base}/`));
+
+  /**
+   * Most-specific match wins.
+   *
+   * A plain `pathname.startsWith(base)` lit up TWO entries at once, because
+   * Dashboard's href `/admin` is a prefix of every other admin route: on
+   * /admin/favorites both Dashboard and Favourites highlighted, and the same
+   * happened on every page in the section.
+   *
+   * An item is active when it is the LONGEST nav href the current path sits
+   * under. That keeps parent highlighting for genuinely nested routes (Shipping
+   * stays lit on /admin/shipping/nigeria, which has no nav entry of its own)
+   * while stopping a short prefix from claiming pages that belong to someone
+   * else.
+   */
+  const active =
+    base !== "#" &&
+    (pathname === base || pathname.startsWith(`${base}/`)) &&
+    base.length === longestMatchingNavHref(pathname).length;
   const [open, setOpen] = useState(active);
 
   // Planned sections are deliberately not links: a nav entry to nothing gives

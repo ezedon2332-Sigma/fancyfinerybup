@@ -25,6 +25,7 @@ import {
   RatesBrowser,
   type CountryRates,
 } from "@/components/shipping/RatesBrowser";
+import { toast } from "@/components/ui/Toast";
 
 interface FormState {
   name: string;
@@ -78,7 +79,6 @@ export function CheckoutForm({
   );
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const set =
     (k: keyof FormState) =>
@@ -139,9 +139,8 @@ export function CheckoutForm({
   }, [form.countryCode, itemsKey, appliedCoupon, items, currency, ngDestinationId]);
 
   async function useMyLocation() {
-    setError(null);
     if (!("geolocation" in navigator)) {
-      setError("Geolocation isn't supported on this device.");
+      toast.error("Geolocation isn't supported on this device.");
       return;
     }
     setLocating(true);
@@ -180,7 +179,7 @@ export function CheckoutForm({
       },
       (err) => {
         setLocating(false);
-        setError(
+        toast.error(
           err.code === err.PERMISSION_DENIED
             ? "Location permission denied — enter your address manually."
             : "Couldn't get your location — enter your address manually.",
@@ -192,7 +191,6 @@ export function CheckoutForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
 
     const payload = {
       name: form.name,
@@ -225,7 +223,7 @@ export function CheckoutForm({
 
     const parsed = checkoutSchema.safeParse(payload);
     if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
+      toast.error(parsed.error.issues[0].message);
       return;
     }
 
@@ -246,7 +244,7 @@ export function CheckoutForm({
       router.push(`/account/orders/${result.orderId}?placed=1`);
     } else {
       setSubmitting(false);
-      setError(result.error ?? "Something went wrong.");
+      toast.error(result.error ?? "Something went wrong.");
     }
   }
 
@@ -412,7 +410,6 @@ export function CheckoutForm({
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
       </div>
 
       {/* Summary */}

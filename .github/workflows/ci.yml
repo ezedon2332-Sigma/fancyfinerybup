@@ -1,0 +1,238 @@
+name: CI
+
+# Runs on every push and PR. The deploy workflow re-runs the fast gates before
+# shipping, so nothing reaches the VPS that has not passed them — this pipeline
+# is about finding problems early and cheaply, not about being the only gate.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  # Vulnerability databases change without our code changing, so re-scan a
+  # quiet repository weekly. A dependency that was clean on Monday is not
+  # necessarily clean on Friday.
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write # required to upload SARIF to the Security tab
+
+jobs:
+  # --- Correctness -----------------------------------------------------------
+  quality:
+    name: Lint · Typecheck · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Includes the clean-architecture layer rules in eslint.config.mjs, so an
+      # import that crosses a boundary fails here rather than in review.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build validates env at import time and inlines NEXT_PUBLIC_*.
+          # Placeholders are enough to prove it compiles; nothing here reaches a
+          # real service.
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_MEDIA_URL: http://localhost:9000/product-media
+
+  # --- Schema ----------------------------------------------------------------
+  # The migration chain is the one thing that cannot be rolled back by
+  # redeploying, so prove it applies to an empty database on every change.
+  migrations:
+    name: Migrations apply from scratch
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: fancy
+          POSTGRES_PASSWORD: fancy
+          POSTGRES_DB: fancy
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fancy -d fancy"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply baseline + reference data + migrations
+        run: node scripts/db-migrate.mjs
+        env:
+          DATABASE_URL: postgresql://fancy:fancy@localhost:5432/fancy
+
+      - name: Re-run — must be a no-op (idempotency)
+        run: node scripts/db-migrate.mjs
+        env:
+          DATABASE_URL: postgresql://fancy:fancy@localhost:5432/fancy
+
+      - name: Assert the reference data actually landed
+        # An empty shipping table is the failure that took checkout down once:
+        # the schema was perfect and the store could not quote a delivery.
+        run: |
+          psql "$DATABASE_URL" -tAc "
+            select case
+              when (select count(*) from shipping_rates) = 0 then 'FAIL: no shipping rates'
+              when (select count(*) from shipping_weight_brackets) = 0 then 'FAIL: no weight bands'
+              when (select count(*) from shipping_zones) = 0 then 'FAIL: no zones'
+              when (select count(*) from ng_states) = 0 then 'FAIL: no Nigeria states'
+              else 'ok'
+            end" | tee /tmp/check
+          grep -q '^ok$' /tmp/check
+        env:
+          DATABASE_URL: postgresql://fancy:fancy@localhost:5432/fancy
+
+  # --- Dependency & secret scanning -----------------------------------------
+  scan-source:
+    name: Trivy · dependencies, secrets, IaC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Known-vulnerable packages in package-lock.json.
+      - name: Trivy — vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          format: sarif
+          output: trivy-deps.sarif
+          # Do not fail the build on the report step; the gate is the explicit
+          # exit-code run below, so the SARIF always uploads and the Security
+          # tab stays populated even on a failing build.
+          exit-code: "0"
+
+      - name: Upload dependency findings
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-deps.sarif
+          category: trivy-dependencies
+
+      # Committed credentials. This repository has a live payment key in local
+      # .env by design, so the check that .env stays git-ignored is real.
+      - name: Trivy — secrets
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "1"
+
+      # Dockerfile and compose misconfiguration — running as root, no user,
+      # exposed ports, missing healthchecks.
+      - name: Trivy — IaC / config
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Fail on CRITICAL/HIGH dependency vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true # nothing to do about a vuln with no patch yet
+          exit-code: "1"
+
+  # --- Image scanning --------------------------------------------------------
+  # The source scan cannot see the base image. This builds the real Dockerfile
+  # and scans the layers that would actually ship.
+  scan-image:
+    name: Trivy · container image
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (local only, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: fancyfinery:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=http://localhost:3000
+            NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/product-media
+
+      - name: Trivy — image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: fancyfinery:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "0"
+
+      - name: Upload image findings
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Fail on CRITICAL image vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: fancyfinery:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # --- Supply chain ----------------------------------------------------------
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Advisory rather than blocking: npm audit reports transitive dev-only
+      # findings that cannot be fixed without waiting upstream, and a gate that
+      # is routinely overridden stops being read. Trivy above is the gate.
+      - name: Audit (report only)
+        run: npm audit --audit-level=high || true

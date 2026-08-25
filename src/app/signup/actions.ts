@@ -5,7 +5,11 @@ import { headers } from "next/headers";
 import { signUpSchema, signUpFieldErrors } from "@/lib/validation";
 import { composeFullName } from "@/domain/password-policy";
 import { countryByCode } from "@/domain/shipping/countries";
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { eq } from "drizzle-orm";
+
+import { auth } from "@/infrastructure/auth/auth";
+import { db } from "@/infrastructure/db/client";
+import { profiles } from "@/infrastructure/db/schema";
 import { rateLimit } from "@/lib/ai-rate-limit";
 
 export interface SignUpResult {
@@ -18,21 +22,24 @@ export interface SignUpResult {
 }
 
 /**
- * Create a customer account — reliably, without depending on confirmation-email
- * delivery.
+ * Create a customer account.
  *
- * The project's Supabase instance requires email confirmation, but the built-in
- * mailer is heavily rate-limited and no custom SMTP is configured, so those
- * emails don't reach real customers. Rather than strand every new shopper on a
- * "check your inbox" screen for a message that never arrives, the account is
- * created ALREADY CONFIRMED via the admin API (`email_confirm: true`) and the
- * browser signs in straight after. To restore the email-verification flow,
- * configure custom SMTP in the Supabase dashboard and switch back to
- * `auth.signUp` with `emailRedirectTo`.
+ * **Email verification is restored here.** The previous implementation created
+ * every account ALREADY CONFIRMED (`email_confirm: true` via the Supabase admin
+ * API) and signed the browser straight in. Its own comment explains why: the
+ * Supabase built-in mailer was rate-limited, no custom SMTP was configured, and
+ * confirmation emails never reached customers — so verifying was worse than not
+ * verifying, because it stranded real shoppers on a "check your inbox" screen
+ * forever.
  *
- * Runs on the server so the schema, the honeypot verdict, and the service-role
- * key never reach the browser. Passwords are only ever passed to Supabase Auth
- * (bcrypt-hashed in auth.users); nothing here reads, logs, or stores them.
+ * That constraint is gone. Auth mail now goes through the same Resend sender as
+ * order receipts, from a verified domain, so the message actually arrives and
+ * the account can be held unverified until the customer proves the address.
+ * The comment promised to switch back once SMTP worked; this is that switch.
+ *
+ * Runs on the server so the schema and the honeypot verdict never reach the
+ * browser. The password is passed only to Better Auth, which hashes it with
+ * scrypt; nothing here reads, logs, or stores it.
  */
 export async function signUpAction(input: unknown): Promise<SignUpResult> {
   const parsed = signUpSchema.safeParse(input);
@@ -50,8 +57,8 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
   // bot learns nothing, and create nothing.
   if (data.website) return { ok: true, kind: "active", email: data.email };
 
-  // Light per-IP throttle — creating confirmed accounts has no email step to
-  // slow abuse, so cap it here (8 / hour / IP).
+  // Light per-IP throttle. Sign-up now sends a verification email, so an
+  // unthrottled endpoint is also a way to make us mail strangers on demand.
   const h = await headers();
   const ip =
     h.get("x-real-ip")?.trim() ||
@@ -61,39 +68,27 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
     return { ok: false, error: "Too many sign-up attempts. Please try again later." };
   }
 
-  const admin = createSupabaseAdminClient();
-  const { data: created, error } = await admin.auth.admin.createUser({
-    email: data.email,
-    password: data.password,
-    email_confirm: true, // no confirmation email required
-    user_metadata: {
-      full_name: composeFullName(data.firstName, data.lastName),
-      first_name: data.firstName,
-      last_name: data.lastName,
-      phone: data.phone || null,
-      country: data.country || null,
-      terms_accepted_at: new Date().toISOString(),
-    },
-  });
+  let userId: string | null = null;
+  try {
+    // Sends the verification email as a side effect (emailVerification.
+    // sendOnSignUp in src/infrastructure/auth/auth.ts).
+    const created = await auth.api.signUpEmail({
+      body: {
+        email: data.email,
+        password: data.password,
+        name: composeFullName(data.firstName, data.lastName),
+      },
+    });
+    userId = created?.user?.id ?? null;
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
 
-  // Server-side diagnostics (never returned to the browser).
-  console.log("[signup] admin.createUser", {
-    email: data.email,
-    hasUser: Boolean(created?.user),
-    userId: created?.user?.id ?? null,
-    error: error
-      ? {
-          message: error.message,
-          status: (error as { status?: number }).status ?? null,
-          code: (error as { code?: string }).code ?? null,
-        }
-      : null,
-  });
-
-  if (error) {
+    // Deliberately the same wording as before. It reveals that an address is
+    // registered, which the sign-in form already reveals, and the alternative —
+    // a silent success — sends a real customer to an inbox with nothing in it.
     if (
-      /already been registered|already registered|already exists|duplicate|email_exists|has already/i.test(
-        error.message,
+      /already been registered|already registered|already exists|duplicate|email_exists|has already|USER_ALREADY_EXISTS/i.test(
+        message,
       )
     ) {
       return {
@@ -102,30 +97,31 @@ export async function signUpAction(input: unknown): Promise<SignUpResult> {
         fieldErrors: { email: "This email is already registered" },
       };
     }
-    if (/rate limit|too many/i.test(error.message)) {
+    if (/rate limit|too many/i.test(message)) {
       return {
         ok: false,
         error: "Too many attempts. Please wait a moment and try again.",
       };
     }
-    return { ok: false, error: error.message };
+    console.error("[signup] failed", { email: data.email, message });
+    return { ok: false, error: "Could not create your account. Please try again." };
   }
 
-  // The on-signup trigger creates the profile from the metadata above; write
-  // phone/country onto it (best-effort — a failure must not lose the account).
-  if (created.user && (data.phone || data.country)) {
+  // The Better Auth databaseHook creates the profile row; write phone/country
+  // onto it (best-effort — a failure must not lose the account).
+  if (userId && (data.phone || data.country)) {
     try {
       const patch: { phone?: string; country?: string } = {};
       if (data.phone) patch.phone = data.phone;
       if (data.country) {
         patch.country = countryByCode(data.country)?.name ?? data.country;
       }
-      await admin.from("profiles").update(patch).eq("id", created.user.id);
+      await db.update(profiles).set(patch).where(eq(profiles.id, userId));
     } catch {
       /* the customer can add these at checkout */
     }
   }
 
-  // Account is ready and confirmed — the client signs in to establish a session.
-  return { ok: true, kind: "active", email: data.email };
+  // The customer must confirm the address before the account can sign in.
+  return { ok: true, kind: "verify", email: data.email };
 }

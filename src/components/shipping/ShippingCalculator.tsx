@@ -12,6 +12,7 @@ import {
   isDisplayCurrency,
 } from "@/domain/shared/display-price";
 import { formatWeight } from "@/domain/shipping/pricing";
+import { toast } from "@/components/ui/Toast";
 
 const STORAGE_KEY = "ff.ship.country";
 
@@ -37,7 +38,6 @@ export function ShippingCalculator({
   const { currency: selected } = useCurrency();
   const [country, setCountry] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Guards against an earlier, slower request overwriting a later one.
   const requestId = useRef(0);
@@ -46,7 +46,6 @@ export function ShippingCalculator({
     (code: string) => {
       if (!code) {
         setQuote(null);
-        setError(null);
         return;
       }
       const id = ++requestId.current;
@@ -58,10 +57,9 @@ export function ShippingCalculator({
         if (id !== requestId.current) return; // a newer request has landed
         if (res.ok) {
           setQuote(res);
-          setError(null);
         } else {
           setQuote(null);
-          setError(res.error);
+          toast.error(res.error);
         }
       });
     },
@@ -148,19 +146,7 @@ export function ShippingCalculator({
           </motion.p>
         )}
 
-        {!pending && error && (
-          <motion.p
-            key="error"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mt-4 text-xs text-red-400"
-          >
-            {error}
-          </motion.p>
-        )}
-
-        {!pending && !error && quote && quote.unavailable && (
+        {!pending && quote && quote.unavailable && (
           <motion.p
             key="unavailable"
             initial={{ opacity: 0, y: -4 }}
@@ -174,7 +160,7 @@ export function ShippingCalculator({
           </motion.p>
         )}
 
-        {!pending && !error && quote && !quote.unavailable && quote.selected && (
+        {!pending && quote && !quote.unavailable && quote.selected && (
           <motion.div
             key={`${quote.countryCode}-${quote.selected.courierId}`}
             initial={{ opacity: 0, y: 6 }}

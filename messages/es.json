@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "collections": "Colecciones",
+    "allCollections": "Todas las colecciones",
+    "lookbook": "Lookbook",
+    "about": "Nosotros",
+    "contact": "Contacto",
+    "search": "Buscar",
+    "wishlist": "Favoritos",
+    "bag": "Bolsa",
+    "account": "Cuenta",
+    "menu": "Menú",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "createAccount": "Crear cuenta",
+    "orders": "Mis pedidos",
+    "addressBook": "Libreta de direcciones",
+    "accountSettings": "Ajustes de la cuenta",
+    "adminDashboard": "Panel de administración"
+  },
+  "utility": {
+    "worldwideShipping": "ENVÍO MUNDIAL",
+    "worldwideShippingDetail": "Entrega a más de 200 países",
+    "premiumQuality": "CALIDAD PREMIUM",
+    "premiumQualityDetail": "Los mejores tejidos y confección",
+    "easyReturns": "DEVOLUCIONES FÁCILES",
+    "easyReturnsDetail": "30 días para devolver"
+  },
+  "footer": {
+    "shop": "Tienda",
+    "company": "Empresa",
+    "help": "Ayuda",
+    "rights": "Todos los derechos reservados."
+  },
+  "common": {
+    "language": "Idioma",
+    "currency": "Moneda",
+    "displayCurrency": "Moneda de visualización",
+    "addToBag": "Añadir a la bolsa",
+    "outOfStock": "Agotado",
+    "viewAll": "Ver todo",
+    "loading": "Cargando…"
+  },
+  "home": {
+    "justIn": "Recién llegado",
+    "newArrivals": "Novedades",
+    "handpicked": "Seleccionado",
+    "featuredCollection": "Colección destacada",
+    "mostLoved": "Más queridos",
+    "bestSellers": "Más vendidos",
+    "whatsHot": "Lo más visto",
+    "trendingNow": "Tendencia ahora"
+  }
+}

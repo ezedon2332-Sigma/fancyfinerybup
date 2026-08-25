@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { MapPin } from "lucide-react";
 
-import { getCustomer } from "@/infrastructure/supabase/customer-service";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
+import { getCustomer } from "@/infrastructure/db/customer-service";
+import { getCurrentUser } from "@/infrastructure/auth/session";
 import { formatMoney } from "@/domain/shared/money";
 import { RoleToggle } from "@/components/admin/RoleToggle";
 

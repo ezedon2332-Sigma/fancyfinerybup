@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { signOut } from "@/app/account/actions";
+import { clearPersonalStorage } from "@/lib/personal-storage";
 
 interface HeaderUser {
   email: string | null;
@@ -113,7 +114,11 @@ export function AccountMenu({ user }: { user: HeaderUser | null }) {
                 <Item href="/account" icon={MapPin} onClick={() => setOpen(false)}>Address Book</Item>
                 <Item href="/account" icon={Settings} onClick={() => setOpen(false)}>Account Settings</Item>
                 <div className="my-1 h-px bg-white/8" />
-                <form action={signOut}>
+                {/* Wipe cart/wishlist/recently-viewed before the session
+                    ends — they live in localStorage, which is scoped to the
+                    browser rather than the user, so on a shared device they
+                    would otherwise greet the next person. */}
+                <form action={signOut} onSubmit={clearPersonalStorage}>
                   <button type="submit" role="menuitem" className={`${ROW} w-full text-left text-gray-400`}>
                     <LogOut className="h-4 w-4 shrink-0" /> Sign Out
                   </button>

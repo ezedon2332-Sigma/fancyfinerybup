@@ -1,7 +1,18 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
-import type { Json } from "@/infrastructure/supabase/database.types";
+import { and, eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { paymentEvents } from "@/infrastructure/db/schema";
+
+/** Postgres unique_violation — this exact event is already on the ledger. */
+const UNIQUE_VIOLATION = "23505";
+
+function pgCode(e: unknown): string | undefined {
+  return typeof e === "object" && e !== null && "code" in e
+    ? String((e as { code?: unknown }).code)
+    : undefined;
+}
 
 export interface PaymentEventInput {
   provider: "paystack" | "stripe";
@@ -41,39 +52,35 @@ export async function recordPaymentEvent(
   input: PaymentEventInput,
 ): Promise<PaymentEventClaim> {
   try {
-    const admin = createSupabaseAdminClient();
-    const { error } = await admin.from("payment_events").insert({
+    await db.insert(paymentEvents).values({
       provider: input.provider,
-      event_id: input.eventId ?? null,
-      event_type: input.eventType ?? null,
+      eventId: input.eventId ?? null,
+      eventType: input.eventType ?? null,
       reference: input.reference ?? null,
-      order_id: input.orderId ?? null,
-      raw: (input.raw ?? null) as Json,
+      orderId: input.orderId ?? null,
+      raw: input.raw ?? null,
     });
-    if (!error) return { shouldProcess: true };
-
-    // 23505 = unique_violation → this exact event is already on the ledger.
-    // Whether it was finished is the only question that matters.
-    if (error.code === "23505" && input.eventId) {
-      const { data, error: readError } = await admin
-        .from("payment_events")
-        .select("processed_at")
-        .eq("provider", input.provider)
-        .eq("event_id", input.eventId)
-        .maybeSingle();
-      // A read failure includes the case where processed_at doesn't exist yet
-      // (code deployed ahead of the migration) — fall back to the old, safe
-      // behaviour of handling it again.
-      if (readError || !data) return { shouldProcess: true };
-      return { shouldProcess: data.processed_at === null };
-    }
-
-    if (error.code !== "23505") {
-      console.error("[payments] event log failed:", error.message);
-    }
     return { shouldProcess: true };
   } catch (e) {
-    console.error("[payments] event log threw:", e);
+    if (pgCode(e) === UNIQUE_VIOLATION && input.eventId) {
+      // Already on the ledger. Whether it was FINISHED is the only question.
+      try {
+        const row = await db.query.paymentEvents.findFirst({
+          where: and(
+            eq(paymentEvents.provider, input.provider),
+            eq(paymentEvents.eventId, input.eventId),
+          ),
+          columns: { processedAt: true },
+        });
+        if (!row) return { shouldProcess: true };
+        return { shouldProcess: row.processedAt === null };
+      } catch {
+        return { shouldProcess: true };
+      }
+    }
+    if (pgCode(e) !== UNIQUE_VIOLATION) {
+      console.error("[payments] event log failed:", e);
+    }
     return { shouldProcess: true };
   }
 }
@@ -96,22 +103,20 @@ export async function recordPaymentAttempt(input: {
   orderId: string;
 }): Promise<void> {
   try {
-    const admin = createSupabaseAdminClient();
-    const { error } = await admin.from("payment_events").insert({
+    await db.insert(paymentEvents).values({
       provider: input.provider,
       // Unique per attempt, so a retried action can't duplicate the row.
-      event_id: `attempt:${input.reference}`,
-      event_type: "attempt",
+      eventId: `attempt:${input.reference}`,
+      eventType: "attempt",
       reference: input.reference,
-      order_id: input.orderId,
-      processed_at: new Date().toISOString(),
+      orderId: input.orderId,
+      processedAt: new Date().toISOString(),
     });
-    // 23505 just means this attempt is already logged.
-    if (error && error.code !== "23505") {
-      console.error("[payments] attempt log failed:", error.message);
-    }
   } catch (e) {
-    console.error("[payments] attempt log threw:", e);
+    // A unique violation just means this attempt is already logged.
+    if (pgCode(e) !== UNIQUE_VIOLATION) {
+      console.error("[payments] attempt log failed:", e);
+    }
   }
 }
 
@@ -127,16 +132,16 @@ export async function markPaymentEventProcessed(
 ): Promise<void> {
   if (!eventId) return;
   try {
-    const admin = createSupabaseAdminClient();
-    const { error } = await admin
-      .from("payment_events")
-      .update({ processed_at: new Date().toISOString() })
-      .eq("provider", provider)
-      .eq("event_id", eventId);
-    if (error) {
-      console.error("[payments] could not mark event processed:", error.message);
-    }
+    await db
+      .update(paymentEvents)
+      .set({ processedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(paymentEvents.provider, provider),
+          eq(paymentEvents.eventId, eventId),
+        ),
+      );
   } catch (e) {
-    console.error("[payments] marking event processed threw:", e);
+    console.error("[payments] could not mark event processed:", e);
   }
 }

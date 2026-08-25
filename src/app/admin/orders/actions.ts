@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { and, eq } from "drizzle-orm";
+
+import { db } from "@/infrastructure/db/client";
+import { orders } from "@/infrastructure/db/schema";
 import { ORDER_STATUSES, type OrderStatus } from "@/domain/entities/order";
 import { generateTrackingNumber } from "@/domain/shipping/tracking";
 import { isShipped } from "@/lib/order-status";
@@ -28,36 +31,55 @@ export async function updateOrderStatus(
   if (!parsed.success) return { ok: false, error: "Invalid status." };
   const nextStatus = parsed.data as OrderStatus;
 
-  const supabase = await createSupabaseServerClient();
-
   // Only generate a tracking number once, on the first transition into shipping.
-  const { data: existing } = await supabase
-    .from("orders")
-    .select("tracking_number")
-    .eq("id", id)
-    .maybeSingle();
+  const existing = await db.query.orders.findFirst({
+    where: eq(orders.id, id),
+    columns: { trackingNumber: true },
+  });
+  if (!existing) return { ok: false, error: "Order not found." };
 
-  const needsTracking = isShipped(nextStatus) && !existing?.tracking_number;
+  const needsTracking = isShipped(nextStatus) && !existing.trackingNumber;
 
   if (needsTracking) {
+    // Retry on the unique-index collision a generated number can hit.
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: nextStatus, tracking_number: generateTrackingNumber() })
-        .eq("id", id);
-      if (!error) break;
-      const collision = /tracking_number|duplicate|unique/i.test(error.message);
-      if (!collision) return { ok: false, error: error.message };
-      if (attempt === 4) {
-        return { ok: false, error: "Could not assign a tracking number. Try again." };
+      try {
+        await db
+          .update(orders)
+          .set({ status: nextStatus, trackingNumber: generateTrackingNumber() })
+          .where(eq(orders.id, id));
+        break;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (!/tracking_number|duplicate|unique/i.test(message)) {
+          return { ok: false, error: message };
+        }
+        if (attempt === 4) {
+          return { ok: false, error: "Could not assign a tracking number. Try again." };
+        }
       }
     }
   } else {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: nextStatus })
-      .eq("id", id);
-    if (error) return { ok: false, error: error.message };
+    try {
+      await db.update(orders).set({ status: nextStatus }).where(eq(orders.id, id));
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  // Cancelling from the admin side must return stock exactly as the customer
+  // path does — restoreStock is idempotent, so the two cannot double-credit.
+  if (nextStatus === "cancelled") {
+    try {
+      const { getOrderRepository } = await import(
+        "@/infrastructure/db/order-service"
+      );
+      await (await getOrderRepository()).restoreStock(id);
+    } catch (e) {
+      // The status change already succeeded; a stock-restore failure is worth
+      // knowing about but must not report the cancellation as failed.
+      console.error("[orders] stock restore failed", { id, error: e });
+    }
   }
 
   await notifyOrderStatusChanged(id, nextStatus);
@@ -74,53 +96,58 @@ export async function updateOrderStatus(
  */
 export async function refundOrder(id: string): Promise<OrderActionResult> {
   await requireAdmin();
-  const supabase = await createSupabaseServerClient();
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("id, payment_status, payment_provider, payment_reference")
-    .eq("id", id)
-    .maybeSingle();
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, id),
+    columns: {
+      id: true,
+      paymentStatus: true,
+      paymentProvider: true,
+      paymentReference: true,
+    },
+  });
   if (!order) return { ok: false, error: "Order not found." };
-  if (order.payment_status !== "paid") {
+  if (order.paymentStatus !== "paid") {
     return { ok: false, error: "Only a paid order can be refunded." };
   }
-  if (!order.payment_reference || !order.payment_provider) {
+  if (!order.paymentReference || !order.paymentProvider) {
     return { ok: false, error: "No charge reference on this order." };
   }
 
   // Claim the refund in the DB BEFORE moving money: flip paid → refunded
   // conditionally, so a concurrent second click finds the row already
   // not-paid and cannot fire a second provider refund against the same charge.
-  const { data: claimed, error: claimError } = await supabase
-    .from("orders")
-    .update({ payment_status: "refunded" })
-    .eq("id", id)
-    .eq("payment_status", "paid")
-    .select("id");
-  if (claimError) return { ok: false, error: claimError.message };
-  if (!claimed || claimed.length === 0) {
+  let claimed;
+  try {
+    claimed = await db
+      .update(orders)
+      .set({ paymentStatus: "refunded" })
+      .where(and(eq(orders.id, id), eq(orders.paymentStatus, "paid")))
+      .returning({ id: orders.id });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  if (claimed.length === 0) {
     return { ok: false, error: "Order is no longer refundable." };
   }
 
   // Helper to undo the claim if the provider call fails, so it can be retried.
   const revert = () =>
-    supabase
-      .from("orders")
-      .update({ payment_status: "paid" })
-      .eq("id", id)
-      .eq("payment_status", "refunded");
+    db
+      .update(orders)
+      .set({ paymentStatus: "paid" })
+      .where(and(eq(orders.id, id), eq(orders.paymentStatus, "refunded")));
 
   try {
-    if (order.payment_provider === "paystack") {
-      await paystackRefund(order.payment_reference);
-    } else if (order.payment_provider === "stripe") {
-      await stripeRefundBySession(order.payment_reference);
+    if (order.paymentProvider === "paystack") {
+      await paystackRefund(order.paymentReference);
+    } else if (order.paymentProvider === "stripe") {
+      await stripeRefundBySession(order.paymentReference);
     } else {
       await revert();
       return {
         ok: false,
-        error: `Unknown payment provider: ${order.payment_provider}`,
+        error: `Unknown payment provider: ${order.paymentProvider}`,
       };
     }
   } catch (e) {

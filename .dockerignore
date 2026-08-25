@@ -1,0 +1,15 @@
+# Anything the build does not need, and anything that must never be baked in.
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.md
+docs
+supabase
+db/provenance
+.vscode
+.idea

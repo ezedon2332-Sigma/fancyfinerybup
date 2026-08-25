@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { loadConversationDetail } from "@/infrastructure/db/admin-read-service";
 import { AgentReplyForm } from "@/components/admin/AgentReplyForm";
 
 export const metadata: Metadata = { title: "Admin · Conversation" };
@@ -22,20 +22,11 @@ export default async function AdminConversationDetail({
 }) {
   await requireAdmin();
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
+  const detail = await loadConversationDetail(id);
+  if (!detail) notFound();
+  const conv = detail.conversation;
 
-  const { data: conv } = await supabase
-    .from("ai_conversations")
-    .select("id, status, contact_email, created_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (!conv) notFound();
-
-  const { data: messages } = await supabase
-    .from("ai_messages")
-    .select("id, role, content, created_at")
-    .eq("conversation_id", id)
-    .order("created_at", { ascending: true });
+  const messages = detail.messages;
 
   return (
     <div className="max-w-3xl">

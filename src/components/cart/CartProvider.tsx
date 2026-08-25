@@ -63,6 +63,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setHydrated(true);
   }, []);
 
+  // Sign-out clears these keys (src/lib/personal-storage.ts). React state would
+  // otherwise survive the client-side navigation and re-persist the old items.
+  useEffect(() => {
+    const reset = () => setItems([]);
+    window.addEventListener("ff:clear-personal-state", reset);
+    return () => window.removeEventListener("ff:clear-personal-state", reset);
+  }, []);
+
   // Persist on change (after hydration to avoid clobbering).
   useEffect(() => {
     if (!hydrated) return;

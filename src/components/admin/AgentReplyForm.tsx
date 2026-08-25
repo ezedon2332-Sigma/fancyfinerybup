@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
 import { replyAsAgent, closeConversation } from "@/app/admin/ai/actions";
+import { toast } from "@/components/ui/Toast";
 
 export function AgentReplyForm({
   conversationId,
@@ -15,19 +16,17 @@ export function AgentReplyForm({
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
-  const [err, setErr] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const closed = status === "closed";
 
   function send() {
-    setErr(null);
     start(async () => {
       const res = await replyAsAgent({ conversationId, content: text });
       if (res.ok) {
         setText("");
         router.refresh();
       } else {
-        setErr(res.error ?? "Could not send.");
+        toast.error(res.error ?? "Could not send.");
       }
     });
   }
@@ -80,7 +79,6 @@ export function AgentReplyForm({
             >
               Close conversation
             </button>
-            {err && <span className="text-sm text-red-400">{err}</span>}
           </div>
         </>
       )}

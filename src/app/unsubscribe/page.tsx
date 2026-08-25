@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { unsubscribeByToken } from "@/infrastructure/supabase/newsletter-service";
+import { unsubscribeByToken } from "@/infrastructure/db/newsletter-service";
 
 export const metadata: Metadata = {
   title: "Unsubscribe",

@@ -86,6 +86,7 @@ export const productSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   status: z.enum(["draft", "published", "archived"]),
   featured: z.boolean(),
+  lookbook: z.boolean(),
   /** Shipping weight, in `weightUnit`. Converted to canonical grams on save. */
   weight: z.number().nonnegative("Weight must be 0 or more").max(500),
   weightUnit: z.enum(["g", "kg"]),

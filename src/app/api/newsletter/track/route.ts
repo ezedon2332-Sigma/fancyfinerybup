@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   hashIp,
   recordCampaignEvent,
-} from "@/infrastructure/supabase/newsletter-service";
+} from "@/infrastructure/db/newsletter-service";
 
 /**
  * Campaign engagement tracking.

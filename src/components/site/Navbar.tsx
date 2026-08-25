@@ -3,10 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
+  ChevronDown,
   Globe,
   Heart,
   Menu,
@@ -19,7 +21,6 @@ import {
 import { useCart } from "@/components/cart/CartProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
-import { CurrencySwitcher } from "./CurrencySwitcher";
 import { MobileNav } from "./MobileNav";
 import { AccountMenu } from "./AccountMenu";
 
@@ -28,18 +29,26 @@ const ICON =
   "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400 active:scale-95 lg:h-10 lg:w-10";
 
 const STRIP_ITEM =
-  "flex min-h-[44px] shrink-0 snap-start items-center whitespace-nowrap rounded-md px-3 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors";
+  "flex min-h-[44px] shrink-0 snap-start items-center whitespace-nowrap rounded-md px-3 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors";
 
+/**
+ * Fixed pages only. Collections used to sit here as three hardcoded entries
+ * (Men / Women / Children) pointing at category slugs that were not guaranteed
+ * to exist; they are now a dropdown built from the real categories, so the menu
+ * can only offer what an admin actually created.
+ */
 const LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/collections?category=men", label: "Men" },
-  { href: "/collections?category=women", label: "Women" },
-  { href: "/collections?category=children", label: "Children" },
-  { href: "/collections", label: "Collections" },
-  { href: "/lookbook", label: "Lookbook" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
+  { href: "/", key: "home" },
+  { href: "/collections", key: "collections" },
+  { href: "/lookbook", key: "lookbook" },
+  { href: "/about", key: "about" },
+  { href: "/contact", key: "contact" },
+] as const;
+
+export interface NavCollection {
+  slug: string;
+  name: string;
+}
 
 function StripCount({ children }: { children: React.ReactNode }) {
   return (
@@ -59,10 +68,15 @@ function Count({ children }: { children: React.ReactNode }) {
 
 export function Navbar({
   user,
+  collections = [],
 }: {
   user: { email: string | null; firstName: string | null } | null;
+  collections?: NavCollection[];
 }) {
   const [open, setOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const t = useTranslations("nav");
+  const tu = useTranslations("utility");
   const pathname = usePathname();
   const { count, openCart } = useCart();
   const { count: wishCount } = useWishlist();
@@ -78,22 +92,22 @@ export function Navbar({
       <header className="sticky top-0 z-50 border-b border-yellow-600/40 bg-black/85 backdrop-blur-md">
       {/* Top utility bar */}
       <div className="hidden border-b border-white/5 lg:block">
-        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between gap-4 px-6 text-[11px] text-gray-300 lg:px-10">
+        <div className="mx-auto flex h-8 max-w-7xl items-center justify-between gap-4 px-6 text-[10px] text-gray-300 lg:px-10">
           <div className="flex min-w-0 items-center gap-4 xl:gap-6">
             <span className="flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5 text-yellow-500" />
-              <strong className="font-semibold text-gray-200">WORLDWIDE SHIPPING</strong>
-              <span className="hidden text-gray-500 xl:inline">Delivery to 200+ countries</span>
+              <strong className="font-semibold text-gray-200">{tu("worldwideShipping")}</strong>
+              <span className="hidden text-gray-500 xl:inline">{tu("worldwideShippingDetail")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-yellow-500" />
-              <strong className="font-semibold text-gray-200">PREMIUM QUALITY</strong>
-              <span className="hidden text-gray-500 xl:inline">Finest fabrics &amp; craftsmanship</span>
+              <strong className="font-semibold text-gray-200">{tu("premiumQuality")}</strong>
+              <span className="hidden text-gray-500 xl:inline">{tu("premiumQualityDetail")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <RefreshCw className="h-3.5 w-3.5 text-yellow-500" />
-              <strong className="font-semibold text-gray-200">EASY RETURNS</strong>
-              <span className="hidden text-gray-500 xl:inline">30-day return policy</span>
+              <strong className="font-semibold text-gray-200">{tu("easyReturns")}</strong>
+              <span className="hidden text-gray-500 xl:inline">{tu("easyReturnsDetail")}</span>
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -111,9 +125,9 @@ export function Navbar({
           in the space that actually exists. The middle track is also the one
           allowed to absorb slack, which is what keeps the brand and the
           actions from ever meeting. */}
-      <nav className="mx-auto grid h-[116px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:h-[104px] sm:gap-4 sm:px-6 lg:gap-6 lg:px-10 xl:h-[124px] xl:gap-3">
+      <nav className="mx-auto grid h-[76px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 sm:h-[72px] sm:gap-4 sm:px-6 lg:gap-6 lg:px-10 xl:h-[84px] xl:gap-3">
         {/* Branding: the lockup, alone. */}
-        <div className="flex min-w-0 shrink-0 flex-col items-start gap-2.5 py-2">
+        <div className="flex min-w-0 shrink-0 flex-col items-start gap-1.5 py-1">
           {/* Stacks on phones: side by side, the mark plus the name at its
               desktop size needs ~463px of a 343px row. Vertical keeps the
               name visible and the lockup hard left. */}
@@ -128,15 +142,15 @@ export function Navbar({
               width={256}
               height={256}
               priority
-              className="brand-mark h-16 w-16 object-contain sm:h-[76px] sm:w-[76px] xl:h-[100px] xl:w-[100px]"
+              className="brand-mark h-11 w-11 object-contain sm:h-12 sm:w-12 xl:h-[60px] xl:w-[60px]"
             />
             <span className="flex flex-col justify-center leading-none">
-              <span className="brand-wordmark whitespace-nowrap text-[clamp(13px,3.9vw,19px)] leading-none tracking-[0.14em] sm:text-[26px] sm:tracking-[0.17em] xl:text-[32px]">
+              <span className="brand-wordmark whitespace-nowrap text-[clamp(12px,3.4vw,16px)] leading-none tracking-[0.14em] sm:text-[20px] sm:tracking-[0.17em] xl:text-[24px]">
                 FANCY FINERY
               </span>
               {/* Tagline stays off on phones — a third line would push the
                   header taller than the content it introduces. */}
-              <span className="brand-tagline mt-3 hidden items-center gap-2 text-[9px] uppercase leading-none tracking-[0.4em] text-gray-400 sm:flex lg:text-[10px] lg:tracking-[0.44em]">
+              <span className="brand-tagline mt-1.5 hidden items-center gap-2 text-[8px] uppercase leading-none tracking-[0.36em] text-gray-400 sm:flex lg:text-[9px] lg:tracking-[0.4em]">
                 <span
                   aria-hidden
                   className="h-px min-w-2 flex-1 bg-gradient-to-r from-transparent to-yellow-600/60"
@@ -151,36 +165,93 @@ export function Navbar({
           </Link>
         </div>
 
-        {/* Currency, centred. It is the first control after the wordmark
-            because a price means nothing until you know what it is written
-            in.
+        {/* Middle track: empty spacer.
 
-            Centred inside the middle track, which spans exactly the space
-            between the lockup and the actions — so the gap to its left always
-            equals the gap to its right and it reads as balanced.
-
-            It is deliberately NOT centred on the viewport. Absolute centring
-            was tried and measured: from 768 up it lands on top of the action
-            cluster, and at 1280 it sits 209px inside the inline nav links.
-            True viewport-centring is only reachable if the eight desktop links
-            move to a row of their own, since the right block is roughly twice
-            the width of the brand. */}
-        <div className="flex min-w-0 justify-self-center">
-          <CurrencySwitcher />
-        </div>
+            The currency selector used to live here, centred. It now sits on
+            each product card beside the price it changes, so the control and
+            its effect are read together instead of a lone pill floating in the
+            header. The track stays because the 1fr in the middle is what keeps
+            the brand hard left and the actions hard right at every width. */}
+        <div aria-hidden className="min-w-0" />
 
         {/* Right-hand block: navigation, then the action icons. Grouped so the
             whole thing sits in the last track as one unit. */}
-        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-6">
         {/* Navigation — hard right, hamburger below lg */}
-        <div className="hidden items-center gap-2.5 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-3 xl:text-[11px] xl:tracking-[0.09em]">
+        <div className="hidden items-center gap-1 pr-2 text-[9px] font-medium uppercase tracking-[0.14em] xl:flex xl:gap-2 xl:pr-4 xl:text-[11px] xl:tracking-[0.09em]">
           {LINKS.map((link) => {
             const active = isActive(link.href);
+
+            // Collections opens a menu of the real categories. On hover for a
+            // pointer, and on click/Enter so it is reachable by keyboard and
+            // on touch, where hover does not exist.
+            if (link.href === "/collections" && collections.length > 0) {
+              return (
+                <div
+                  key={link.href}
+                  className="relative"
+                  onMouseEnter={() => setCollectionsOpen(true)}
+                  onMouseLeave={() => setCollectionsOpen(false)}
+                >
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={collectionsOpen}
+                    onClick={() => setCollectionsOpen((v) => !v)}
+                    className={`inline-flex min-h-[40px] items-center gap-1 px-2 uppercase tracking-[inherit] transition-colors hover:text-yellow-400 ${
+                      active ? "text-yellow-400" : "text-gray-200"
+                    }`}
+                  >
+                    <span className="relative">
+                      {t(link.key)}
+                      {active && (
+                        <motion.span
+                          layoutId="nav-underline"
+                          className="absolute -bottom-1.5 left-0 h-px w-full bg-yellow-400"
+                        />
+                      )}
+                    </span>
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${collectionsOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {collectionsOpen && (
+                    <div
+                      role="menu"
+                      className="absolute left-0 top-full z-50 min-w-48 overflow-hidden rounded-xl border border-white/10 bg-neutral-950/95 py-1 shadow-2xl shadow-black/60 backdrop-blur-xl"
+                    >
+                      <Link
+                        role="menuitem"
+                        href="/collections"
+                        onClick={() => setCollectionsOpen(false)}
+                        className="block px-4 py-2.5 text-[11px] tracking-[0.09em] text-gray-200 transition-colors hover:bg-white/5 hover:text-yellow-400"
+                      >
+                        {t("allCollections")}
+                      </Link>
+                      <div className="my-1 h-px bg-white/8" />
+                      {collections.map((c) => (
+                        <Link
+                          key={c.slug}
+                          role="menuitem"
+                          href={`/collections?category=${encodeURIComponent(c.slug)}`}
+                          onClick={() => setCollectionsOpen(false)}
+                          className="block px-4 py-2.5 text-[11px] tracking-[0.09em] text-gray-300 transition-colors hover:bg-white/5 hover:text-yellow-400"
+                        >
+                          {c.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`inline-flex min-h-[40px] items-center transition-colors hover:text-yellow-400 ${
+                className={`inline-flex min-h-[40px] items-center px-2 transition-colors hover:text-yellow-400 ${
                   active ? "text-yellow-400" : "text-gray-200"
                 }`}
               >
@@ -188,7 +259,7 @@ export function Navbar({
                     box is 40px tall to stay tappable, and an underline offset
                     from that would float well below the word. */}
                 <span className="relative">
-                  {link.label}
+                  {t(link.key)}
                   {active && (
                     <motion.span
                       layoutId="nav-underline"
@@ -261,7 +332,7 @@ export function Navbar({
                   active ? "text-yellow-400" : "text-gray-300 hover:text-yellow-400"
                 }`}
               >
-                {link.label}
+                {t(link.key)}
               </Link>
             );
           })}
@@ -307,6 +378,7 @@ export function Navbar({
         open={open}
         onClose={() => setOpen(false)}
         links={LINKS}
+        collections={collections}
         isActive={isActive}
         user={user}
         cartCount={count}

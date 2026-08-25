@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { loadAnalyticsData } from "@/infrastructure/db/admin-read-service";
 import { formatMoney } from "@/domain/shared/money";
 import { orderStatusBadge, orderStatusLabel } from "@/lib/order-status";
 
@@ -18,16 +18,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 }
 
 export default async function AnalyticsPage() {
-  const supabase = await createSupabaseServerClient();
-  const [{ data: ordersData }, { data: itemsData }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("id, total, currency, status, created_at, shipping_name")
-      .order("created_at", { ascending: false }),
-    supabase.from("order_items").select("name_snapshot, unit_price, qty, product_id"),
-  ]);
-  const orders = ordersData ?? [];
-  const items = itemsData ?? [];
+  const { orders, items } = await loadAnalyticsData();
 
   // Orders are charged in whichever currency the customer selected, so
   // revenue is bucketed by currency. Summing across them would add euros to

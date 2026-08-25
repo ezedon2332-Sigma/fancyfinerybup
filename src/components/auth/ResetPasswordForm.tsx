@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 
-import { createSupabaseBrowserClient } from "@/infrastructure/supabase/browser-client";
+import { authClient } from "@/infrastructure/auth/client";
+import { toast } from "@/components/ui/Toast";
 
 const MIN_LENGTH = 10;
 
@@ -15,25 +16,35 @@ export function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (password.length < MIN_LENGTH) {
-      setError(`Use at least ${MIN_LENGTH} characters.`);
+      toast.error(`Use at least ${MIN_LENGTH} characters.`);
       return;
     }
     if (password !== confirm) {
-      setError("The two passwords don't match.");
+      toast.error("The two passwords don't match.");
       return;
     }
     setBusy(true);
-    setError(null);
-    const supabase = createSupabaseBrowserClient();
-    const { error: err } = await supabase.auth.updateUser({ password });
+    // Better Auth carries the reset token in the link's ?token= parameter
+    // rather than establishing a recovery session first, so the token is passed
+    // explicitly here instead of being implied by the current session.
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (!token) {
+      setBusy(false);
+      toast.error("This reset link is invalid or has expired. Request a new one.");
+      return;
+    }
+
+    const { error: err } = await authClient.resetPassword({
+      newPassword: password,
+      token,
+    });
     setBusy(false);
     if (err) {
-      setError(err.message);
+      toast.error(err.message ?? "Could not reset your password.");
       return;
     }
     setDone(true);
@@ -100,11 +111,6 @@ export function ResetPasswordForm() {
         At least {MIN_LENGTH} characters. Use something unique to this site.
       </p>
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs text-red-300">
-          {error}
-        </p>
-      )}
 
       <button
         type="submit"

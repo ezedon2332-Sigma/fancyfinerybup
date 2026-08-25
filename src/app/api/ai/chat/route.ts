@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
-import { loadAiConfig, isAiConfigured } from "@/infrastructure/ai/settings";
+import { loadAiConfig, isAiConfigured } from "@/infrastructure/db/ai/settings";
 import {
   getAnthropic,
   buildSystemPrompt,
@@ -9,15 +9,15 @@ import {
   SEARCH_CATALOG_TOOL,
   SEARCH_KNOWLEDGE_TOOL,
   REQUEST_HANDOFF_TOOL,
-} from "@/infrastructure/ai/concierge";
-import { searchKnowledge } from "@/infrastructure/ai/knowledge";
+} from "@/infrastructure/db/ai/concierge";
+import { searchKnowledge } from "@/infrastructure/db/ai/knowledge";
 import {
   getOrCreateConversation,
   appendMessage,
   setStatus,
-} from "@/infrastructure/ai/conversations";
+} from "@/infrastructure/db/ai/conversations";
 import { notifyHumanHandoff } from "@/infrastructure/notifications/email";
-import { getCurrentUser } from "@/infrastructure/supabase/auth";
+import { getCurrentUser } from "@/infrastructure/auth/session";
 import { rateLimit } from "@/lib/ai-rate-limit";
 import type { ConciergeStreamEvent } from "@/lib/ai-types";
 

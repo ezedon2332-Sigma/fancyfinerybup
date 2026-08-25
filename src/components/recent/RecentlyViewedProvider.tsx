@@ -48,6 +48,14 @@ export function RecentlyViewedProvider({
     hydrated.current = true;
   }, []);
 
+  // Sign-out clears this key (src/lib/personal-storage.ts). React state would
+  // otherwise survive the client-side navigation and re-persist the old items.
+  useEffect(() => {
+    const reset = () => setItems([]);
+    window.addEventListener("ff:clear-personal-state", reset);
+    return () => window.removeEventListener("ff:clear-personal-state", reset);
+  }, []);
+
   const track = useCallback((item: RecentItem) => {
     setItems((cur) => {
       const next = [item, ...cur.filter((i) => i.productId !== item.productId)].slice(

@@ -8,7 +8,7 @@ import { Check, Globe, LogIn, Play, ShoppingBag, Truck, Weight } from "lucide-re
 
 import type { ProductWithDetails } from "@/domain/entities/product";
 import { formatWeight } from "@/domain/shipping/pricing";
-import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { useCart } from "@/components/cart/CartProvider";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { ShippingCalculator } from "@/components/shipping/ShippingCalculator";
@@ -37,7 +37,7 @@ export function ProductDetail({
   const media =
     product.images.length > 0
       ? product.images.map((img) => ({
-          url: resolveImageUrl(img.storagePath),
+          url: resolveMediaUrl(img.storagePath),
           alt: img.alt ?? product.name,
           type: img.mediaType,
         }))

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { SITE_URL } from "@/lib/site";
-import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
+import { getCatalogDeps } from "@/infrastructure/db/catalog-service";
 import { listCategories, listProducts } from "@/application/use-cases/catalog";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

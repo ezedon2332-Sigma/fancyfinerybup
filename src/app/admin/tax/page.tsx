@@ -1,11 +1,10 @@
 import { Percent } from "lucide-react";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { loadTaxAdminData } from "@/infrastructure/db/admin-read-service";
 import {
   TaxRulesPanel,
   type TaxRuleRow,
-  type ZoneOption,
 } from "@/components/admin/TaxRulesPanel";
 
 export const metadata = { title: "Tax" };
@@ -16,29 +15,19 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminTaxPage() {
   await requireAdmin();
-  const db = createSupabaseAdminClient();
-
-  const [rulesRes, zonesRes] = await Promise.all([
-    db.from("tax_rules").select("*"),
-    db.from("shipping_zones").select("id, name").order("sort_order"),
-  ]);
-
-  const zones: ZoneOption[] = (zonesRes.data ?? []).map((z) => ({
-    id: z.id,
-    name: z.name,
-  }));
+  const { rules: ruleRows, zones } = await loadTaxAdminData();
   const zoneName = new Map(zones.map((z) => [z.id, z.name]));
 
-  const rules: TaxRuleRow[] = (rulesRes.data ?? [])
+  const rules: TaxRuleRow[] = ruleRows
     .map((r) => ({
       id: r.id,
-      scope: r.scope,
-      countryCode: r.country_code,
-      zoneId: r.zone_id,
-      zoneName: r.zone_id ? (zoneName.get(r.zone_id) ?? null) : null,
-      rateBps: r.rate_bps,
+      scope: r.scope as TaxRuleRow["scope"],
+      countryCode: r.countryCode,
+      zoneId: r.zoneId,
+      zoneName: r.zoneId ? (zoneName.get(r.zoneId) ?? null) : null,
+      rateBps: r.rateBps,
       label: r.label,
-      appliesToShipping: r.applies_to_shipping,
+      appliesToShipping: r.appliesToShipping,
       enabled: r.enabled,
     }))
     // Most specific first, mirroring how the engine resolves them.

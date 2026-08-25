@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { requireUser } from "@/infrastructure/supabase/auth";
+import { requireUser } from "@/infrastructure/auth/session";
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
 
 export const metadata: Metadata = {

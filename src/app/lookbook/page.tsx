@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import { rethrowFrameworkErrors } from "@/lib/rethrow-framework-errors";
 
 import {
   LookbookGallery,
   type LookItem,
 } from "@/components/lookbook/LookbookGallery";
-import { listProducts } from "@/application/use-cases/catalog";
-import { getCatalogDeps } from "@/infrastructure/supabase/catalog-service";
-import { resolveImageUrl } from "@/infrastructure/supabase/image-url";
+import { listLookbookEntries } from "@/infrastructure/db/lookbook-service";
+import { resolveMediaUrl } from "@/lib/media-url";
 
 export const metadata: Metadata = {
   title: "Lookbook",
@@ -16,27 +14,19 @@ export const metadata: Metadata = {
 };
 
 export default async function LookbookPage() {
-  let products: Awaited<ReturnType<typeof listProducts>> = [];
-  try {
-    const deps = await getCatalogDeps();
-    products = await listProducts(deps);
-  } catch (e) {
-    rethrowFrameworkErrors(e);
-    console.error("[lookbook] catalogue unavailable", e);
-  }
-  // Lookbook panels are full-bleed photography — only products with an actual
-  // IMAGE (never video-only, whose URL can't render in <Image>).
-  const items: LookItem[] = products
-    .filter((p) => p.primaryImage?.mediaType === "image")
-    .slice(0, 8)
-    .map((p) => ({
-      image: p.primaryImage
-        ? resolveImageUrl(p.primaryImage.storagePath)
-        : "/image.jpeg",
-      title: p.name,
-      subtitle: p.description,
-      href: `/products/${p.slug}`,
-    }));
+  // The membership rule lives in listLookbookEntries: admin-flagged, published,
+  // and carrying a still image. The page just renders what comes back — and
+  // because every entry is guaranteed a real image, the old "/image.jpeg"
+  // placeholder fallback is gone. A panel can no longer show a stock photo of
+  // nothing in particular.
+  const entries = await listLookbookEntries(12);
+
+  const items: LookItem[] = entries.map((e) => ({
+    image: resolveMediaUrl(e.storagePath),
+    title: e.name,
+    subtitle: e.description,
+    href: `/products/${e.slug}`,
+  }));
 
   return (
     <div>

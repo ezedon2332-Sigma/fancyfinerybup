@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { ShieldCheck } from "lucide-react";
 
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
+import { listAdmins } from "@/infrastructure/db/admin-invite-service";
+import { loadAdminCounts } from "@/infrastructure/db/admin-read-service";
 
 export const metadata: Metadata = { title: "Admin Dashboard" };
 
@@ -11,48 +11,36 @@ interface AdminRow {
   active: boolean;
 }
 
+/**
+ * The store's admins.
+ *
+ * This used to cross-reference the `admin_allowlist` table against every
+ * registered identity, paging the Supabase Admin API up to ten times to decide
+ * whether an allowlisted email had actually signed up. Admins are now simply
+ * profiles with role='admin' in our own database, so "active" is not something
+ * to infer — every row returned IS a real account. Pending invitations live in
+ * `admin_invites` and are shown on Admin -> Team.
+ */
 async function loadAdmins(): Promise<AdminRow[]> {
   try {
-    const admin = createSupabaseAdminClient();
-    const { data: allow } = await admin.from("admin_allowlist").select("email");
-    const emails = (allow ?? []).map((a) => a.email.toLowerCase());
-    if (emails.length === 0) return [];
-
-    const registered = new Set<string>();
-    for (let page = 1; page <= 10; page++) {
-      const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-      for (const u of data.users) {
-        if (u.email) registered.add(u.email.toLowerCase());
-      }
-      if (data.users.length < 200) break;
-    }
-    return emails
-      .sort()
-      .map((email) => ({ email, active: registered.has(email) }));
+    const rows = await listAdmins();
+    return rows
+      .map((r) => ({ email: (r.email ?? "").toLowerCase(), active: true }))
+      .filter((r) => r.email.length > 0)
+      .sort((a, b) => a.email.localeCompare(b.email));
   } catch {
     return [];
   }
 }
 
 export default async function AdminDashboard() {
-  const supabase = await createSupabaseServerClient();
-
-  const [products, published, categories, orders, admins] = await Promise.all([
-    supabase.from("products").select("*", { count: "exact", head: true }),
-    supabase
-      .from("products")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "published"),
-    supabase.from("categories").select("*", { count: "exact", head: true }),
-    supabase.from("orders").select("*", { count: "exact", head: true }),
-    loadAdmins(),
-  ]);
+  const [counts, admins] = await Promise.all([loadAdminCounts(), loadAdmins()]);
 
   const stats = [
-    { label: "Products", value: products.count ?? 0 },
-    { label: "Published", value: published.count ?? 0 },
-    { label: "Categories", value: categories.count ?? 0 },
-    { label: "Orders", value: orders.count ?? 0 },
+    { label: "Products", value: counts.products },
+    { label: "Published", value: counts.published },
+    { label: "Categories", value: counts.categories },
+    { label: "Orders", value: counts.orders },
   ];
 
   return (

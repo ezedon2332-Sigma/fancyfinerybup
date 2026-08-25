@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { requireAdmin } from "@/infrastructure/supabase/auth";
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { requireAdmin } from "@/infrastructure/auth/session";
+import { loadConversations } from "@/infrastructure/db/admin-read-service";
 
 export const metadata: Metadata = { title: "Admin · AI Conversations" };
 
@@ -22,13 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function AdminConversationsPage() {
   await requireAdmin();
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("ai_conversations")
-    .select("id, status, contact_email, last_message_at")
-    .order("last_message_at", { ascending: false })
-    .limit(100);
-  const rows = data ?? [];
+  const rows = await loadConversations(100);
 
   return (
     <div>

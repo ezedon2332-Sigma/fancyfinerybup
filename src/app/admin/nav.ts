@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Heart,
+  Coins,
   Activity,
   BadgePercent,
   BarChart3,
@@ -91,6 +93,7 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard, status: "ready" },
       { label: "Analytics", href: "/admin/analytics", icon: BarChart3, status: "ready" },
+      { label: "Favourites", href: "/admin/favorites", icon: Heart, status: "ready" },
       { label: "Reports", href: "#", icon: FileText, status: "planned" },
     ],
   },
@@ -116,9 +119,16 @@ export const NAV: NavGroup[] = [
         children: SHIPPING_CHILDREN,
       },
       { label: "Tax", href: "/admin/tax", icon: BadgePercent, status: "ready" },
+      {
+        label: "Exchange Rates",
+        href: "/admin/exchange-rate",
+        icon: Coins,
+        status: "ready",
+      },
       { label: "Payments", href: "#", icon: CreditCard, status: "planned" },
       { label: "Discounts", href: "#", icon: BadgePercent, status: "planned" },
       { label: "Gift Cards", href: "#", icon: Gift, status: "planned" },
+      { label: "Team", href: "/admin/team", icon: Users, status: "ready" },
     ],
   },
   {

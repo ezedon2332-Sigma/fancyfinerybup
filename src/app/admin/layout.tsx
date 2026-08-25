@@ -1,4 +1,4 @@
-import { getCurrentProfile, requireAdmin } from "@/infrastructure/supabase/auth";
+import { getCurrentProfile, requireAdmin } from "@/infrastructure/auth/session";
 import { AdminShell } from "@/components/admin/AdminShell";
 
 /**

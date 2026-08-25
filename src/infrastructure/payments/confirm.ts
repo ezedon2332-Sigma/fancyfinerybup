@@ -1,14 +1,12 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { and, eq, inArray, or } from "drizzle-orm";
 
-import { createSupabaseAdminClient } from "@/infrastructure/supabase/admin-client";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import { db } from "@/infrastructure/db/client";
+import { orders } from "@/infrastructure/db/schema";
 import { notifyPaymentReceived } from "@/infrastructure/notifications/email";
 import { paystackVerify } from "./paystack";
 import { stripeVerifySession } from "./stripe";
-
-type Admin = SupabaseClient<Database>;
 
 export interface ConfirmResult {
   ok: boolean;
@@ -20,7 +18,7 @@ interface OrderRow {
   id: string;
   total: number;
   currency: string;
-  payment_status: string;
+  paymentStatus: string;
 }
 
 interface VerifiedCharge {
@@ -29,39 +27,43 @@ interface VerifiedCharge {
   currency: string;
 }
 
-/** Look up the order a charge belongs to by its reference. */
-async function findOrderByReference(
-  admin: Admin,
-  reference: string,
-): Promise<OrderRow | null> {
-  const cols = "id, total, currency, payment_status";
-  const { data } = await admin
-    .from("orders")
-    .select(cols)
-    .eq("payment_reference", reference)
-    .maybeSingle();
-  if (data) return data;
-  // Back-compat: orders started before the generic column existed keyed the
-  // charge to paystack_reference.
-  const { data: legacy } = await admin
-    .from("orders")
-    .select(cols)
-    .eq("paystack_reference", reference)
-    .maybeSingle();
-  return legacy ?? null;
+const ORDER_COLUMNS = {
+  id: orders.id,
+  total: orders.total,
+  currency: orders.currency,
+  paymentStatus: orders.paymentStatus,
+};
+
+/**
+ * Look up the order a charge belongs to by its reference.
+ *
+ * Two columns are checked because orders started before the generic
+ * `payment_reference` column existed keyed the charge to `paystack_reference`.
+ * The Supabase version issued two sequential round trips for that; one OR does
+ * the same work in a single query.
+ */
+async function findOrderByReference(reference: string): Promise<OrderRow | null> {
+  const [row] = await db
+    .select(ORDER_COLUMNS)
+    .from(orders)
+    .where(
+      or(
+        eq(orders.paymentReference, reference),
+        eq(orders.paystackReference, reference),
+      ),
+    )
+    .limit(1);
+  return row ? { ...row, paymentStatus: row.paymentStatus ?? "unpaid" } : null;
 }
 
 /** Look an order up directly, for charges that carry their order id. */
-async function findOrderById(
-  admin: Admin,
-  orderId: string,
-): Promise<OrderRow | null> {
-  const { data } = await admin
-    .from("orders")
-    .select("id, total, currency, payment_status")
-    .eq("id", orderId)
-    .maybeSingle();
-  return data ?? null;
+async function findOrderById(orderId: string): Promise<OrderRow | null> {
+  const [row] = await db
+    .select(ORDER_COLUMNS)
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  return row ? { ...row, paymentStatus: row.paymentStatus ?? "unpaid" } : null;
 }
 
 /**
@@ -70,14 +72,13 @@ async function findOrderById(
  * real charge whose verified amount and currency match the order.
  */
 async function markOrderPaid(
-  admin: Admin,
   order: OrderRow,
   v: VerifiedCharge,
   provider: "paystack" | "stripe",
 ): Promise<ConfirmResult> {
   // Already settled — never touch a paid or refunded order.
-  if (order.payment_status === "paid") return { ok: true, orderId: order.id };
-  if (order.payment_status === "refunded") {
+  if (order.paymentStatus === "paid") return { ok: true, orderId: order.id };
+  if (order.paymentStatus === "refunded") {
     return { ok: false, orderId: order.id, error: "Order already refunded." };
   }
 
@@ -93,32 +94,42 @@ async function markOrderPaid(
     return { ok: false, orderId: order.id, error: "Payment amount mismatch." };
   }
 
-  // Conditional update guards against a webhook + callback racing: only a row
-  // still unpaid/failed flips to paid, so the win is decided by the database.
-  const { data: updated, error } = await admin
-    .from("orders")
-    .update({
-      payment_status: "paid",
-      payment_provider: provider,
-      paid_at: new Date().toISOString(),
-    })
-    .eq("id", order.id)
-    .in("payment_status", ["unpaid", "failed"])
-    .select("id");
-  if (error) return { ok: false, orderId: order.id, error: error.message };
+  try {
+    // Conditional update guards against a webhook + callback racing: only a row
+    // still unpaid/failed flips to paid, so the win is decided by the database.
+    const updated = await db
+      .update(orders)
+      .set({
+        paymentStatus: "paid",
+        paymentProvider: provider,
+        paidAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(orders.id, order.id),
+          inArray(orders.paymentStatus, ["unpaid", "failed"]),
+        ),
+      )
+      .returning({ id: orders.id });
 
-  // Only the request that actually flipped the row sends the receipt, so a
-  // double delivery can't email the customer twice.
-  if (updated && updated.length > 0) {
-    await notifyPaymentReceived(order.id);
+    // Only the request that actually flipped the row sends the receipt, so a
+    // double delivery can't email the customer twice.
+    if (updated.length > 0) {
+      await notifyPaymentReceived(order.id);
+    }
+    return { ok: true, orderId: order.id };
+  } catch (e) {
+    return {
+      ok: false,
+      orderId: order.id,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
-  return { ok: true, orderId: order.id };
 }
 
 /**
  * Confirm a Paystack payment by reference. Used by both the browser callback
- * and the webhook. Uses the service-role client because marking an order paid
- * is admin-gated by RLS.
+ * and the webhook.
  *
  * `fallbackOrderId` lets a caller that can already see the charge's metadata
  * (the webhook) supply the order id without waiting on the verify call.
@@ -127,10 +138,9 @@ export async function confirmPaystackByReference(
   reference: string,
   opts?: { fallbackOrderId?: string | null },
 ): Promise<ConfirmResult> {
-  const admin = createSupabaseAdminClient();
-  const byReference = await findOrderByReference(admin, reference);
+  const byReference = await findOrderByReference(reference);
   // Settled already — skip the provider round-trip entirely.
-  if (byReference?.payment_status === "paid") {
+  if (byReference?.paymentStatus === "paid") {
     return { ok: true, orderId: byReference.id };
   }
 
@@ -142,8 +152,7 @@ export async function confirmPaystackByReference(
   // back to it rather than stranding a real payment as unpaid.
   const chargeOrderId = v.orderId ?? opts?.fallbackOrderId ?? null;
   const order =
-    byReference ??
-    (chargeOrderId ? await findOrderById(admin, chargeOrderId) : null);
+    byReference ?? (chargeOrderId ? await findOrderById(chargeOrderId) : null);
   if (!order) return { ok: false, error: "Order not found for reference." };
 
   // Defense in depth: a charge naming a different order than the reference
@@ -151,10 +160,9 @@ export async function confirmPaystackByReference(
   if (byReference && v.orderId && v.orderId !== byReference.id) {
     return { ok: false, orderId: byReference.id, error: "Charge/order mismatch." };
   }
-  if (order.payment_status === "paid") return { ok: true, orderId: order.id };
+  if (order.paymentStatus === "paid") return { ok: true, orderId: order.id };
 
   return markOrderPaid(
-    admin,
     order,
     { success: v.success, amountMinor: v.amountMinor, currency: v.currency },
     "paystack",
@@ -165,10 +173,9 @@ export async function confirmPaystackByReference(
 export async function confirmStripeBySession(
   sessionId: string,
 ): Promise<ConfirmResult> {
-  const admin = createSupabaseAdminClient();
-  const order = await findOrderByReference(admin, sessionId);
+  const order = await findOrderByReference(sessionId);
   if (!order) return { ok: false, error: "Order not found for session." };
-  if (order.payment_status === "paid") return { ok: true, orderId: order.id };
+  if (order.paymentStatus === "paid") return { ok: true, orderId: order.id };
 
   const v = await stripeVerifySession(sessionId);
   // Defense in depth: the session's own order id must match the order we found.
@@ -176,7 +183,6 @@ export async function confirmStripeBySession(
     return { ok: false, orderId: order.id, error: "Session/order mismatch." };
   }
   return markOrderPaid(
-    admin,
     order,
     { success: v.success, amountMinor: v.amountMinor, currency: v.currency },
     "stripe",
@@ -198,12 +204,10 @@ export async function confirmStripeBySession(
  * while a charge is still in flight would be a lie.
  */
 export async function markPaymentFailed(reference: string): Promise<void> {
-  const admin = createSupabaseAdminClient();
-  const order = await findOrderByReference(admin, reference);
+  const order = await findOrderByReference(reference);
   if (!order) return;
-  await admin
-    .from("orders")
-    .update({ payment_status: "failed" })
-    .eq("id", order.id)
-    .eq("payment_status", "unpaid");
+  await db
+    .update(orders)
+    .set({ paymentStatus: "failed" })
+    .where(and(eq(orders.id, order.id), eq(orders.paymentStatus, "unpaid")));
 }

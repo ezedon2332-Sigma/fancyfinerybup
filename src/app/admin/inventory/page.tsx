@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { createSupabaseServerClient } from "@/infrastructure/supabase/server-client";
+import { loadInventory } from "@/infrastructure/db/admin-read-service";
 
 export const metadata: Metadata = { title: "Admin · Inventory" };
 
@@ -17,18 +17,11 @@ interface Row {
 }
 
 export default async function InventoryPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("products")
-    .select("id, name, slug, product_variants(id, size, color, sku, stock_qty)")
-    .order("name", { ascending: true });
+  const catalogue = await loadInventory();
 
   const rows: Row[] = [];
-  for (const p of data ?? []) {
-    const variants =
-      (p.product_variants as
-        | { size: string | null; color: string | null; sku: string | null; stock_qty: number }[]
-        | null) ?? [];
+  for (const p of catalogue) {
+    const variants = p.variants;
     if (variants.length === 0) {
       rows.push({ productId: p.id, productName: p.name, slug: p.slug, label: "—", sku: null, stock: 0 });
       continue;
@@ -40,7 +33,7 @@ export default async function InventoryPage() {
         slug: p.slug,
         label: [v.size, v.color].filter(Boolean).join(" · ") || "One size",
         sku: v.sku,
-        stock: v.stock_qty,
+        stock: v.stockQty,
       });
     }
   }

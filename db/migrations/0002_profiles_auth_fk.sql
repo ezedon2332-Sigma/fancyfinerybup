@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD CONSTRAINT "profiles_id_auth_user_id_fk" FOREIGN KEY ("id") REFERENCES "public"."auth_user"("id") ON DELETE cascade ON UPDATE no action;
