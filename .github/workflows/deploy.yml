@@ -92,11 +92,13 @@ jobs:
       # Render the whole .env from the GitHub secret for this environment.
       - name: Render env (staging)
         if: github.ref_name != 'main'
-        env: { BLOB: ${{ secrets.STAGING_ENV }} }
+        env:
+          BLOB: ${{ secrets.STAGING_ENV }}
         run: printf '%s' "$BLOB" > env.rendered
       - name: Render env (production)
         if: github.ref_name == 'main'
-        env: { BLOB: ${{ secrets.PRODUCTION_ENV }} }
+        env:
+          BLOB: ${{ secrets.PRODUCTION_ENV }}
         run: printf '%s' "$BLOB" > env.rendered
 
       - name: Ship .env + compose + Caddyfile
