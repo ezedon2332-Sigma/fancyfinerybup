@@ -1,21 +1,19 @@
 name: Deploy
 
-# Build once, deploy the exact artifact that was built.
+# Build once in CI, push to GHCR, deploy the exact tagged image over SSH.
 #
-# The image is built in CI and pushed to GHCR; the VPS only ever pulls a tagged
-# image. It deliberately does NOT build on the server: a build there competes
-# with the running site for CPU, and "works on the box that built it" is how
-# environments drift apart.
+# Branch → environment:
+#   push to `staging` → staging   (auto)
+#   push to `main`    → production (auto)
+#   workflow_dispatch → pick the environment
+#
+# The compose file, Caddyfile and .env live on the server. .env holds the
+# secrets and is never baked into the image. Compose + Caddyfile are shipped
+# fresh on every deploy so config changes propagate.
 
-# NOTE: automatic deploy on push is DISABLED until the VPS exists.
-#
-# The workflow is complete and correct, but there is nowhere to deploy to yet:
-# VPS_HOST / VPS_USER / VPS_SSH_KEY / VPS_APP_DIR are unset, so every push would
-# build an image and then fail at the SSH step. Re-enable by uncommenting the
-# `push:` trigger once the server and those secrets are in place.
 on:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [staging, main]
   workflow_dispatch:
     inputs:
       environment:
@@ -25,9 +23,6 @@ on:
         default: staging
 
 concurrency:
-  # Never let two deploys race onto the same host. `cancel-in-progress: false`
-  # because cancelling mid-deploy could leave migrations applied and the old
-  # image still serving.
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
@@ -41,18 +36,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
       - run: npm ci
-
       - name: Typecheck
         run: npm run typecheck
-
-      - name: Lint (includes the clean-architecture layer rules)
+      - name: Lint
         run: npm run lint
 
   # --- Build and publish the image ------------------------------------------
@@ -62,11 +53,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -76,12 +64,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # NEXT_PUBLIC_* are inlined into the client bundle at build time. They are
+      # not secrets (they ship to every browser), so they are resolved per
+      # branch here rather than from protected secrets.
+      - name: Resolve public build vars
+        id: pub
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "site=https://app.fancyfinerybup.com"                        >> "$GITHUB_OUTPUT"
+            echo "media=https://media.fancyfinerybup.com/product-media"       >> "$GITHUB_OUTPUT"
+            echo "paystack_pk="                                               >> "$GITHUB_OUTPUT"
+            echo "stripe_pk="                                                 >> "$GITHUB_OUTPUT"
+          else
+            echo "site=https://app.staging.fancyfinerybup.com"               >> "$GITHUB_OUTPUT"
+            echo "media=https://media.staging.fancyfinerybup.com/product-media" >> "$GITHUB_OUTPUT"
+            echo "paystack_pk=pk_test_1a1fec024222ba28bd902380bb1511969115e080" >> "$GITHUB_OUTPUT"
+            echo "stripe_pk="                                                 >> "$GITHUB_OUTPUT"
+          fi
+
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # A commit-SHA tag as well as `latest`, so a rollback is
-          # `APP_IMAGE=...:sha-abc1234 docker compose up -d` and nothing else.
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
@@ -95,21 +99,32 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # NEXT_PUBLIC_* are inlined into the client bundle at build time, so
-          # they have to be supplied here rather than at run time. They are not
-          # secrets — they ship to every browser regardless.
           build-args: |
-            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
-            NEXT_PUBLIC_MEDIA_URL=${{ vars.NEXT_PUBLIC_MEDIA_URL }}
-            NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
-            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ steps.pub.outputs.site }}
+            NEXT_PUBLIC_MEDIA_URL=${{ steps.pub.outputs.media }}
+            NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${{ steps.pub.outputs.paystack_pk }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ steps.pub.outputs.stripe_pk }}
 
   # --- Ship it ---------------------------------------------------------------
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'staging' }}
+    environment: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
     steps:
+      - uses: actions/checkout@v4
+
+      # Ship the compose file + Caddyfile so on-server config always matches the
+      # commit being deployed. .env is NOT shipped — it holds secrets and lives
+      # only on the box.
+      - name: Ship compose + Caddyfile
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.prod.yml,Caddyfile"
+          target: ${{ secrets.VPS_APP_DIR }}
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -117,14 +132,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
+          envs: GITHUB_SHA
           script: |
             set -euo pipefail
             cd ${{ secrets.VPS_APP_DIR }}
-
-            # The compose file, Caddyfile and .env live on the server and are
-            # not in the image — .env holds the secrets and must never be baked
-            # into a layer anyone who can pull the image could read.
-            git pull --ff-only
 
             export APP_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${GITHUB_SHA::7}"
             echo "Deploying $APP_IMAGE"
@@ -134,18 +145,20 @@ jobs:
 
             docker compose -f docker-compose.prod.yml pull web
 
-            # Migrations run BEFORE the new image starts serving, in a one-shot
-            # container built from that same image. Running them from the image
-            # guarantees the SQL and the code that expects it are the same
-            # build. `--rm` so a failure leaves nothing behind, and script_stop
-            # aborts the deploy rather than starting an app against a schema it
-            # cannot use.
+            # Migrations run BEFORE the new image serves, in a one-shot container
+            # from the same build, so the SQL and the code that expects it match.
             docker compose -f docker-compose.prod.yml run --rm \
               --entrypoint "node scripts/db-migrate.mjs" web
 
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            # Staging gets the demo catalogue + bootstrap admin (idempotent).
+            # Production starts with an empty catalogue — admin only.
+            APP_ENV="$(grep -E '^APP_ENV=' .env | cut -d= -f2)"
+            if [ "$APP_ENV" = "staging" ]; then
+              docker compose -f docker-compose.prod.yml run --rm \
+                --entrypoint "node scripts/db-seed.mjs" web
+            fi
 
-            # Old images accumulate fast with per-commit tags.
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f --filter "until=168h"
 
       - name: Verify the site answers
@@ -157,13 +170,11 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            # Give the container its start_period, then prove it serves rather
-            # than trusting that `up -d` returning 0 means healthy.
-            for i in $(seq 1 30); do
+            for i in $(seq 1 40); do
               if docker exec fancy-web node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
                 echo "Healthy after ${i}s"; exit 0
               fi
-              sleep 1
+              sleep 2
             done
-            echo "Site did not become healthy — check: docker compose -f docker-compose.prod.yml logs web"
+            echo "Site did not become healthy — docker compose -f docker-compose.prod.yml logs web"
             exit 1
