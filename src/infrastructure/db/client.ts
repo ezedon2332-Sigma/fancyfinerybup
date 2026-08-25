@@ -15,9 +15,16 @@ import * as schema from "./schema";
  * role, and authorization is decided in application code (the repository
  * adapters and the requireAdmin gate). See docs/MIGRATION_PLAN.md Phase 6.
  *
- * Next.js dev reloads modules on every edit, which would leak a pool per reload
- * and exhaust Postgres' connection limit within a few saves. Stashing the pool
- * on globalThis is the standard fix; production takes the plain path.
+ * **Nothing here runs until the first query.** The pool used to be constructed
+ * at module scope, which read DATABASE_URL the moment anything imported this
+ * file. `next build` imports every route module to collect page data, so the
+ * build demanded a live database and failed in CI and inside `docker build` —
+ * neither of which has one, or should. Building compiles code; it does not run
+ * the app.
+ *
+ * The `db` export is a Proxy so that stays invisible to callers: every existing
+ * `db.select(...)` and `db.query.products.findMany(...)` works unchanged, and
+ * the connection is opened by whichever of them runs first.
  */
 function createPool(): Pool {
   return new Pool({
@@ -30,14 +37,51 @@ function createPool(): Pool {
   });
 }
 
-const globalForDb = globalThis as unknown as { __fancyPool?: Pool };
+type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 
-const pool = globalForDb.__fancyPool ?? createPool();
-if (process.env.NODE_ENV !== "production") globalForDb.__fancyPool = pool;
+/**
+ * Next.js dev reloads modules on every edit, which would leak a pool per reload
+ * and exhaust Postgres' connection limit within a few saves. Stashing both the
+ * pool and the Drizzle instance on globalThis is the standard fix; production
+ * simply memoises on first use.
+ */
+const globalForDb = globalThis as unknown as {
+  __fancyPool?: Pool;
+  __fancyDb?: DrizzleDb;
+};
 
-export const db = drizzle(pool, { schema, casing: "snake_case" });
+function getDb(): DrizzleDb {
+  if (!globalForDb.__fancyDb) {
+    globalForDb.__fancyPool ??= createPool();
+    globalForDb.__fancyDb = drizzle(globalForDb.__fancyPool, {
+      schema,
+      casing: "snake_case",
+    });
+  }
+  return globalForDb.__fancyDb;
+}
+
+export const db = new Proxy({} as DrizzleDb, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getDb(), prop, receiver);
+  },
+  // `has` and `ownKeys` keep `in` checks and spreads honest, so the Proxy is
+  // not merely "good enough for the calls we happen to make today".
+  has(_target, prop) {
+    return Reflect.has(getDb(), prop);
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getDb());
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    return Reflect.getOwnPropertyDescriptor(getDb(), prop);
+  },
+});
 
 /** The pool itself, for the rare raw query and for scripts that must close it. */
-export { pool };
+export function getPool(): Pool {
+  globalForDb.__fancyPool ??= createPool();
+  return globalForDb.__fancyPool;
+}
 
-export type Database = typeof db;
+export type Database = DrizzleDb;

@@ -49,9 +49,11 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # The build validates env at import time and inlines NEXT_PUBLIC_*.
-          # Placeholders are enough to prove it compiles; nothing here reaches a
-          # real service.
+          # Only NEXT_PUBLIC_* are needed: Next inlines those into the client
+          # bundle at build time, so they must exist now. Server-side variables
+          # are read lazily on first use (src/config/server-env.ts), so the
+          # build needs no database, no auth secret and no storage credentials —
+          # which is the point, since CI has none of them.
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_MEDIA_URL: http://localhost:9000/product-media
 
@@ -117,7 +119,7 @@ jobs:
 
       # Known-vulnerable packages in package-lock.json.
       - name: Trivy — vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -140,7 +142,7 @@ jobs:
       # Committed credentials. This repository has a live payment key in local
       # .env by design, so the check that .env stays git-ignored is real.
       - name: Trivy — secrets
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -151,7 +153,7 @@ jobs:
       # Dockerfile and compose misconfiguration — running as root, no user,
       # exposed ports, missing healthchecks.
       - name: Trivy — IaC / config
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: .
@@ -159,7 +161,7 @@ jobs:
           exit-code: "1"
 
       - name: Fail on CRITICAL/HIGH dependency vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -194,7 +196,7 @@ jobs:
             NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/product-media
 
       - name: Trivy — image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: fancyfinery:ci
@@ -212,7 +214,7 @@ jobs:
           category: trivy-image
 
       - name: Fail on CRITICAL image vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: fancyfinery:ci

@@ -40,120 +40,159 @@ import { consumeInviteForEmail } from "@/infrastructure/db/admin-invite-service"
  *    revocation or an audit trail.
  */
 
-const googleEnabled = Boolean(
-  serverEnv.googleClientId && serverEnv.googleClientSecret,
-);
+/**
+ * Built on first use, never at import.
+ *
+ * `betterAuth({...})` reads BETTER_AUTH_SECRET while constructing, so building
+ * it at module scope made merely importing this file require the secret.
+ * `next build` imports every route module to collect page data, so the build
+ * demanded production secrets and failed in CI and inside `docker build`.
+ *
+ * The `auth` export is a Proxy, so `auth.api.signInEmail(...)` and the route
+ * handler's `auth.handler` are unchanged at every call site — the instance is
+ * simply created by whichever one runs first, at which point the secret really
+ * is required and a missing one still fails loudly by name.
+ */
+const globalForAuth = globalThis as unknown as {
+  __fancyAuth?: ReturnType<typeof buildAuth>;
+};
 
-export const auth = betterAuth({
-  appName: "Fancy Finery",
-  secret: serverEnv.betterAuthSecret,
-  baseURL: serverEnv.betterAuthUrl,
+function buildAuth() {
+  const googleEnabled = Boolean(
+    serverEnv.googleClientId && serverEnv.googleClientSecret,
+  );
 
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema,
-    // Our tables are `auth_user`/`auth_session`/…; the JS exports keep Better
-    // Auth's model names, so only the physical names differ.
-    usePlural: false,
-  }),
+  return betterAuth({
+    appName: "Fancy Finery",
+    secret: serverEnv.betterAuthSecret,
+    baseURL: serverEnv.betterAuthUrl,
 
-  advanced: {
-    database: {
-      // Match the uuid columns the rest of the schema references.
-      generateId: () => randomUUID(),
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      schema,
+      // Our tables are `auth_user`/`auth_session`/…; the JS exports keep Better
+      // Auth's model names, so only the physical names differ.
+      usePlural: false,
+    }),
+
+    advanced: {
+      database: {
+        // Match the uuid columns the rest of the schema references.
+        generateId: () => randomUUID(),
+      },
+      cookiePrefix: "fancy",
     },
-    cookiePrefix: "fancy",
-  },
 
-  // Opt out of the package's anonymous usage reporting: this is a self-hosted
-  // deployment and nothing about it should leave the VPS uninvited.
-  telemetry: { enabled: false },
+    // Opt out of the package's anonymous usage reporting: this is a self-hosted
+    // deployment and nothing about it should leave the VPS uninvited.
+    telemetry: { enabled: false },
 
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 8,
-    // Supabase required a confirmed address before sign-in; keep that.
-    requireEmailVerification: true,
-    sendResetPassword: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your Fancy Finery password",
-        html: resetPasswordHtml(url),
-        text: `Reset your password: ${url}`,
-      });
-    },
-  },
-
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: "Confirm your Fancy Finery account",
-        html: confirmSignupHtml(url),
-        text: `Confirm your account: ${url}`,
-      });
-    },
-  },
-
-  socialProviders: googleEnabled
-    ? {
-        google: {
-          clientId: serverEnv.googleClientId!,
-          clientSecret: serverEnv.googleClientSecret!,
-        },
-      }
-    : {},
-
-  plugins: [
-    magicLink({
-      sendMagicLink: async ({ email, url }) => {
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+      // Supabase required a confirmed address before sign-in; keep that.
+      requireEmailVerification: true,
+      sendResetPassword: async ({ user, url }) => {
         await sendEmail({
-          to: email,
-          subject: "Your Fancy Finery sign-in link",
-          html: magicLinkHtml(url),
-          text: `Sign in: ${url}`,
+          to: user.email,
+          subject: "Reset your Fancy Finery password",
+          html: resetPasswordHtml(url),
+          text: `Reset your password: ${url}`,
         });
       },
-    }),
-    // Must be last: lets Server Actions set auth cookies.
-    nextCookies(),
-  ],
+    },
 
-  databaseHooks: {
-    user: {
-      create: {
-        after: async (user) => {
-          // Replaces public.handle_new_user(). A pending invite promotes the
-          // account to admin and is consumed in the same step, so a link cannot
-          // mint two admins.
-          const invited = await consumeInviteForEmail(user.email, user.id);
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendEmail({
+          to: user.email,
+          subject: "Confirm your Fancy Finery account",
+          html: confirmSignupHtml(url),
+          text: `Confirm your account: ${url}`,
+        });
+      },
+    },
 
-          await db
-            .insert(schema.profiles)
-            .values({
-              id: user.id,
-              fullName: user.name || null,
-              avatarUrl: user.image || null,
-              role: invited ? "admin" : "customer",
-            })
-            .onConflictDoUpdate({
-              target: schema.profiles.id,
-              set: invited
-                ? { role: "admin" }
-                : { fullName: user.name || null },
-            });
+    socialProviders: googleEnabled
+      ? {
+          google: {
+            clientId: serverEnv.googleClientId!,
+            clientSecret: serverEnv.googleClientSecret!,
+          },
+        }
+      : {},
+
+    plugins: [
+      magicLink({
+        sendMagicLink: async ({ email, url }) => {
+          await sendEmail({
+            to: email,
+            subject: "Your Fancy Finery sign-in link",
+            html: magicLinkHtml(url),
+            text: `Sign in: ${url}`,
+          });
+        },
+      }),
+      // Must be last: lets Server Actions set auth cookies.
+      nextCookies(),
+    ],
+
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            // Replaces public.handle_new_user(). A pending invite promotes the
+            // account to admin and is consumed in the same step, so a link cannot
+            // mint two admins.
+            const invited = await consumeInviteForEmail(user.email, user.id);
+
+            await db
+              .insert(schema.profiles)
+              .values({
+                id: user.id,
+                fullName: user.name || null,
+                avatarUrl: user.image || null,
+                role: invited ? "admin" : "customer",
+              })
+              .onConflictDoUpdate({
+                target: schema.profiles.id,
+                set: invited
+                  ? { role: "admin" }
+                  : { fullName: user.name || null },
+              });
+          },
         },
       },
     },
+  });
+}
+
+type AuthInstance = ReturnType<typeof buildAuth>;
+
+export const auth = new Proxy({} as AuthInstance, {
+  get(_t, prop, receiver) {
+    globalForAuth.__fancyAuth ??= buildAuth();
+    return Reflect.get(globalForAuth.__fancyAuth, prop, receiver);
+  },
+  has(_t, prop) {
+    globalForAuth.__fancyAuth ??= buildAuth();
+    return Reflect.has(globalForAuth.__fancyAuth, prop);
   },
 });
 
 export type Auth = typeof auth;
 
-/** True when Google sign-in is configured; the UI hides the button otherwise. */
-export const isGoogleEnabled = googleEnabled;
+/**
+ * True when Google sign-in is configured; the UI hides the button otherwise.
+ *
+ * A function, not a const: a const would read the env vars at import time and
+ * reintroduce exactly the build-time coupling the Proxy above removes.
+ */
+export function isGoogleEnabled(): boolean {
+  return Boolean(serverEnv.googleClientId && serverEnv.googleClientSecret);
+}
 
 /** Look up a profile row directly — used by the session helpers. */
 export async function findProfileById(userId: string) {

@@ -7,9 +7,15 @@ name: Deploy
 # with the running site for CPU, and "works on the box that built it" is how
 # environments drift apart.
 
+# NOTE: automatic deploy on push is DISABLED until the VPS exists.
+#
+# The workflow is complete and correct, but there is nowhere to deploy to yet:
+# VPS_HOST / VPS_USER / VPS_SSH_KEY / VPS_APP_DIR are unset, so every push would
+# build an image and then fail at the SSH step. Re-enable by uncommenting the
+# `push:` trigger once the server and those secrets are in place.
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_dispatch:
     inputs:
       environment:
