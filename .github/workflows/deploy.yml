@@ -92,6 +92,20 @@ jobs:
             echo "dir=/opt/fancy/staging" >> "$GITHUB_OUTPUT"
           fi
 
+      # Production has no host/config yet (staging-first phase). Skip the deploy
+      # steps cleanly on main until PRODUCTION_ENV is set, instead of failing.
+      - name: Gate production until configured
+        id: guard
+        env:
+          PROD_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ] && [ -z "$PROD_ENV" ]; then
+            echo "PRODUCTION_ENV not set — production not provisioned yet. Skipping deploy."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Render the whole .env from the GitHub secret for this environment.
       - name: Render env (staging)
         if: github.ref_name != 'main'
@@ -99,12 +113,13 @@ jobs:
           BLOB: ${{ secrets.STAGING_ENV }}
         run: printf '%s' "$BLOB" > env.rendered
       - name: Render env (production)
-        if: github.ref_name == 'main'
+        if: github.ref_name == 'main' && steps.guard.outputs.skip != 'true'
         env:
           BLOB: ${{ secrets.PRODUCTION_ENV }}
         run: printf '%s' "$BLOB" > env.rendered
 
       - name: Ship .env + compose + Caddyfile
+        if: steps.guard.outputs.skip != 'true'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ vars.VPS_HOST }}
@@ -114,6 +129,7 @@ jobs:
           target: ${{ steps.t.outputs.dir }}
 
       - name: Deploy over SSH
+        if: steps.guard.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ vars.VPS_HOST }}
@@ -146,6 +162,7 @@ jobs:
             docker image prune -f --filter "until=168h"
 
       - name: Verify the site answers
+        if: steps.guard.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ vars.VPS_HOST }}
