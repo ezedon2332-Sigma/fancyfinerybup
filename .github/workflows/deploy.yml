@@ -2,25 +2,20 @@ name: Deploy
 
 # Build once in CI, push to GHCR, deploy the exact tagged image over SSH.
 #
-# Branch → environment:
-#   push to `staging` → staging   (auto)
-#   push to `main`    → production (auto)
-#   workflow_dispatch → pick the environment
+# GitHub is the single source of truth for configuration:
+#   - the whole runtime .env is stored as the secret STAGING_ENV / PRODUCTION_ENV
+#     and rendered onto the box on every deploy. Add/change a variable in GitHub;
+#     never edit the server.
+#   - NEXT_PUBLIC_* are inlined into the client bundle at BUILD time, so they come
+#     from repo Variables (they are public, not secrets).
 #
-# The compose file, Caddyfile and .env live on the server. .env holds the
-# secrets and is never baked into the image. Compose + Caddyfile are shipped
-# fresh on every deploy so config changes propagate.
+# Branch -> environment:  push `staging` -> staging,  push `main` -> production.
+# PRs land on `dev` first and are promoted.
 
 on:
   push:
     branches: [staging, main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: Target environment
-        type: choice
-        options: [staging, production]
-        default: staging
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -31,22 +26,16 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # --- Gate: never deploy something that does not compile --------------------
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
+        with: { node-version: 24, cache: npm }
       - run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Lint
-        run: npm run lint
+      - run: npm run typecheck
+      - run: npm run lint
 
-  # --- Build and publish the image ------------------------------------------
   build:
     needs: verify
     runs-on: ubuntu-latest
@@ -56,32 +45,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # NEXT_PUBLIC_* are inlined into the client bundle at build time. They are
-      # not secrets (they ship to every browser), so they are resolved per
-      # branch here rather than from protected secrets.
-      - name: Resolve public build vars
-        id: pub
-        run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "site=https://app.fancyfinerybup.com"                        >> "$GITHUB_OUTPUT"
-            echo "media=https://media.fancyfinerybup.com/product-media"       >> "$GITHUB_OUTPUT"
-            echo "paystack_pk="                                               >> "$GITHUB_OUTPUT"
-            echo "stripe_pk="                                                 >> "$GITHUB_OUTPUT"
-          else
-            echo "site=https://app.staging.fancyfinerybup.com"               >> "$GITHUB_OUTPUT"
-            echo "media=https://media.staging.fancyfinerybup.com/product-media" >> "$GITHUB_OUTPUT"
-            echo "paystack_pk=pk_test_1a1fec024222ba28bd902380bb1511969115e080" >> "$GITHUB_OUTPUT"
-            echo "stripe_pk="                                                 >> "$GITHUB_OUTPUT"
-          fi
-
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -89,7 +58,6 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -99,63 +67,73 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # NEXT_PUBLIC_* come from repo Variables (public, baked into the client bundle).
           build-args: |
-            NEXT_PUBLIC_SITE_URL=${{ steps.pub.outputs.site }}
-            NEXT_PUBLIC_MEDIA_URL=${{ steps.pub.outputs.media }}
-            NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${{ steps.pub.outputs.paystack_pk }}
-            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ steps.pub.outputs.stripe_pk }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_MEDIA_URL=${{ vars.NEXT_PUBLIC_MEDIA_URL }}
+            NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
-  # --- Ship it ---------------------------------------------------------------
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
     steps:
       - uses: actions/checkout@v4
 
-      # Ship the compose file + Caddyfile so on-server config always matches the
-      # commit being deployed. .env is NOT shipped — it holds secrets and lives
-      # only on the box.
-      - name: Ship compose + Caddyfile
+      - name: Resolve target dir
+        id: t
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "dir=/opt/fancy/production" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=/opt/fancy/staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Render the whole .env from the GitHub secret for this environment.
+      - name: Render env (staging)
+        if: github.ref_name != 'main'
+        env: { BLOB: ${{ secrets.STAGING_ENV }} }
+        run: printf '%s' "$BLOB" > env.rendered
+      - name: Render env (production)
+        if: github.ref_name == 'main'
+        env: { BLOB: ${{ secrets.PRODUCTION_ENV }} }
+        run: printf '%s' "$BLOB" > env.rendered
+
+      - name: Ship .env + compose + Caddyfile
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml,Caddyfile"
-          target: ${{ secrets.VPS_APP_DIR }}
+          source: "env.rendered,docker-compose.prod.yml,Caddyfile"
+          target: ${{ steps.t.outputs.dir }}
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
           envs: GITHUB_SHA
           script: |
             set -euo pipefail
-            cd ${{ secrets.VPS_APP_DIR }}
+            cd ${{ steps.t.outputs.dir }}
+            mv -f env.rendered .env && chmod 600 .env
 
             export APP_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${GITHUB_SHA::7}"
             echo "Deploying $APP_IMAGE"
 
-            echo "${{ secrets.GITHUB_TOKEN }}" \
-              | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull web
 
-            # Migrations run BEFORE the new image serves, in a one-shot container
-            # from the same build, so the SQL and the code that expects it match.
-            docker compose -f docker-compose.prod.yml run --rm \
-              --entrypoint "node scripts/db-migrate.mjs" web
+            docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-migrate.mjs" web
 
             # Staging gets the demo catalogue + bootstrap admin (idempotent).
             # Production starts with an empty catalogue — admin only.
             APP_ENV="$(grep -E '^APP_ENV=' .env | cut -d= -f2)"
             if [ "$APP_ENV" = "staging" ]; then
-              docker compose -f docker-compose.prod.yml run --rm \
-                --entrypoint "node scripts/db-seed.mjs" web
+              docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-seed.mjs" web
             fi
 
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
@@ -164,17 +142,16 @@ jobs:
       - name: Verify the site answers
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
           script: |
             set -euo pipefail
             for i in $(seq 1 40); do
               if docker exec fancy-web node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
-                echo "Healthy after ${i}s"; exit 0
+                echo "Healthy after ${i} tries"; exit 0
               fi
               sleep 2
             done
-            echo "Site did not become healthy — docker compose -f docker-compose.prod.yml logs web"
-            exit 1
+            echo "Not healthy — docker compose -f docker-compose.prod.yml logs web"; exit 1
