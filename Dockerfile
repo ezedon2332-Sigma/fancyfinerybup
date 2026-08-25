@@ -68,6 +68,12 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/db ./db
 COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
 
+# Next bundles better-auth into the server rather than leaving it resolvable in
+# node_modules, but the plain-Node admin seed (scripts/seed-admin.mjs) imports
+# `better-auth/crypto` to hash the bootstrap password. Install it (pinned to the
+# app's version) so the migration/seed runners resolve it. pg is already traced.
+RUN npm install --no-save --no-audit --no-fund better-auth@1.6.28
+
 USER nextjs
 EXPOSE 3000
 
