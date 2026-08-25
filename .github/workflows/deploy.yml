@@ -69,9 +69,9 @@ jobs:
           cache-to: type=gha,mode=max
           # NEXT_PUBLIC_* come from repo Variables (public, baked into the client bundle).
           build-args: |
-            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
-            NEXT_PUBLIC_MEDIA_URL=${{ vars.NEXT_PUBLIC_MEDIA_URL }}
-            NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ github.ref_name == 'main' && vars.PROD_NEXT_PUBLIC_SITE_URL || vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_MEDIA_URL=${{ github.ref_name == 'main' && vars.PROD_NEXT_PUBLIC_MEDIA_URL || vars.NEXT_PUBLIC_MEDIA_URL }}
+            NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${{ github.ref_name == 'main' && vars.PROD_NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || vars.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
             NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
   deploy:
@@ -122,7 +122,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ vars.VPS_HOST }}
+          host: ${{ github.ref_name == 'main' && vars.PROD_VPS_HOST || vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "env.rendered,docker-compose.prod.yml,Caddyfile"
@@ -132,7 +132,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ vars.VPS_HOST }}
+          host: ${{ github.ref_name == 'main' && vars.PROD_VPS_HOST || vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
@@ -151,12 +151,9 @@ jobs:
 
             docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-migrate.mjs" web
 
-            # Staging gets the demo catalogue + bootstrap admin (idempotent).
-            # Production starts with an empty catalogue — admin only.
-            APP_ENV="$(grep -E '^APP_ENV=' .env | cut -d= -f2)"
-            if [ "$APP_ENV" = "staging" ]; then
-              docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-seed.mjs" web
-            fi
+            # Seed: staging gets demo catalogue + admin; production gets admin only
+            # (db-seed.mjs skips the catalogue when APP_ENV=production). Idempotent.
+            docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-seed.mjs" web
 
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f --filter "until=168h"
@@ -165,7 +162,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ vars.VPS_HOST }}
+          host: ${{ github.ref_name == 'main' && vars.PROD_VPS_HOST || vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true

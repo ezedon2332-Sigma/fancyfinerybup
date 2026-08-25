@@ -29,14 +29,18 @@ const client = new pg.Client({ connectionString: url });
 try {
   await client.connect();
 
+  // Production starts with an empty catalogue (real products are added in Admin);
+  // only staging seeds the demo catalogue. Both environments seed the admin.
   const seedFile = join(root, "db", "seed.sql");
-  if (existsSync(seedFile)) {
+  if (existsSync(seedFile) && process.env.APP_ENV !== "production") {
     process.stdout.write("  catalogue … ");
     await client.query(readFileSync(seedFile, "utf8"));
     const { rows } = await client.query(
       "select (select count(*)::int from products) p, (select count(*)::int from categories) c",
     );
     console.log(`ok (${rows[0].p} products, ${rows[0].c} categories)`);
+  } else if (process.env.APP_ENV === "production") {
+    console.log("  catalogue … skipped (production starts empty)");
   }
 
   await seedAdmin(client);
