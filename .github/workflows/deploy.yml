@@ -77,6 +77,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -123,7 +126,8 @@ jobs:
             cd ${{ steps.t.outputs.dir }}
             mv -f env.rendered .env && chmod 600 .env
 
-            export APP_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${GITHUB_SHA::7}"
+            IMG="$(echo '${{ env.IMAGE_NAME }}' | tr 'A-Z' 'a-z')"
+            export APP_IMAGE="${{ env.REGISTRY }}/$IMG:sha-${GITHUB_SHA::7}"
             echo "Deploying $APP_IMAGE"
 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
