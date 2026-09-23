@@ -29,7 +29,13 @@ const LABEL = "mb-1.5 block text-xs font-medium uppercase tracking-widest text-g
  * forgot-password. Elegant, minimal, on-brand; all logic runs through the
  * Better Auth browser client + the secure signUpAction.
  */
-export function AuthPanel({ mode }: { mode: Mode }) {
+/**
+ * `googleEnabled` comes from the server (isGoogleEnabled()), because the
+ * provider is only registered when both Google credentials are set. Without
+ * it the button rendered unconditionally and every click returned "provider
+ * not found" — a dead control on a live storefront.
+ */
+export function AuthPanel({ mode, googleEnabled }: { mode: Mode; googleEnabled: boolean }) {
   const router = useRouter();
   const [view, setView] = useState<View>(mode);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +125,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
               <Fade key="signup">
                 <SignUp
                   google={google}
+                  googleEnabled={googleEnabled}
                   onVerify={(email) => { setSentTo(email); setView("verify"); }}
                   setError={setError}
                 />
@@ -127,6 +134,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
               <Fade key="signin">
                 <SignIn
                   google={google}
+                  googleEnabled={googleEnabled}
                   onSignedIn={done}
                   onForgot={() => { setView("forgot"); setError(null); }}
                   setError={setError}
@@ -225,8 +233,8 @@ function Submit({ pending, label, busy }: { pending: boolean; label: string; bus
   );
 }
 
-function SignIn({ google, onSignedIn, onForgot, setError }: {
-  google: () => void; onSignedIn: () => void; onForgot: () => void; setError: (m: string | null) => void;
+function SignIn({ google, googleEnabled, onSignedIn, onForgot, setError }: {
+  google: () => void; googleEnabled: boolean; onSignedIn: () => void; onForgot: () => void; setError: (m: string | null) => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -262,8 +270,12 @@ function SignIn({ google, onSignedIn, onForgot, setError }: {
 
   return (
     <div>
-      <GoogleButton onClick={google} />
-      <Divider />
+      {googleEnabled && (
+        <>
+          <GoogleButton onClick={google} />
+          <Divider />
+        </>
+      )}
       <form onSubmit={submit} className="space-y-4">
         <div>
           <label htmlFor="si-email" className={LABEL}>Email</label>
@@ -282,8 +294,9 @@ function SignIn({ google, onSignedIn, onForgot, setError }: {
   );
 }
 
-function SignUp({ google, onVerify, setError }: {
+function SignUp({ google, googleEnabled, onVerify, setError }: {
   google: () => void;
+  googleEnabled: boolean;
   onVerify: (email: string) => void;
   setError: (m: string | null) => void;
 }) {
@@ -313,8 +326,12 @@ function SignUp({ google, onVerify, setError }: {
 
   return (
     <div>
-      <GoogleButton onClick={google} />
-      <Divider />
+      {googleEnabled && (
+        <>
+          <GoogleButton onClick={google} />
+          <Divider />
+        </>
+      )}
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="absolute left-[-9999px] h-px w-px overflow-hidden" aria-hidden>
           <input tabIndex={-1} autoComplete="off" value={form.website} onChange={(e) => set("website")(e.target.value)} />

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { AuthPanel } from "@/components/auth/AuthPanel";
+import { isGoogleEnabled } from "@/infrastructure/auth/auth";
 import { getCurrentUser } from "@/infrastructure/auth/session";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -32,7 +33,7 @@ export default async function LoginPage({
       {/* AuthPanel reads the `redirect` query param via useSearchParams, which
           Next requires to sit under a Suspense boundary. */}
       <Suspense fallback={<div className="h-96 w-full max-w-md" />}>
-        <AuthPanel mode="signin" />
+        <AuthPanel mode="signin" googleEnabled={isGoogleEnabled()} />
       </Suspense>
     </div>
   );

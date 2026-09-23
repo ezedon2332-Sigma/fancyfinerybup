@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { AuthPanel } from "@/components/auth/AuthPanel";
+import { isGoogleEnabled } from "@/infrastructure/auth/auth";
 import { getCurrentUser } from "@/infrastructure/auth/session";
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default async function SignUpPage() {
     <div className="flex min-h-[75vh] items-center justify-center px-5 py-16 sm:px-6">
       {/* AuthPanel reads ?redirect via useSearchParams. */}
       <Suspense fallback={<div className="h-96 w-full max-w-md" />}>
-        <AuthPanel mode="signup" />
+        <AuthPanel mode="signup" googleEnabled={isGoogleEnabled()} />
       </Suspense>
     </div>
   );
