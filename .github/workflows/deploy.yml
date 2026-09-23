@@ -157,14 +157,16 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull web
 
+            # Shared with the edge proxy, and declared external by both stacks.
+            # Must exist before ANY compose command that attaches to it —
+            # `run --rm` for the migration joins it just as `up` does.
+            docker network create fancy-edge 2>/dev/null || true
+
             docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-migrate.mjs" web
 
             # Seed: staging gets demo catalogue + admin; production gets admin only
             # (db-seed.mjs skips the catalogue when APP_ENV=production). Idempotent.
             docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-seed.mjs" web
-
-            # Shared with the edge proxy. Created once per host; harmless after.
-            docker network create fancy-edge 2>/dev/null || true
 
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
