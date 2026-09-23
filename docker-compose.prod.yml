@@ -95,7 +95,7 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: fancy-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -115,7 +115,7 @@ services:
   # least-privilege service account for the app, then exit. Idempotent — safe to
   # re-run on every `up`. The app authenticates with S3_ACCESS_KEY_ID, never root.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     depends_on:
       minio:
         condition: service_healthy

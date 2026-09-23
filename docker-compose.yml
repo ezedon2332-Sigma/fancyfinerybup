@@ -38,7 +38,7 @@ services:
       start_period: 10s
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: fancy-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -60,7 +60,7 @@ services:
   # One-shot: creates the bucket and makes `products/*` publicly readable.
   # Exits 0 once done; `docker compose ps` showing it as Exited is correct.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: fancy-minio-init
     depends_on:
       minio:
