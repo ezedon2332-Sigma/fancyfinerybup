@@ -125,7 +125,7 @@ jobs:
           host: ${{ github.ref_name == 'main' && vars.PROD_VPS_HOST || vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "env.rendered,docker-compose.prod.yml,Caddyfile"
+          source: "env.rendered,docker-compose.prod.yml,docker-compose.edge.yml,Caddyfile"
           target: ${{ steps.t.outputs.dir }}
 
       - name: Deploy over SSH
@@ -146,6 +146,14 @@ jobs:
             export APP_IMAGE="${{ env.REGISTRY }}/$IMG:sha-${GITHUB_SHA::7}"
             echo "Deploying $APP_IMAGE"
 
+            # Read back from .env rather than sourcing it: EMAIL_FROM is a quoted
+            # value with spaces and `.` would choke on it.
+            cfg() { grep -E "^$1=" .env | head -1 | cut -d= -f2- | tr -d '"'; }
+            export APP_ENV="$(cfg APP_ENV)"
+            # Namespaces containers, networks and volumes, so staging and
+            # production can share one host without colliding.
+            export COMPOSE_PROJECT_NAME="fancy-$APP_ENV"
+
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull web
 
@@ -155,7 +163,27 @@ jobs:
             # (db-seed.mjs skips the catalogue when APP_ENV=production). Idempotent.
             docker compose -f docker-compose.prod.yml run --rm --entrypoint "node scripts/db-seed.mjs" web
 
+            # Shared with the edge proxy. Created once per host; harmless after.
+            docker network create fancy-edge 2>/dev/null || true
+
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # The single Caddy for the whole host, deployed out of band so that
+            # neither environment's proxy depends on the other's deploy. Each
+            # environment contributes only its own domains, and they are
+            # concatenated so redeploying one never drops the other's vhosts.
+            install -d /opt/fancy/edge
+            cp -f docker-compose.edge.yml Caddyfile /opt/fancy/edge/
+            UP="$(echo "$APP_ENV" | tr '[:lower:]' '[:upper:]')"
+            {
+              echo "ACME_EMAIL=$(cfg ACME_EMAIL)"
+              echo "APP_DOMAIN_${UP}=$(cfg APP_DOMAIN)"
+              echo "MEDIA_DOMAIN_${UP}=$(cfg MEDIA_DOMAIN)"
+              if [ -n "$(cfg WWW_DOMAIN)" ]; then echo "WWW_DOMAIN=$(cfg WWW_DOMAIN)"; fi
+            } > "/opt/fancy/edge/.env.$APP_ENV"
+            cat /opt/fancy/edge/.env.* > /opt/fancy/edge/.env
+            (cd /opt/fancy/edge && docker compose -f docker-compose.edge.yml up -d)
+
             docker image prune -f --filter "until=168h"
 
       - name: Verify the site answers
@@ -169,7 +197,7 @@ jobs:
           script: |
             set -euo pipefail
             for i in $(seq 1 40); do
-              if docker exec fancy-web node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              if docker exec "fancy-$(grep -E '^APP_ENV=' ${{ steps.t.outputs.dir }}/.env | cut -d= -f2-)-web" node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
                 echo "Healthy after ${i} tries"; exit 0
               fi
               sleep 2

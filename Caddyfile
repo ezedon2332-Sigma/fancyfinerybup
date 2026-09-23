@@ -1,28 +1,26 @@
-# Fancy Finery — reverse proxy and TLS.
+# Fancy Finery — reverse proxy and TLS for the whole host.
 #
-# Caddy obtains and renews Let's Encrypt certificates on its own; there is no
-# certbot step and no renewal cron. Both hostnames must already resolve to this
-# server before the first start, or the ACME challenge fails.
+# Runs in the shared edge stack (docker-compose.edge.yml), NOT inside an app
+# stack: staging and production are two compose stacks on one box and only one
+# process can bind :80/:443.
+#
+# Upstreams are network aliases on the external `fancy-edge` network, published
+# by each app stack as web-<env> and minio-<env>. An environment that is not
+# deployed simply has no alias; its hostnames 502 until it is.
+#
+# Caddy obtains and renews Let's Encrypt certificates on its own. Every hostname
+# below must already resolve to this server, or its ACME challenge fails. Unset
+# domains fall back to http://localhost:<port>, which never requests a cert.
 
 {
 	email {$ACME_EMAIL}
 }
 
-# --- www -> apex redirect ---------------------------------------------------
-# Production sets WWW_DOMAIN=www.fancyfinerybup.com and this 301s it to the apex.
-# Staging has no www (it uses an app.staging.* subdomain), so WWW_DOMAIN defaults
-# to http://localhost — a harmless internal address that never requests a cert.
-{$WWW_DOMAIN} {
-	redir https://{$APP_DOMAIN}{uri} permanent
-}
-
-# --- Storefront + admin -----------------------------------------------------
-{$APP_DOMAIN} {
+(proxy_app) {
 	encode zstd gzip
-
 	# The app sets its own CSP, HSTS and frame headers (next.config.ts); they are
 	# not duplicated here, so there is one place to change them.
-	reverse_proxy web:3000 {
+	reverse_proxy {args[0]} {
 		# Next reads these to build absolute URLs and to see the real client IP,
 		# which the rate limiters key on. Without them every request appears to
 		# come from the proxy and one abusive client would throttle everyone.
@@ -31,22 +29,40 @@
 	}
 }
 
-# --- Product media ----------------------------------------------------------
-# MinIO is not published to the host; it is reachable only through here.
-{$MEDIA_DOMAIN} {
+(proxy_media) {
 	encode zstd gzip
-
 	# Uploads are browser -> MinIO via a presigned PUT, so this host must accept
 	# PUT as well as GET. The signature is what authorises the write; Caddy is
 	# only carrying it.
-	reverse_proxy minio:9000 {
+	reverse_proxy {args[0]} {
 		header_up Host {upstream_hostport}
 	}
-
 	# Object paths are immutable (products/<uuid>.<ext>), so a long cache is safe
 	# — replacing a photo yields a new path, never a changed one.
 	header /products/* Cache-Control "public, max-age=31536000, immutable"
-
 	# Nothing here is ever a document; stop the browser guessing otherwise.
 	header X-Content-Type-Options nosniff
+}
+
+# --- www -> apex redirect ---------------------------------------------------
+{$WWW_DOMAIN} {
+	redir https://{$APP_DOMAIN_PRODUCTION}{uri} permanent
+}
+
+# --- Production -------------------------------------------------------------
+{$APP_DOMAIN_PRODUCTION} {
+	import proxy_app web-production:3000
+}
+
+{$MEDIA_DOMAIN_PRODUCTION} {
+	import proxy_media minio-production:9000
+}
+
+# --- Staging ----------------------------------------------------------------
+{$APP_DOMAIN_STAGING} {
+	import proxy_app web-staging:3000
+}
+
+{$MEDIA_DOMAIN_STAGING} {
+	import proxy_media minio-staging:9000
 }

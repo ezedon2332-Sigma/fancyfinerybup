@@ -18,7 +18,7 @@
 services:
   web:
     image: ${APP_IMAGE:-ghcr.io/OWNER/fancyfinery:latest}
-    container_name: fancy-web
+    container_name: fancy-${APP_ENV}-web
     restart: unless-stopped
     depends_on:
       postgres:
@@ -63,10 +63,15 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-}
     expose:
       - "3000"
+    networks:
+      default:
+      fancy-edge:
+        aliases:
+          - web-${APP_ENV}
 
   postgres:
     image: postgres:17-alpine
-    container_name: fancy-postgres
+    container_name: fancy-${APP_ENV}-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?}
@@ -85,7 +90,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: fancy-redis
+    container_name: fancy-${APP_ENV}-redis
     restart: unless-stopped
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
     healthcheck:
@@ -96,7 +101,7 @@ services:
 
   minio:
     image: quay.io/minio/minio:latest
-    container_name: fancy-minio
+    container_name: fancy-${APP_ENV}-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -104,6 +109,11 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
     volumes:
       - minio-data:/data
+    networks:
+      default:
+      fancy-edge:
+        aliases:
+          - minio-${APP_ENV}
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
@@ -135,32 +145,9 @@ services:
       "
     restart: "no"
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: fancy-caddy
-    restart: unless-stopped
-    depends_on:
-      - web
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:?}
-      MEDIA_DOMAIN: ${MEDIA_DOMAIN:?}
-      ACME_EMAIL: ${ACME_EMAIL:?}
-      # Production: www.fancyfinerybup.com (301 -> apex). Staging leaves it unset,
-      # so it falls back to a harmless internal address (no cert requested).
-      WWW_DOMAIN: ${WWW_DOMAIN:-http://localhost}
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-
-  # Replaces the Vercel cron entries. Sends the bearer token the /api/cron/*
-  # routes require, so the endpoints stay closed to anyone else.
   ofelia:
     image: mcuadros/ofelia:latest
-    container_name: fancy-cron
+    container_name: fancy-${APP_ENV}-cron
     restart: unless-stopped
     depends_on:
       - web
@@ -182,5 +169,12 @@ services:
 volumes:
   postgres-data:
   minio-data:
-  caddy-data:
-  caddy-config:
+
+networks:
+  # Internal per-stack network; Compose namespaces it by COMPOSE_PROJECT_NAME,
+  # so staging and production never share a database or a cache.
+  default:
+  # Shared with docker-compose.edge.yml, where the single Caddy lives. Created
+  # once per host:  docker network create fancy-edge
+  fancy-edge:
+    external: true

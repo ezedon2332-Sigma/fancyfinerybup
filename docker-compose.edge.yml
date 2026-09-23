@@ -1,0 +1,47 @@
+# Fancy Finery — shared edge proxy.
+#
+# One Caddy for the whole host. It exists because staging and production run as
+# two separate compose stacks on the SAME box: only one process can bind :80 and
+# :443, so the proxy cannot live inside either stack.
+#
+#   docker compose -f docker-compose.edge.yml up -d
+#
+# Deployed once, independently of both app stacks — neither has to be up for the
+# other to be reachable, and redeploying an app never restarts the proxy.
+#
+# Reaches the app stacks over the external `fancy-edge` network, which each
+# stack joins with the aliases web-<env> and minio-<env>. Create it once with:
+#   docker network create fancy-edge
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: fancy-edge-caddy
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?}
+      # Production hostnames. Leave unset before production exists — they then
+      # fall back to a harmless internal address and no certificate is sought.
+      APP_DOMAIN_PRODUCTION: ${APP_DOMAIN_PRODUCTION:-http://localhost:9081}
+      MEDIA_DOMAIN_PRODUCTION: ${MEDIA_DOMAIN_PRODUCTION:-http://localhost:9082}
+      WWW_DOMAIN: ${WWW_DOMAIN:-http://localhost:9083}
+      # Staging hostnames, same fallback rule.
+      APP_DOMAIN_STAGING: ${APP_DOMAIN_STAGING:-http://localhost:9084}
+      MEDIA_DOMAIN_STAGING: ${MEDIA_DOMAIN_STAGING:-http://localhost:9085}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - fancy-edge
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  fancy-edge:
+    external: true
