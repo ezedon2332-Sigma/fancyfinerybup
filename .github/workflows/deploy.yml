@@ -184,7 +184,11 @@ jobs:
               if [ -n "$(cfg WWW_DOMAIN)" ]; then echo "WWW_DOMAIN=$(cfg WWW_DOMAIN)"; fi
             } > "/opt/fancy/edge/.env.$APP_ENV"
             cat /opt/fancy/edge/.env.* > /opt/fancy/edge/.env
-            (cd /opt/fancy/edge && docker compose -f docker-compose.edge.yml up -d)
+            # Fixed project name, NOT COMPOSE_PROJECT_NAME: the edge stack belongs
+            # to the host, not to an environment. Without -p it is absorbed into
+            # whichever environment deployed last, and the next environment then
+            # tries to start a second Caddy on :80/:443.
+            (cd /opt/fancy/edge && docker compose -p fancy-edge -f docker-compose.edge.yml up -d)
 
             docker image prune -f --filter "until=168h"
 
