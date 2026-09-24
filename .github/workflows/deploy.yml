@@ -189,6 +189,15 @@ jobs:
             # tries to start a second Caddy on :80/:443.
             (cd /opt/fancy/edge && docker compose -p fancy-edge -f docker-compose.edge.yml up -d)
 
+            # Caddy reads its Caddyfile once, at start. The file is a bind
+            # mount, and `up -d` does not recreate a container when only a
+            # mounted file's CONTENTS changed — so without this a Caddyfile
+            # change deploys green and has no effect until something else
+            # restarts the proxy. Reload is graceful: no dropped connections,
+            # and a config that fails to adapt leaves the old one running.
+            docker exec fancy-edge-caddy \
+              caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
             docker image prune -f --filter "until=168h"
 
       - name: Verify the site answers
