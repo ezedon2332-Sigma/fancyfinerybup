@@ -55,9 +55,15 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # The environment MUST be part of the tag. NEXT_PUBLIC_* are baked
+          # into the bundle at build time and differ per environment, so two
+          # builds of the SAME commit are two different images. Tagged by SHA
+          # alone they collide, and whichever branch finished last wins — which
+          # silently gave production staging's media host, site URL and
+          # Paystack public key.
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-
+            type=sha,prefix=sha-,suffix=-${{ github.ref_name == 'main' && 'production' || 'staging' }}
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -141,10 +147,6 @@ jobs:
             cd ${{ steps.t.outputs.dir }}
             mv -f env.rendered .env && chmod 600 .env
 
-            IMG="$(echo '${{ env.IMAGE_NAME }}' | tr 'A-Z' 'a-z')"
-            export APP_IMAGE="${{ env.REGISTRY }}/$IMG:sha-${GITHUB_SHA::7}"
-            echo "Deploying $APP_IMAGE"
-
             # Read back from .env rather than sourcing it: EMAIL_FROM is a quoted
             # value with spaces and `.` would choke on it.
             cfg() { grep -E "^$1=" .env | head -1 | cut -d= -f2- | tr -d '"'; }
@@ -152,6 +154,13 @@ jobs:
             # Namespaces containers, networks and volumes, so staging and
             # production can share one host without colliding.
             export COMPOSE_PROJECT_NAME="fancy-$APP_ENV"
+
+            IMG="$(echo '${{ env.IMAGE_NAME }}' | tr 'A-Z' 'a-z')"
+            # Must match the tag the build job pushed, environment suffix
+            # included, or the deploy pulls the other environment's bundle.
+            # APP_ENV is resolved ABOVE precisely because this line needs it.
+            export APP_IMAGE="${{ env.REGISTRY }}/$IMG:sha-${GITHUB_SHA::7}-$APP_ENV"
+            echo "Deploying $APP_IMAGE"
 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull web
