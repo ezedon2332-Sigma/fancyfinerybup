@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -42,6 +42,8 @@ export function SelectMenu({
   disabled = false,
   ariaLabel,
   className = "",
+  searchable = false,
+  searchPlaceholder = "Type to filter…",
 }: {
   id: string;
   value: string;
@@ -51,40 +53,62 @@ export function SelectMenu({
   disabled?: boolean;
   ariaLabel?: string;
   className?: string;
+  /** Show a filter field inside the panel. Worth it past ~15 rows; below that
+   *  the jump-to-letter type-ahead is quicker than moving to an input. */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [dropUp, setDropUp] = useState(false);
+  const [query, setQuery] = useState("");
 
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const typed = useRef({ text: "", at: 0 });
 
+  const searchRef = useRef<HTMLInputElement>(null);
+
   const listId = useId();
   const selected = options.find((o) => o.value === value) ?? null;
 
+  /**
+   * Rows actually on screen. Every index below — `active`, arrow stepping,
+   * `commit` — addresses THIS list, never `options`, or filtering would select
+   * the row that happens to sit at the same position in the unfiltered array.
+   *
+   * Matches anywhere in the label, not just the start: Nigerian states include
+   * "Akwa Ibom" and "Cross River", and a shopper who types "ibom" or "river"
+   * means that state.
+   */
+  const shown = query.trim()
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(query.trim().toLowerCase()),
+      )
+    : options;
+
   const selectable = useCallback(
-    (i: number) => i >= 0 && i < options.length && !options[i].disabled,
-    [options],
+    (i: number) => i >= 0 && i < shown.length && !shown[i].disabled,
+    [shown],
   );
 
   /** Next selectable index in `dir`, skipping disabled rows. */
   const step = useCallback(
     (from: number, dir: 1 | -1) => {
-      for (let i = from + dir; i >= 0 && i < options.length; i += dir) {
+      for (let i = from + dir; i >= 0 && i < shown.length; i += dir) {
         if (selectable(i)) return i;
       }
       return from;
     },
-    [options.length, selectable],
+    [shown.length, selectable],
   );
 
   // Open with the current selection active, so arrowing starts from where the
   // customer actually is rather than the top of the list.
   function openList() {
     if (disabled) return;
-    const start = options.findIndex((o) => o.value === value);
+    const start = shown.findIndex((o) => o.value === value);
     setActive(start >= 0 ? start : step(-1, 1));
     // Enough room below for the panel? If not, hang it above the trigger.
     const box = triggerRef.current?.getBoundingClientRect();
@@ -92,10 +116,16 @@ export function SelectMenu({
     setOpen(true);
   }
 
+  /** Single close path, so the filter can never survive into the next open. */
+  const closeList = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+  }, []);
+
   function commit(i: number) {
     if (!selectable(i)) return;
-    onChange(options[i].value);
-    setOpen(false);
+    onChange(shown[i].value);
+    closeList();
     triggerRef.current?.focus();
   }
 
@@ -105,12 +135,18 @@ export function SelectMenu({
     if (!open) return;
     const onDown = (e: PointerEvent | MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        closeList();
       }
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
-  }, [open]);
+  }, [open, closeList]);
+
+  // Focus the filter field once the panel has painted. Effect rather than an
+  // autoFocus prop, because the panel mounts inside an animating container.
+  useEffect(() => {
+    if (open && searchable) searchRef.current?.focus();
+  }, [open, searchable]);
 
   // Keep the active row in view as the arrows move past the fold.
   useEffect(() => {
@@ -134,7 +170,7 @@ export function SelectMenu({
     switch (e.key) {
       case "Escape":
         e.preventDefault();
-        setOpen(false);
+        closeList();
         triggerRef.current?.focus();
         return;
       case "ArrowDown":
@@ -151,27 +187,35 @@ export function SelectMenu({
         return;
       case "End":
         e.preventDefault();
-        setActive(step(options.length, -1));
+        setActive(step(shown.length, -1));
         return;
       case "Enter":
+        e.preventDefault();
+        commit(active);
+        return;
       case " ":
+        // With a filter field open, space belongs to the query — "Akwa Ibom"
+        // is untypeable otherwise. Only the closed/unsearchable trigger treats
+        // it as "choose this row".
+        if (searchable) return;
         e.preventDefault();
         commit(active);
         return;
       case "Tab":
-        setOpen(false);
+        closeList();
         return;
     }
 
-    // Type-ahead. Keystrokes within a second accumulate, so "kad" reaches
-    // Kaduna rather than cycling K, A, D.
-    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    // Type-ahead, for the panels without a filter field. Keystrokes within a
+    // second accumulate, so "kad" reaches Kaduna rather than cycling K, A, D.
+    // A searchable panel filters instead, so this would double-handle.
+    if (!searchable && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const now = Date.now();
       typed.current.text =
         now - typed.current.at > 1000 ? e.key : typed.current.text + e.key;
       typed.current.at = now;
       const q = typed.current.text.toLowerCase();
-      const hit = options.findIndex(
+      const hit = shown.findIndex(
         (o) => !o.disabled && o.label.toLowerCase().startsWith(q),
       );
       if (hit >= 0) setActive(hit);
@@ -234,15 +278,56 @@ export function SelectMenu({
               dropUp ? "bottom-full mb-1.5" : "top-full mt-1.5"
             }`}
           >
+            {searchable && (
+              /* Inside the panel, not replacing the trigger: the trigger stays
+                 a combobox showing the current choice, which is what a shopper
+                 returning to a filled-in form needs to see. */
+              <div className="border-b border-yellow-600/20 p-2">
+                <div className="relative">
+                  <Search
+                    aria-hidden
+                    className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-yellow-500/70"
+                  />
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    role="searchbox"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      // Filtering renumbers the rows, so park the highlight on
+                      // the first match instead of whatever index it held.
+                      setActive(0);
+                    }}
+                    onKeyDown={onKeyDown}
+                    placeholder={searchPlaceholder}
+                    aria-label={`Filter ${ariaLabel ?? "options"}`}
+                    aria-controls={listId}
+                    autoComplete="off"
+                    className="w-full rounded-lg border border-yellow-600/25 bg-neutral-900 py-2 pl-8 pr-3 text-sm text-gray-100 placeholder:text-gray-500 focus:border-yellow-500/60 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
             <ul
               id={listId}
               ref={listRef}
               role="listbox"
               aria-label={ariaLabel}
               tabIndex={-1}
-              className="max-h-[16rem] overflow-y-auto overscroll-contain py-1 [scrollbar-width:thin]"
+              /* Caps at 16rem, but never taller than the viewport allows — on a
+                 short phone screen a fixed height would push rows off-screen
+                 with no way to reach them. */
+              className="max-h-[min(16rem,50vh)] overflow-y-auto overscroll-contain py-1 [scrollbar-width:thin]"
             >
-              {options.map((o, i) => {
+              {shown.length === 0 && (
+                <li role="none">
+                  <p className="px-3.5 py-3 text-sm text-gray-400">
+                    No matches for “{query}”.
+                  </p>
+                </li>
+              )}
+              {shown.map((o, i) => {
                 const isSelected = o.value === value;
                 const isActive = i === active;
                 return (

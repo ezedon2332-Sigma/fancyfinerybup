@@ -141,6 +141,10 @@ export function NigeriaDelivery({
             onChange={setStateId}
             ariaLabel="Delivery state"
             placeholder="Select your state…"
+            // 37 rows is past the point where scrolling to find one beats
+            // typing three letters of it.
+            searchable
+            searchPlaceholder="Search states…"
             options={states.map((s) => ({ value: s.id, label: s.name }))}
           />
         </Field>
@@ -165,6 +169,10 @@ export function NigeriaDelivery({
                     disabled={!loaded || destinations.length === 0}
                     ariaLabel="Delivery area"
                     placeholder={loaded ? "Select your area…" : "Loading areas…"}
+                    // Lagos carries 17 areas; the smaller states stay short
+                    // enough that the field is simply ignored.
+                    searchable
+                    searchPlaceholder="Search areas…"
                     /* The fee rides alongside the name rather than being glued
                        into the label, so it stays right-aligned and legible
                        even at 320px. */
