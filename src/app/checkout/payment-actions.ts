@@ -92,17 +92,17 @@ export async function startPaymentAction(
         reference,
         callbackUrl: `${siteUrl()}/payment/callback`,
         metadata: { orderId: order.id },
-        // Offer every channel the account allows — card, bank transfer, USSD,
-        // QR, mobile money. The customer picks on Paystack's hosted page.
-        channels: [
-          "card",
-          "bank",
-          "bank_transfer",
-          "ussd",
-          "qr",
-          "mobile_money",
-          "eft",
-        ],
+        // `channels` is deliberately omitted. Paystack intersects an explicit
+        // list with the channels enabled on the account, so naming them can
+        // only ever REMOVE options — a channel the account supports but this
+        // array forgot is silently hidden from the customer, which is what an
+        // out-of-date list guarantees over time (apple_pay was already
+        // missing). Omitting it offers everything the account has enabled, and
+        // new Paystack channels appear without a deploy.
+        //
+        // Which channels a customer actually sees is therefore a Paystack
+        // dashboard setting, not a code change: card in particular needs the
+        // business fully activated before it is offered at all.
       });
       url = init.authorizationUrl;
     } else {
