@@ -47,12 +47,47 @@ or `production`.
    certificate request fails:
    - `APP_DOMAIN` → the server
    - `MEDIA_DOMAIN` → the server
-3. This repository checked out at `VPS_APP_DIR`. Only `docker-compose.prod.yml`,
-   `Caddyfile` and `.env` are read from it — the application itself comes from
-   the image.
-4. A `.env` beside the compose file. Copy `.env.example`. Every secret is
-   required and has no default: an unset value fails loudly rather than shipping
-   a known credential.
+3. A `deploy` user in the `docker` group, with the deploy key in its
+   `authorized_keys`. The workflow always connects as `deploy`; the username is
+   not configurable.
+4. The directories `/opt/fancy/staging`, `/opt/fancy/production` and
+   `/opt/fancy/edge`, owned by `deploy`. These paths are hardcoded in the
+   workflow. Deploy ships `docker-compose.prod.yml`, `docker-compose.edge.yml`,
+   `Caddyfile` and the rendered `.env` into them — the application itself comes
+   from the image, so the repository is never checked out on the box.
+
+## One host, both environments
+
+Staging and production run side by side on a single VPS, as three compose
+projects:
+
+| Project            | Contents                                  |
+|--------------------|-------------------------------------------|
+| `fancy-staging`    | web · postgres · redis · minio · cron     |
+| `fancy-production` | the same five, separate data              |
+| `fancy-edge`       | one Caddy, owning `:80` and `:443`        |
+
+Two things make that possible, and both are easy to undo by accident:
+
+- **`COMPOSE_PROJECT_NAME=fancy-<env>`**, exported by deploy, namespaces
+  containers, networks and volumes. Containers are additionally named
+  `fancy-${APP_ENV}-*`, because a `container_name` is global to the host and
+  two stacks sharing one would collide before anything else failed.
+- **The proxy lives outside both stacks**, in `docker-compose.edge.yml`, and is
+  always brought up with an explicit `-p fancy-edge`. Only one process can bind
+  `:443`, so a per-stack Caddy cannot work here. Without the explicit project
+  name it is absorbed into whichever environment deployed last, and the next
+  deploy starts a second Caddy that cannot bind.
+
+The stacks reach the proxy over the external network `fancy-edge`, which each
+joins publishing the aliases `web-<env>` and `minio-<env>`. Create it once per
+host with `docker network create fancy-edge`; deploy also creates it if missing,
+before the first compose command that attaches to it. An environment that is
+not deployed simply has no alias, and its hostnames 502 until it is.
+
+Each deploy writes only its own domains to `/opt/fancy/edge/.env.<env>`, and
+they are concatenated into `.env`, so redeploying one environment never drops
+the other's vhosts.
 
 Generate real values:
 
@@ -80,11 +115,31 @@ Push to `main`. `.github/workflows/deploy.yml` then:
    the same build — before anything serves,
 5. brings the stack up and verifies the site answers.
 
-Required GitHub secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_APP_DIR`.
-Required variables: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_MEDIA_URL`,
-`NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` —
-these are inlined into the client bundle at build time, so they must be present
-then, not at run time.
+Required GitHub **secrets**:
+
+| Secret           | Holds                                                     |
+|------------------|-----------------------------------------------------------|
+| `VPS_SSH_KEY`    | private key for the `deploy` user, used for both environments |
+| `STAGING_ENV`    | the entire runtime `.env` for staging                     |
+| `PRODUCTION_ENV` | the entire runtime `.env` for production                  |
+
+Required **variables** — public, not secret, and `NEXT_PUBLIC_*` are inlined
+into the client bundle at build time, so they must be present then rather than
+at run time:
+
+| Variable                              | Used for   |
+|---------------------------------------|------------|
+| `VPS_HOST` / `PROD_VPS_HOST`          | target box |
+| `NEXT_PUBLIC_SITE_URL` / `PROD_…`     | staging / production |
+| `NEXT_PUBLIC_MEDIA_URL` / `PROD_…`    | staging / production |
+| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` / `PROD_…` | test key / live key |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`  | shared     |
+
+There is no `VPS_USER` or `VPS_APP_DIR`: the workflow always connects as
+`deploy` and writes to `/opt/fancy/<env>`.
+
+Until `PRODUCTION_ENV` is set, a push to `main` skips the deploy steps cleanly
+rather than failing, so `main` stays green while only staging exists.
 
 ### Rollback
 
