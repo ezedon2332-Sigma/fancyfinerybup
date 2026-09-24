@@ -34,9 +34,14 @@
 	# Uploads are browser -> MinIO via a presigned PUT, so this host must accept
 	# PUT as well as GET. The signature is what authorises the write; Caddy is
 	# only carrying it.
-	reverse_proxy {args[0]} {
-		header_up Host {upstream_hostport}
-	}
+	# The client's Host is passed through UNCHANGED, which is load-bearing:
+	# uploads are presigned browser -> MinIO, SigV4 signs the Host header, and
+	# the app signs against this public hostname. Rewriting Host to the upstream
+	# (the previous `header_up Host {upstream_hostport}`) made MinIO recompute
+	# the signature over a different host and reject every upload with
+	# SignatureDoesNotMatch. MinIO addresses the bucket from the path, so it
+	# does not need the Host to identify it.
+	reverse_proxy {args[0]}
 	# Object paths are immutable (products/<uuid>.<ext>), so a long cache is safe
 	# — replacing a photo yields a new path, never a changed one.
 	header /products/* Cache-Control "public, max-age=31536000, immutable"

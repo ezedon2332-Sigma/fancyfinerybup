@@ -25,18 +25,41 @@ import { serverEnv } from "@/config/server-env";
  * move to R2 or S3 a change to these ~40 lines rather than a second migration.
  */
 
-const s3 = new S3Client({
+// MinIO serves buckets as a path segment (`/product-media/products/x.jpg`),
+// not as a subdomain. Without `forcePathStyle` the SDK would address
+// `product-media.minio:9000`, which does not resolve.
+const clientConfig = {
   region: serverEnv.s3Region,
-  endpoint: serverEnv.s3Endpoint,
-  // MinIO serves buckets as a path segment (`/product-media/products/x.jpg`),
-  // not as a subdomain. Without this the SDK would address
-  // `product-media.minio:9000`, which does not resolve.
   forcePathStyle: true,
   credentials: {
     accessKeyId: serverEnv.s3AccessKeyId,
     secretAccessKey: serverEnv.s3SecretAccessKey,
   },
-});
+};
+
+/** Server-side operations. Goes straight to MinIO over the compose network. */
+const s3 = new S3Client({ ...clientConfig, endpoint: serverEnv.s3Endpoint });
+
+/**
+ * The origin a presigned URL must be signed against: the public media host,
+ * derived from NEXT_PUBLIC_MEDIA_URL by removing the bucket path segment that
+ * `forcePathStyle` adds back.
+ *
+ *   https://media.example.com/product-media  ->  https://media.example.com
+ *
+ * SigV4 signs the `Host` header, so the origin that signs and the origin the
+ * browser sends to must be the same string. Signing with `s3Endpoint` produced
+ * `http://minio:9000` — an address inside the compose network that no browser
+ * can resolve, so every upload failed before it left the page.
+ */
+function publicEndpoint(): string {
+  const base = publicEnv.mediaUrl;
+  const suffix = `/${serverEnv.s3Bucket}`;
+  return base.endsWith(suffix) ? base.slice(0, -suffix.length) : base;
+}
+
+/** Issues browser-facing upload URLs only. Never used to move bytes itself. */
+const s3Presign = new S3Client({ ...clientConfig, endpoint: publicEndpoint() });
 
 /** How long a presigned upload URL stays valid. Long enough for a large video
  *  on a slow connection, short enough that a leaked URL is not a standing
@@ -140,7 +163,7 @@ export async function presignUpload(input: {
   const storagePath = `products/${randomUUID()}.${ext}`;
 
   const url = await getSignedUrl(
-    s3,
+    s3Presign,
     new PutObjectCommand({
       Bucket: serverEnv.s3Bucket,
       Key: storagePath,
