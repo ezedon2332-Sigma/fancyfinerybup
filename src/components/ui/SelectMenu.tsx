@@ -61,6 +61,8 @@ export function SelectMenu({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [dropUp, setDropUp] = useState(false);
+  /** Measured at open and on every viewport change — see `measure`. */
+  const [maxList, setMaxList] = useState(256);
   const [query, setQuery] = useState("");
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -93,6 +95,34 @@ export function SelectMenu({
     [shown],
   );
 
+  /**
+   * Decide which way to hang the panel and how tall its list may be.
+   *
+   * Uses `visualViewport` rather than `innerHeight` because that is the only
+   * one that shrinks when a phone's on-screen keyboard appears — and with a
+   * filter field the keyboard appears every time the panel opens. Sizing
+   * against `innerHeight` (or `vh`) leaves the bottom of the list underneath
+   * the keyboard, unreachable however hard you scroll.
+   *
+   * The floor of 132px is deliberate: on a very short screen the list becomes
+   * a small scrolling window rather than collapsing to nothing.
+   */
+  const measure = useCallback(() => {
+    const box = triggerRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    const viewTop = vv?.offsetTop ?? 0;
+    const viewHeight = vv?.height ?? window.innerHeight;
+    const GAP = 12;
+    const below = viewTop + viewHeight - box.bottom - GAP;
+    const above = box.top - viewTop - GAP;
+    const up = below < 200 && above > below;
+    setDropUp(up);
+    // The filter field sits inside the panel, so it eats into the same budget.
+    const chrome = searchable ? 60 : 0;
+    setMaxList(Math.max(132, Math.min(256, (up ? above : below) - chrome)));
+  }, [searchable]);
+
   /** Next selectable index in `dir`, skipping disabled rows. */
   const step = useCallback(
     (from: number, dir: 1 | -1) => {
@@ -110,9 +140,7 @@ export function SelectMenu({
     if (disabled) return;
     const start = shown.findIndex((o) => o.value === value);
     setActive(start >= 0 ? start : step(-1, 1));
-    // Enough room below for the panel? If not, hang it above the trigger.
-    const box = triggerRef.current?.getBoundingClientRect();
-    if (box) setDropUp(window.innerHeight - box.bottom < 280 && box.top > 280);
+    measure();
     setOpen(true);
   }
 
@@ -141,6 +169,24 @@ export function SelectMenu({
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
   }, [open, closeList]);
+
+  // Re-measure while open. The keyboard sliding up, a rotation and a scroll
+  // all change how much room the panel has, and none of them is a re-render.
+  // The effect only registers listeners; the measuring happens in them.
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", measure);
+    vv?.addEventListener("scroll", measure);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      vv?.removeEventListener("resize", measure);
+      vv?.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [open, measure]);
 
   // Focus the filter field once the panel has painted. Effect rather than an
   // autoFocus prop, because the panel mounts inside an animating container.
@@ -315,10 +361,11 @@ export function SelectMenu({
               role="listbox"
               aria-label={ariaLabel}
               tabIndex={-1}
-              /* Caps at 16rem, but never taller than the viewport allows — on a
-                 short phone screen a fixed height would push rows off-screen
-                 with no way to reach them. */
-              className="max-h-[min(16rem,50vh)] overflow-y-auto overscroll-contain py-1 [scrollbar-width:thin]"
+              /* Height is measured, not guessed: see `measure`. Touch scroll
+                 is kept inside the list so flicking it never scrolls the page
+                 behind, which on mobile reads as the panel jumping away. */
+              style={{ maxHeight: maxList }}
+              className="overflow-y-auto overscroll-contain py-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin]"
             >
               {shown.length === 0 && (
                 <li role="none">
