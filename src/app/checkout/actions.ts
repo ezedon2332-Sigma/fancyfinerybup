@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/infrastructure/db/client";
 import { profiles } from "@/infrastructure/db/schema";
 import { notifyOrderPlaced } from "@/infrastructure/notifications/email";
+import { providerForCurrency } from "@/infrastructure/payments/providers";
 import { OutOfStockError } from "@/domain/repositories/order-repository";
 import { checkoutSchema } from "@/lib/validation";
 import { cookies } from "next/headers";
@@ -91,8 +92,24 @@ export async function placeOrderAction(
       /* non-fatal — the order is already placed */
     }
 
-    // Shipping confirmation email (no-ops until an email provider is configured).
-    await notifyOrderPlaced(orderId);
+    // Confirm the order by EMAIL only when nothing is left to pay.
+    //
+    // An order that will be settled online is unpaid at this point — the
+    // customer has not reached the provider's page yet, let alone completed
+    // the charge. Mailing "we've received your order" here told them the
+    // purchase had gone through before any money moved, and it still arrived
+    // if they abandoned the payment page or the card was declined.
+    //
+    // For those orders the confirmation is `notifyPaymentReceived`, sent from
+    // the payment-confirmation path once the charge actually clears; it names
+    // the reference and the amount paid, so nothing is lost by waiting.
+    //
+    // A pay-on-delivery order has no payment step to wait for — no provider
+    // settles its currency, so no confirmation would ever be sent — and it is
+    // genuinely confirmed the moment it is placed. It keeps this email.
+    if (providerForCurrency(currency) === null) {
+      await notifyOrderPlaced(orderId);
+    }
 
     return { ok: true, orderId };
   } catch (e) {
