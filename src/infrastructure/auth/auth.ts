@@ -105,6 +105,22 @@ function buildAuth() {
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
+      /**
+       * The second half of invite promotion. An email/password invitee is a
+       * plain customer until this runs, so an outstanding invite is only spent
+       * by someone who actually received mail at that address.
+       *
+       * Consuming is atomic and single-use, so this cannot double-promote when
+       * the create hook has already handled a verified OAuth signup.
+       */
+      afterEmailVerification: async (user) => {
+        const invited = await consumeInviteForEmail(user.email, user.id);
+        if (!invited) return;
+        await db
+          .update(schema.profiles)
+          .set({ role: "admin" })
+          .where(eq(schema.profiles.id, user.id));
+      },
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail({
           to: user.email,
@@ -146,7 +162,17 @@ function buildAuth() {
             // Replaces public.handle_new_user(). A pending invite promotes the
             // account to admin and is consumed in the same step, so a link cannot
             // mint two admins.
-            const invited = await consumeInviteForEmail(user.email, user.id);
+            //
+            // Promotion requires a VERIFIED address. Consuming the invite on
+            // whoever signed up first handed admin to anyone who could guess an
+            // invited address inside the 7-day window — no need to receive the
+            // emailed link or control the mailbox. An OAuth account arrives here
+            // already verified (the provider asserts the address), so those are
+            // promoted at once; an email/password account is promoted by
+            // `afterEmailVerification` below, once it has proved the address.
+            const invited = user.emailVerified
+              ? await consumeInviteForEmail(user.email, user.id)
+              : false;
 
             await db
               .insert(schema.profiles)

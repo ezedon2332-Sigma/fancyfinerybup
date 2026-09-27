@@ -113,6 +113,16 @@ export async function SiteFooter() {
                 My Account
               </Link>
             </li>
+            <li>
+              <Link href="/privacy" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
+                Privacy Policy
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms" className="inline-flex min-h-[44px] items-center transition-colors hover:text-yellow-400 lg:min-h-0 lg:py-1">
+                Terms of Service
+              </Link>
+            </li>
           </ul>
         </div>
 
