@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import type { CountryOption } from "@/components/checkout/CountrySelect";
 import { getCurrentProfile, requireUser } from "@/infrastructure/auth/session";
-import { onlinePaymentEnabled } from "@/infrastructure/payments/providers";
+import { isCurrencyPayable } from "@/infrastructure/payments/providers";
+import { DISPLAY_CURRENCIES } from "@/domain/shared/display-price";
 import { COUNTRIES } from "@/domain/shipping/countries";
 import { loadCountryRates } from "@/infrastructure/db/rate-card";
 
@@ -20,6 +21,19 @@ export default async function CheckoutPage() {
     code: c.code,
     name: c.name,
   }));
+
+  // Which currencies an online provider can actually settle.
+  //
+  // This was `onlinePaymentEnabled()`, which is global: true as soon as ANY one
+  // provider is configured. Paystack is, so every shopper was promised
+  // "Continue to payment" — including one paying in EUR or GBP, which only
+  // Stripe settles. Their order was placed, no provider could take it, and it
+  // became pay-on-delivery without anyone being told. Nothing looked broken;
+  // the money simply never arrived.
+  //
+  // The whole set is sent so the form can react to the shopper switching
+  // currency in the header, rather than trusting a snapshot taken here.
+  const payableCurrencies = DISPLAY_CURRENCIES.filter(isCurrencyPayable);
 
   // Published rate card per destination, for the browse-by-country section.
   // Read on the server so the section is present on first paint.
@@ -40,7 +54,7 @@ export default async function CheckoutPage() {
       <div className="mt-8">
         <CheckoutForm
           countries={countries}
-          paymentEnabled={onlinePaymentEnabled()}
+          payableCurrencies={payableCurrencies}
           rateCards={rateCards}
           initial={{
             name: profile?.fullName ?? "",

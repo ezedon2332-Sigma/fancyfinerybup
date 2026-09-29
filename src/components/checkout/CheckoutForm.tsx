@@ -48,12 +48,15 @@ export interface CheckoutInitial extends FormState {
 export function CheckoutForm({
   initial,
   countries,
-  paymentEnabled = false,
+  payableCurrencies = [],
   rateCards = [],
 }: {
   initial?: CheckoutInitial;
   countries: CountryOption[];
-  paymentEnabled?: boolean;
+  /** Currencies an online provider can actually settle. Checked against the
+   *  LIVE currency from useCurrency(), not a server snapshot, so switching
+   *  currency in the header updates the button without a reload. */
+  payableCurrencies?: string[];
   /** Published rate card per destination, for the browse section. */
   rateCards?: CountryRates[];
 }) {
@@ -86,6 +89,11 @@ export function CheckoutForm({
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const { currency } = useCurrency();
+  // Per-currency, not global: Paystack settles NGN and USD, Stripe EUR and
+  // GBP. A globally-true flag promised "Continue to payment" to shoppers whose
+  // currency no provider could take, and their order quietly became
+  // pay-on-delivery.
+  const paymentEnabled = payableCurrencies.includes(currency);
   // Nigeria local delivery. Only the id is held: the fee is resolved on the
   // server, by both the quote and the order.
   const [ngDestinationId, setNgDestinationId] = useState<string | null>(null);
@@ -449,6 +457,18 @@ export function CheckoutForm({
             ? "Secure payment • you'll confirm on the next screen."
             : "Payment on delivery."}
         </p>
+
+        {/* Say WHY, and what to do about it. Without this the shopper simply
+            met a "Place order" button where they expected to pay, with nothing
+            connecting that to the currency they picked in the header — and an
+            unpaid international order is one neither side can easily settle. */}
+        {!paymentEnabled && (
+          <p className="mt-3 rounded-lg border border-yellow-600/30 bg-yellow-500/5 px-4 py-3 text-center text-xs leading-relaxed text-yellow-200/90">
+            Card payment is not available for {currency} orders. Switch the
+            currency at the top of the page to pay online, or place this order
+            and we will contact you to arrange payment.
+          </p>
+        )}
 
         <TrustBadges />
       </div>
