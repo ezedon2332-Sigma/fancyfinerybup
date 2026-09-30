@@ -20,7 +20,26 @@ const BASE = "https://api.paystack.co";
  * go to Stripe, and if Stripe is not configured the order stays pay-on-delivery
  * rather than failing at the redirect with an error the customer cannot act on.
  */
-const PAYSTACK_CURRENCIES = new Set(["NGN", "USD", "GHS", "ZAR", "KES"]);
+/**
+ * What THIS merchant account is permitted to charge — not what Paystack
+ * supports in general.
+ *
+ * USD was listed here and is not enabled on the integration. Paystack settled
+ * USD for this account in 2023-24, so the entry looked justified, but it has
+ * since been withdrawn: `transaction/initialize` now answers
+ *
+ *     403 — "Currency not supported by merchant"
+ *
+ * That refusal lands AFTER checkout has created the order, because routing had
+ * already decided Paystack would take it. The customer met a hard error partway
+ * through paying and the shop was left holding an unpayable order — strictly
+ * worse than EUR or GBP, which have no provider and at least degrade to a
+ * stated pay-on-delivery.
+ *
+ * Re-add USD only once the dashboard grants it, and confirm with a real
+ * initialize rather than the presence of an old settlement.
+ */
+const PAYSTACK_CURRENCIES = new Set(["NGN", "GHS", "ZAR", "KES"]);
 
 export function paystackSupportsCurrency(currency: string): boolean {
   return PAYSTACK_CURRENCIES.has(currency.trim().toUpperCase());
