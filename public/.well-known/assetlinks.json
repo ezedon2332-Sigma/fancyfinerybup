@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.fancyfinery.mobile",
+      "sha256_cert_fingerprints": [
+        "CF:3E:AA:9E:8C:46:49:0F:3A:0A:5B:CB:BF:06:85:3B:9C:B3:1D:3A:A7:D6:23:3A:35:EE:B9:77:B5:40:89:A9"
+      ]
+    }
+  }
+]

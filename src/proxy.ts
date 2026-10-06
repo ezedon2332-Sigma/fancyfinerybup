@@ -5,8 +5,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * Proxy (Next.js 16's renamed Middleware). Runs before every matched request.
  *
  * Responsibilities — OPTIMISTIC ONLY:
- *   cheap redirect of signed-out users away from /admin, /account, /checkout
- *   and /reset-password.
+ *   cheap redirect of signed-out users away from /admin, /account and
+ *   /checkout.
  *
  * This is NOT the security boundary. Authoritative authorization (including the
  * admin role check) happens in the /admin layout and in every Server Action —
@@ -34,11 +34,23 @@ export async function proxy(request: NextRequest) {
   // it to itself.
   if (pathname.startsWith("/admin/login")) return NextResponse.next();
 
+  /**
+   * `/reset-password` is deliberately NOT here.
+   *
+   * It used to be, which broke password recovery completely: anyone following
+   * a reset link is signed out by definition, so the link bounced to /login and
+   * the password could never be changed.
+   *
+   * That gate made sense under Supabase, whose recovery link SIGNED THE USER IN
+   * and then let them set a password. Better Auth does not work that way — it
+   * emails a one-time `token` which is exchanged for a password change, and no
+   * session exists at any point. The token is the credential, and it is
+   * verified server-side by Better Auth.
+   */
   const isProtected =
     pathname.startsWith("/admin") ||
     pathname.startsWith("/account") ||
-    pathname.startsWith("/checkout") ||
-    pathname.startsWith("/reset-password");
+    pathname.startsWith("/checkout");
 
   if (!isProtected) return NextResponse.next();
 
