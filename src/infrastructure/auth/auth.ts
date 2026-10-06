@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink } from "better-auth/plugins";
+import { bearer, magicLink } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
 
@@ -151,6 +151,21 @@ function buildAuth() {
           });
         },
       }),
+      /**
+       * Token auth for the mobile app.
+       *
+       * The browser carries its session in the `fancy.session_token` cookie,
+       * which a native client has no cookie jar for. With this plugin a sign-in
+       * additionally returns the token in a `set-auth-token` response header,
+       * and any later request may present it as `Authorization: Bearer <token>`
+       * instead of a cookie. The session it resolves to is the SAME row in
+       * `auth_session` — this adds a second way to present a session, not a
+       * second kind of session, so revocation and expiry already cover it.
+       *
+       * The web app is unaffected: the cookie path is untouched, and a request
+       * with no Authorization header behaves exactly as it did before.
+       */
+      bearer(),
       // Must be last: lets Server Actions set auth cookies.
       nextCookies(),
     ],
