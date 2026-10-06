@@ -124,6 +124,40 @@ jobs:
           BLOB: ${{ secrets.PRODUCTION_ENV }}
         run: printf '%s' "$BLOB" > env.rendered
 
+      # Email credentials, applied to BOTH environments from one place.
+      #
+      # They live in their own secret rather than inside each environment's big
+      # .env blob for two reasons. Staging and production deliberately use the
+      # same Resend account and the same verified sender, so duplicating the key
+      # into two blobs means rotating it in two places and eventually forgetting
+      # one. And the blobs are opaque: nobody can tell by looking whether a key
+      # is in there, which is exactly how staging ended up with an EMPTY
+      # RESEND_API_KEY and silently dropped every transactional email — the
+      # provider no-ops, Better Auth sends in the background, and the request
+      # still returns 200.
+      #
+      # Existing definitions are DELETED before the authoritative ones are
+      # appended, so this wins regardless of how the file is parsed and an empty
+      # value left in a blob cannot shadow it.
+      - name: Apply email configuration
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          EMAIL_REPLY_TO: ${{ vars.EMAIL_REPLY_TO }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::warning::RESEND_API_KEY is not set — this deployment will send no email."
+          fi
+          sed -i -E '/^(EMAIL_PROVIDER|RESEND_API_KEY|EMAIL_FROM|EMAIL_REPLY_TO)=/d' env.rendered
+          {
+            echo "EMAIL_PROVIDER=resend"
+            echo "RESEND_API_KEY=${RESEND_API_KEY}"
+            # Quoted: the display name contains spaces and angle brackets.
+            echo "EMAIL_FROM=\"${EMAIL_FROM}\""
+            echo "EMAIL_REPLY_TO=${EMAIL_REPLY_TO}"
+          } >> env.rendered
+
       - name: Ship .env + compose + Caddyfile
         if: steps.guard.outputs.skip != 'true'
         uses: appleboy/scp-action@v0.1.7
