@@ -117,12 +117,18 @@ jobs:
         if: github.ref_name != 'main'
         env:
           BLOB: ${{ secrets.STAGING_ENV }}
-        run: printf '%s' "$BLOB" > env.rendered
+        # '%s\n', not '%s': without the trailing newline anything appended
+        # below lands on the SAME line as the blob's last variable and
+        # corrupts it.
+        run: printf '%s\n' "$BLOB" > env.rendered
       - name: Render env (production)
         if: github.ref_name == 'main' && steps.guard.outputs.skip != 'true'
         env:
           BLOB: ${{ secrets.PRODUCTION_ENV }}
-        run: printf '%s' "$BLOB" > env.rendered
+        # '%s\n', not '%s': without the trailing newline anything appended
+        # below lands on the SAME line as the blob's last variable and
+        # corrupts it.
+        run: printf '%s\n' "$BLOB" > env.rendered
 
       # Email credentials, applied to BOTH environments from one place.
       #
@@ -149,6 +155,11 @@ jobs:
           if [ -z "$RESEND_API_KEY" ]; then
             echo "::warning::RESEND_API_KEY is not set — this deployment will send no email."
           fi
+          # Guarantee a final newline even if an earlier step left none.
+          # Appending to a file that does not end in one silently welds the
+          # first appended line onto the last existing variable.
+          [ -s env.rendered ] && [ -n "$(tail -c 1 env.rendered)" ] && echo >> env.rendered
+
           sed -i -E '/^(EMAIL_PROVIDER|RESEND_API_KEY|EMAIL_FROM|EMAIL_REPLY_TO)=/d' env.rendered
           {
             echo "EMAIL_PROVIDER=resend"
@@ -157,6 +168,26 @@ jobs:
             echo "EMAIL_FROM=\"${EMAIL_FROM}\""
             echo "EMAIL_REPLY_TO=${EMAIL_REPLY_TO}"
           } >> env.rendered
+
+          # Fail the deploy rather than ship a malformed environment.
+          #
+          # Shape alone is not enough: a line welded by a missing newline
+          # ("ADMIN_NAME=AdminEMAIL_PROVIDER=resend") is still KEY=VALUE
+          # shaped and passes a syntax check. What it does NOT do is leave
+          # each expected variable at the start of its own line, so that is
+          # what is asserted.
+          for key in EMAIL_PROVIDER RESEND_API_KEY EMAIL_FROM EMAIL_REPLY_TO; do
+            n=$(grep -cE "^${key}=" env.rendered || true)
+            if [ "$n" -ne 1 ]; then
+              echo "::error::${key} appears ${n} times at line start in env.rendered (expected 1)."
+              exit 1
+            fi
+          done
+          if grep -nvE '^[[:space:]]*(#|$)|^[A-Za-z_][A-Za-z0-9_]*=' env.rendered; then
+            echo "::error::env.rendered has a malformed line (shown above)."
+            exit 1
+          fi
+          echo "env.rendered OK: $(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=' env.rendered) variables."
 
       - name: Ship .env + compose + Caddyfile
         if: steps.guard.outputs.skip != 'true'
