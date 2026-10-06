@@ -56,10 +56,29 @@ export interface Order {
   readonly subtotal: number;
   /** Shipping cost in minor units (order currency). */
   readonly shippingCost: number;
-  /** Grand total in minor units (subtotal + shippingCost). */
+  /** Tax charged, in minor units. Zero when the destination has no tax rule. */
+  readonly tax: number;
+  /** Discount applied, in minor units, as a POSITIVE amount to subtract. */
+  readonly discount: number;
+  /** The code that produced `discount`, for the receipt. */
+  readonly discountCode: string | null;
+  /** What the tax was called at checkout, e.g. "VAT (7.5%)". */
+  readonly taxLabel: string | null;
+  /**
+   * Grand total in minor units: subtotal - discount + shippingCost + tax.
+   *
+   * These four parts were already stored per order but were not carried on the
+   * entity, so a reader had to infer the breakdown from the total — and could
+   * not, because one equation cannot separate tax from discount. They are
+   * surfaced here so a receipt can state what was actually charged.
+   */
   readonly total: number;
   readonly currency: string;
   readonly shippingMethod: string | null;
+  /** Courier chosen at checkout, for the receipt and tracking screen. */
+  readonly courierName: string | null;
+  readonly estimatedMinDays: number | null;
+  readonly estimatedMaxDays: number | null;
   readonly trackingNumber: string | null;
   readonly paystackReference: string | null;
   /** Provider-agnostic charge reference (Paystack ref or Stripe session id). */

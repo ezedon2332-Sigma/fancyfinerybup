@@ -3,10 +3,8 @@
 import { placeOrder, CheckoutError } from "@/application/use-cases/checkout";
 import { getCheckoutDeps } from "@/infrastructure/db/order-service";
 import { getCurrentUser } from "@/infrastructure/auth/session";
-import { eq } from "drizzle-orm";
 
-import { db } from "@/infrastructure/db/client";
-import { profiles } from "@/infrastructure/db/schema";
+import { saveDeliveryAddress } from "@/infrastructure/db/profile-service";
 import { notifyOrderPlaced } from "@/infrastructure/notifications/email";
 import { providerForCurrency } from "@/infrastructure/payments/providers";
 import { OutOfStockError } from "@/domain/repositories/order-repository";
@@ -75,19 +73,15 @@ export async function placeOrderAction(
     });
 
     // Automatically remember the customer's shipping details for next time.
+    // Scoped to the signed-in user's own id inside the service.
     try {
-      // Scoped to the signed-in user's own id. The old RLS policy
-      // (profiles_update_self_or_admin) is what made that true before.
-      await db
-        .update(profiles)
-        .set({
-          phone: input.phone,
-          address: input.address,
-          city: input.city,
-          state: input.state,
-          country: input.country,
-        })
-        .where(eq(profiles.id, user.id));
+      await saveDeliveryAddress(user.id, {
+        phone: input.phone,
+        address: input.address,
+        city: input.city,
+        state: input.state,
+        country: input.country,
+      });
     } catch {
       /* non-fatal — the order is already placed */
     }
