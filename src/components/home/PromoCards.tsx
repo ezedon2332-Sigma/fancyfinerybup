@@ -6,6 +6,15 @@ export interface PromoItem {
   slug: string;
   tagline: string;
   imageUrl: string | null;
+  /**
+   * Set when the only media in this collection is a video.
+   *
+   * The card used to take a still or nothing, and the homepage deliberately
+   * skipped video-only products when choosing one — so a collection whose
+   * pieces are filmed rather than photographed rendered as a black rectangle
+   * with a caption floating in it. Two of three cards looked broken.
+   */
+  videoUrl?: string | null;
 }
 
 export function PromoCards({ items }: { items: PromoItem[] }) {
@@ -31,6 +40,11 @@ export function PromoCards({ items }: { items: PromoItem[] }) {
             style={{ animationDelay: `${0.1 + i * 0.1}s` }}
             className="group animate-fade-up relative block aspect-[16/11] overflow-hidden rounded-lg border border-yellow-600/30 transition-colors duration-500 hover:border-yellow-500/70 md:aspect-[4/5]"
           >
+            {/* A still is always preferred: it paints immediately and costs a
+                few KB. Video is the fallback for collections that have no
+                photograph, matching what ProductCard already does — muted,
+                looping and inline, which is what lets it autoplay on mobile.
+                The gradient remains for a collection with no media at all. */}
             {p.imageUrl ? (
               <Image
                 src={p.imageUrl}
@@ -38,6 +52,17 @@ export function PromoCards({ items }: { items: PromoItem[] }) {
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover brightness-[0.72] transition-all duration-[1200ms] ease-out group-hover:scale-110 group-hover:brightness-90"
+              />
+            ) : p.videoUrl ? (
+              <video
+                src={p.videoUrl}
+                muted
+                loop
+                autoPlay
+                playsInline
+                preload="metadata"
+                aria-label={p.name}
+                className="absolute inset-0 h-full w-full object-cover brightness-[0.72] transition-all duration-[1200ms] ease-out group-hover:scale-110 group-hover:brightness-90"
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 via-neutral-900 to-black" />

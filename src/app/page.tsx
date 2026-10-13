@@ -64,15 +64,26 @@ export default async function Home() {
     { sum: 0, count: 0 },
   );
 
-  // Category image lookup — first product with an actual IMAGE (skip
-  // video-only products; a video URL can't render as a static promo image).
+  // Media for each category card.
+  //
+  // A photograph is preferred — it paints immediately and costs a few KB. But
+  // this used to take a still OR NOTHING, so a collection whose pieces are
+  // filmed rather than photographed produced a black rectangle with a caption
+  // floating in it. The card now takes the video as a fallback, which is what
+  // ProductCard already does for the same situation.
   const imgByCat: Record<string, string | null> = {};
+  const vidByCat: Record<string, string | null> = {};
   for (const cat of categories) {
-    const sample = products.find(
-      (p) => p.categoryId === cat.id && p.primaryImage?.mediaType === "image",
-    );
-    imgByCat[cat.slug] = sample?.primaryImage
-      ? resolveMediaUrl(sample.primaryImage.storagePath)
+    const inCat = products.filter((p) => p.categoryId === cat.id);
+    const still = inCat.find((p) => p.primaryImage?.mediaType === "image");
+    const clip = inCat.find((p) => p.primaryImage?.mediaType === "video");
+    imgByCat[cat.slug] = still?.primaryImage
+      ? resolveMediaUrl(still.primaryImage.storagePath)
+      : null;
+    // Only looked at when there is no still, so a photographed collection
+    // never pays for a video it will not show.
+    vidByCat[cat.slug] = clip?.primaryImage
+      ? resolveMediaUrl(clip.primaryImage.storagePath)
       : null;
   }
 
@@ -90,6 +101,7 @@ export default async function Home() {
       name: c.name,
       tagline: c.description ?? "",
       imageUrl: promoImage(c.slug, imgByCat[c.slug] ?? null),
+      videoUrl: vidByCat[c.slug] ?? null,
     }));
 
   // Derived product rows from the catalogue.
