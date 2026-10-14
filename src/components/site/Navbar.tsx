@@ -21,6 +21,7 @@ import {
 import { useCart } from "@/components/cart/CartProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { CurrencySwitcher } from "./CurrencySwitcher";
 import { MobileNav } from "./MobileNav";
 import { AccountMenu } from "./AccountMenu";
 
@@ -111,6 +112,11 @@ export function Navbar({
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* CurrencyLanguageMenu became language-only when currency moved
+                out of it, and its replacement was never mounted — so for a
+                while the shop displayed four currencies and offered no way to
+                choose between them. */}
+            <CurrencySwitcher />
             <CurrencyLanguageMenu />
           </div>
         </div>

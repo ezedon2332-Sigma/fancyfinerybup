@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { CurrencyLanguageMenu } from "./CurrencyLanguageMenu";
+import { CurrencySwitcher } from "./CurrencySwitcher";
 import { useTranslations } from "next-intl";
 
 import { signOut } from "@/app/account/actions";
@@ -267,7 +268,8 @@ export function MobileNav({
             </Section>
 
             <Section title="Preferences">
-              <div className="px-3 pb-2">
+              <div className="flex flex-wrap items-center gap-3 px-3 pb-2">
+                <CurrencySwitcher />
                 <CurrencyLanguageMenu />
               </div>
             </Section>
