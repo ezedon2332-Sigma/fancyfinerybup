@@ -187,9 +187,12 @@ export function ProductSearch({ products }: { products: ProductSummary[] }) {
             className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-yellow-600/30 bg-neutral-950/95 shadow-xl backdrop-blur"
           >
             {suggestions.map((p, i) => {
+              // The brand mark, not the brand's family portrait: a product
+              // awaiting photography should not advertise itself as a picture
+              // of four people in grey tulle.
               const src = p.primaryImage
                 ? resolveMediaUrl(p.primaryImage.storagePath)
-                : "/image.jpeg";
+                : "/logo.png";
               return (
                 <li key={p.id} role="option" aria-selected={i === active}>
                   <Link
