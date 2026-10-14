@@ -13,6 +13,7 @@ import { useCart } from "@/components/cart/CartProvider";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
 import { ShippingCalculator } from "@/components/shipping/ShippingCalculator";
 import type { CountryOption } from "@/components/checkout/CountrySelect";
+import { MediaPlaceholder } from "@/components/catalog/MediaPlaceholder";
 import { ZoomableImage } from "./ZoomableImage";
 import { SizeAndFit } from "./SizeAndFit";
 import { chartForCategory } from "@/domain/sizing";
@@ -41,7 +42,7 @@ export function ProductDetail({
           alt: img.alt ?? product.name,
           type: img.mediaType,
         }))
-      : [{ url: "/image.jpeg", alt: product.name, type: "image" as const }];
+      : [];
 
   const [activeImage, setActiveImage] = useState(0);
   const [variantId, setVariantId] = useState<string | null>(
@@ -70,7 +71,9 @@ export function ProductDetail({
       price: product.price,
       weightGrams: product.weightGrams,
       currency: product.currency,
-      image: (media.find((m) => m.type === "image") ?? media[0]).url,
+      // media can be empty for a product awaiting photography, so this must
+      // not index into it blindly.
+      image: (media.find((m) => m.type === "image") ?? media[0])?.url ?? "/logo.png",
       size: selectedVariant?.size ?? null,
       color: selectedVariant?.color ?? null,
       qty: 1,
@@ -90,7 +93,9 @@ export function ProductDetail({
           transition={{ duration: 0.3 }}
           className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-900"
         >
-          {media[activeImage].type === "video" ? (
+          {media.length === 0 ? (
+            <MediaPlaceholder label={product.name} />
+          ) : media[activeImage].type === "video" ? (
             <video
               src={media[activeImage].url}
               controls

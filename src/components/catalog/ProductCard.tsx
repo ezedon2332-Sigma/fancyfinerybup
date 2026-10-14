@@ -12,15 +12,18 @@ import { CardCurrencyToggle } from "./CardCurrencyToggle";
 import { averageFromTotals } from "@/domain/reviews";
 import { Stars } from "./Stars";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
+import { MediaPlaceholder } from "@/components/catalog/MediaPlaceholder";
 
 export function ProductCard({ product }: { product: ProductSummary }) {
   const { format } = useCurrency();
   const { has, toggle } = useWishlist();
   const wished = has(product.id);
   const isVideo = product.primaryImage?.mediaType === "video";
+  // No media at all is its own case, not a reason to show someone else's
+  // photograph — see MediaPlaceholder.
   const src = product.primaryImage
     ? resolveMediaUrl(product.primaryImage.storagePath)
-    : "/image.jpeg";
+    : null;
 
   return (
     <motion.div
@@ -43,7 +46,10 @@ export function ProductCard({ product }: { product: ProductSummary }) {
                 slug: product.slug,
                 name: product.name,
                 price: product.price,
-                image: src,
+                // The wishlist row needs a string. The brand mark stands in for
+                // a product without photography — unlike the old family-portrait
+                // fallback, nobody mistakes it for the garment.
+                image: src ?? "/logo.png",
               });
             }}
             /* 44x44 hit area with the visible pill left at its original size:
@@ -57,7 +63,9 @@ export function ProductCard({ product }: { product: ProductSummary }) {
               />
             </span>
           </button>
-          {isVideo ? (
+          {!src ? (
+            <MediaPlaceholder label={product.name} />
+          ) : isVideo ? (
             <video
               src={src}
               muted

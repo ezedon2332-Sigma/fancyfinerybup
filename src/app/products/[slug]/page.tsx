@@ -156,7 +156,9 @@ export default async function ProductPage({
           slug: product.slug,
           name: product.name,
           price: product.price,
-          image: thumb ? resolveMediaUrl(thumb.storagePath) : "/image.jpeg",
+          // Shared to WhatsApp and Instagram as this product's picture, so it
+          // must never be the unrelated brand photograph.
+          image: thumb ? resolveMediaUrl(thumb.storagePath) : "/logo.png",
         }}
       />
 
